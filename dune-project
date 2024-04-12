@@ -50,5 +50,4 @@
    (>= "1.13"))
   (dune
    (>= "2.0"))
-  (ppx_inline_test
-   (>= "v0.16.0"))))
+  ppx_inline_test))
