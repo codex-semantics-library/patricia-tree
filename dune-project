@@ -44,10 +44,13 @@
  (synopsis
   "Patricia Tree data structure in OCaml for maps and sets. Supports generic key-value pairs")
  (depends
+  (ocaml
+   (>= 4.14))
   (qcheck-core
    (>= "0.21.2"))
   (zarith
    (>= "1.13"))
   (dune
    (>= "2.0"))
-  ppx_inline_test))
+  (ppx_inline_test
+   (>= "v0.16.0"))))
