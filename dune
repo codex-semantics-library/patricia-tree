@@ -20,7 +20,7 @@
 
 (library
  (name PatriciaTree)
- (public_name PatriciaTree)
+ (public_name patricia-tree)
  (libraries zarith)
  (modules PatriciaTree))
 

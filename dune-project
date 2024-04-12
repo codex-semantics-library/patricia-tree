@@ -20,7 +20,7 @@
 ;;  for more details (enclosed in the file LICENSE).                      ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(name PatriciaTree)
+(name patricia-tree)
 
 (version 0.9.0)
 
@@ -40,7 +40,7 @@
 (generate_opam_files)
 
 (package
- (name PatriciaTree)
+ (name patricia-tree)
  (synopsis
   "Patricia Tree data structure in OCaml for maps and sets. Supports generic key-value pairs")
  (depends
