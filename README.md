@@ -1,16 +1,38 @@
 # Patricia Tree
 
+![Static Badge](https://img.shields.io/badge/version-0.9.0-yellow)
+[![OCaml Version](https://img.shields.io/badge/OCaml-4.14_--_5.x-blue?logo=ocaml&logoColor=white)](https://github.com/codex-semantics-library/patricia-tree/blob/main/dune-project)
+[![GitHub License](https://img.shields.io/github/license/codex-semantics-library/patricia-tree)](https://github.com/codex-semantics-library/patricia-tree/blob/main/LICENSE)
+[![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/codex-semantics-library/patricia-tree/ocaml.yml)](https://github.com/codex-semantics-library/patricia-tree/actions/workflows/ocaml.yml)
+
+
 This is an [OCaml](https://ocaml.org/) library that implements sets and maps as
 Patricia Trees, as described in Oksasaki and Gill's 1998 paper [*Fast mergeable integer maps*](https://www.semanticscholar.org/paper/Fast-Mergeable-Integer-Maps-Okasaki-Gill/23003be706e5f586f23dd7fa5b2a410cc91b659d).
 It is a space-efficient prefix trie over the big-endian representation of the key's integer identifier.
 
-## Release status
+**Table of Contents:**
+<!-- TOC -->
+- [Installation](#installation)
+- [Features](#features)
+- [Release status](#release-status)
+- [Known issues](#known-issues)
+- [Comparison to other OCaml libraries](#comparison-to-other-ocaml-libraries)
+- [Contributions and bug reports](#contributions-and-bug-reports)
+<!-- /TOC -->
 
-This should be close to a stable release. It is already being
-used as part of a larger project successfully, and this usage as helped us mature
-the interface. As is, we believe the project is usable, and we don't anticipate
-any major change before 1.0.0. We didn't commit to a stable release straight
-away as we would like a bit more time using this library before doing so.
+## Installation
+
+This library can be installed with:
+```bash
+opam install patricia-tree
+```
+Alternatively, you can clone this repository and install with dune:
+```bash
+git clone git@github.com:codex-semantics-library/patricia-tree.git
+cd patricia-tree
+dune build
+dune install
+```
 
 ## Features
 
@@ -44,6 +66,15 @@ away as we would like a bit more time using this library before doing so.
   be extended to store size information in nodes if needed.
 - Exposes a common interface (`view`) to allow users to write their own pattern
   matching on the tree structure without depending on the `Node` being used.
+
+## Release status
+
+This should be close to a stable release. It is already being
+used as part of a larger project successfully, and this usage as helped us mature
+the interface. As is, we believe the project is usable, and we don't anticipate
+any major change before 1.0.0. We didn't commit to a stable release straight
+away as we would like a bit more time using this library before doing so.
+
 
 ## Known issues
 
