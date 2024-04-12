@@ -488,7 +488,7 @@ let%test_module _ = (module struct
       (* dump_test model1 model2 myres modelres; *)
       (* Printf.printf "res is %b\n%!" @@ IntMap.equal (=) modelres myres; *)
       modelres == myres)
-  let () = QCheck.Test.check_exn test_disjoint;;
+  let () = QCheck.Test.check_exn test_disjoint
 end)
 
 
