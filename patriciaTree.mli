@@ -97,7 +97,7 @@ module type Node = sig
   (** {2 Destructors: access the value} *)
 
   (** This makes the map nodes accessible to the pattern matching
-      algorithm; this corresponds 1:1 to the SimpleNode
+      algorithm; this corresponds 1:1 to the {!SimpleNode}
       implementation. This just needs to be copy-and-pasted for every
       node type. *)
   type 'map view = private
@@ -113,12 +113,14 @@ module type Node = sig
     (** A key -> value mapping. *)
 
   val is_empty: 'map t -> bool
+  (** Check if the map is empty *)
+
   val view: 'a t -> 'a view
   (** Convert the map to a view *)
 end
 
+(** Associate a unique number to each node. *)
 module type NodeWithId = sig
-  (* Associate a unique number to each node. *)
   include Node
   val get_id: 'a t -> int
 end
@@ -127,8 +129,17 @@ end
 
 (** {2 Base map} *)
 
-(** Base map signature, all maps and set are a variation of this type,
-    sometimes with a simplified interface *)
+(** Base map signature: a generic ['b map] storing bindings
+    of ['a key] to [('a,'b) values].
+    All maps and set are a variation of this type,
+    sometimes with a simplified interface:
+    - {!HeterogeneousMap_S} is just a {!BaseMap_S} with a functor {!HeterogeneousMap_S.WithForeign}
+      for building operations that operate on two maps of different base types.
+    - {!Map_S} specializes the interface for non-generic keys ([key] instead of ['a key])
+    - {!HeterogeneousSet_S} specializes {!BaseMap_S} for sets ([('a,'b) value = unit])n
+      removes value argument from most operations
+    - {!Set_S} specializes {!HeterogeneousSet_S} further by making elements (keys)
+      non-generic ([elt] instead of ['a elt]).  *)
 module type BaseMap_S = sig
   include Node
 
@@ -528,7 +539,7 @@ end
     typechecking by forbidding overly eager simplification.
 
     This is due to a bug in the typechecker, more info on
-    {{: https://discuss.ocaml.org/t/weird-behaviors-with-first-order-polymorphism/13783} the OCaml discourse post} *)
+    {{: https://discuss.ocaml.org/t/weird-behaviors-with-first-order-polymorphism/13783} the OCaml discourse post}. *)
 type (_, 'b) snd = Snd of 'b [@@unboxed]
 
 (** The signature for maps with a single type for keys and values. *)
@@ -822,7 +833,7 @@ end
 
 
 (** {1 Keys} *)
-(** Keys are the functor arguments used to build the maps *)
+(** Keys are the functor arguments used to build the maps. *)
 
 (** The signature of keys when they are all of the same type.  *)
 module type HomogeneousKey = sig
