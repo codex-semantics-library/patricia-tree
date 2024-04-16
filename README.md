@@ -279,9 +279,19 @@ However, its maps aren't Patricia trees. They are binary trees build using a
 Any contributions are welcome!
 
 You can report any bug, issues, or desired features using the [Github issue tracker](https://github.com/codex-semantics-library/patricia-tree/issues).
-Please include OCaml, dune, and Patricia Tree version information in you bug reports.
+Please include OCaml, dune, and library version information in you bug reports.
 
-If you want to contribute code, feel free to fork and open a pull request. By doing
-so you agree to release your code under this project's license ([LGPL-2.1](https://choosealicense.com/licenses/lgpl-2.1/)). There is no imposed coding style for this
-repository, so use whichever you prefer as long as it is legible. Please consider
-adding tests for new features if at all possible.
+If you want to contribute code, feel free to fork [the repository on Github](https://github.com/codex-semantics-library/patricia-tree)
+and open a pull request. By doing so you agree to release your code under this
+project's license ([LGPL-2.1](https://choosealicense.com/licenses/lgpl-2.1/)).
+
+
+There is no imposed coding style for this repository, here are just a few guidelines and conventions:
+- Module type names should use `SCREAMING_SNAKE_CASE`.
+- Module and functor names use `PascalCase`, functors names start with `Make`.
+- Even though the library implements homogeneous maps as a specialization of
+  heterogeneous ones, the naming convention is that no prefix means homogeneous,
+  and all heterogeneous objects are prefixed with `heterogeneous`.
+- Please document any new functions in the interface, using [ocamldoc style comments](https://v2.ocaml.org/manual/ocamldoc.html#s%3Aocamldoc-comments).
+- Please consider adding test for new features/fixed bugs if at all possible.
+  This library uses a [QuickCheck](https://www.ocaml.org/p/quickcheck/latest/doc/QuickCheck/index.html) framework for tests.
