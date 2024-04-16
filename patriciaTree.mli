@@ -836,7 +836,7 @@ end
 (** Keys are the functor arguments used to build the maps. *)
 
 (** The signature of keys when they are all of the same type.  *)
-module type HomogeneousKey = sig
+module type Key = sig
   type t
 
   (** A unique identifier for values of the type. Usually, we use a
@@ -870,8 +870,8 @@ module WrappedHomogeneousValue:Value with type ('a,'map) t = ('a,'map) snd
 
 (** {2 Homogeneous maps and sets} *)
 
-module MakeMap(Key:HomogeneousKey):Map_S with type key = Key.t
-module MakeSet(Key:HomogeneousKey):Set_S with type elt = Key.t
+module MakeMap(Key:Key):Map_S with type key = Key.t
+module MakeSet(Key:Key):Set_S with type elt = Key.t
 
 (** {2 Heterogeneous maps and sets} *)
 
@@ -891,7 +891,7 @@ module MakeHeterogeneousMap(Key:HeterogeneousKey)(Value:Value):HeterogeneousMap_
 
 (** Create a Homogeneous Map with a custom {!Node}. *)
 module MakeCustomHomogeneous
-    (Key:HomogeneousKey)
+    (Key:Key)
     (Node:Node with type 'a key = Key.t and type ('key,'map) value = ('key,'map) snd)
   :Map_S
     with type key = Key.t

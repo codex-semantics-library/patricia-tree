@@ -358,7 +358,7 @@ end
 
 (** {2 Keys and Value} *)
 
-module type HomogeneousKey = sig
+module type Key = sig
   type t
   val to_int: t -> int
 end
@@ -1468,7 +1468,7 @@ module WrappedHomogeneousValue = struct
   type ('a, 'map) t = ('a, 'map) snd
 end
 
-module KeyFromHomogeneousKey(Key:HomogeneousKey):(HeterogeneousKey with type 'a t = Key.t)  = struct
+module HeterogeneousKeyFromKey(Key:Key):(HeterogeneousKey with type 'a t = Key.t)  = struct
   type 'a t = Key.t
 
   (** The type-safe way to do it would be to define this type, to
@@ -1487,11 +1487,11 @@ module KeyFromHomogeneousKey(Key:HomogeneousKey):(HeterogeneousKey with type 'a 
 end
 
 module MakeCustomHomogeneous
-    (Key:HomogeneousKey)
+    (Key:Key)
     (Node:Node with type 'a key = Key.t and type ('key,'map) value = ('key,'map) snd)
 = struct
 
-  module NewKey(* :Key *) = KeyFromHomogeneousKey(Key)
+  module NewKey(* :Key *) = HeterogeneousKeyFromKey(Key)
 
   module BaseMap = MakeCustom(NewKey)(WrappedHomogeneousValue)(Node)
   include BaseMap
@@ -1589,14 +1589,14 @@ module MakeCustomHomogeneous
   let to_list s = List.of_seq (to_seq s)
 end
 
-module MakeMap(Key:HomogeneousKey) = struct
+module MakeMap(Key:Key) = struct
   module NKey = struct type 'a t = Key.t end
   module Node = SimpleNode(NKey)(WrappedHomogeneousValue)
   include MakeCustomHomogeneous(Key)(Node)
 end
 
-module MakeSet(Key : HomogeneousKey) : Set_S with type elt = Key.t = struct
-  module HKey = KeyFromHomogeneousKey(Key)
+module MakeSet(Key : Key) : Set_S with type elt = Key.t = struct
+  module HKey = HeterogeneousKeyFromKey(Key)
   module S = MakeHeterogeneousSet(HKey)
   include S
   type key = Key.t

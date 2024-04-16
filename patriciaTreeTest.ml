@@ -494,7 +494,7 @@ end)
 
 let%test_module "TestWeak" = (module struct
 
-  module MyKey(* :HomogeneousKey *) = struct
+  module MyKey(* :Key *) = struct
     type t = Block of int [@@ocaml.boxed]
     let to_int (Block x) = x
   end
