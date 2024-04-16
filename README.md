@@ -30,7 +30,7 @@ This library can be installed with:
 ```bash
 opam install patricia-tree
 ```
-Alternatively, you can clone this repository and install with dune:
+Alternatively, you can clone the source repository and install with dune:
 ```bash
 git clone git@github.com:codex-semantics-library/patricia-tree.git
 cd patricia-tree
@@ -43,8 +43,8 @@ dune install
 - Similar to OCaml's `Map` and `Set`, using the same function names when possible
   and the same convention for order of arguments. This should allow switching to
   and from Patricia Tree with minimal effort.
-- `Key` module requires an injective `to_int : t -> int` function instead of a
-  `compare` function.
+- The functor parameters (`Key` module) requires an injective `to_int : t -> int`
+  function instead of a `compare` function.
 - The Patricia Tree representation is stable, contrary to maps, inserting nodes
   in any order will return the same shape.
   This allows different versions of a map to share more subtrees in memory, and
@@ -120,6 +120,9 @@ Here is a brief overview of the various module types of our library:
   `WeakNode` (node which only store weak pointer to its elements), `NodeWithId`
   (node which contain a unique identifier), `SetNode` (node optimized for set,
   doesn't store the `unit` value) and `WeakSetNode`.
+
+  Use the functors `MakeCustomHeterogeneous` and `MakeCustomHeterogenous` to build maps using
+  these nodes, or any other custom nodes.
 
 ## Examples
 
