@@ -63,7 +63,7 @@ dune install
 - Since our Patricia Tree use big-endian order on keys, the maps and sets are
   sorted in increasing order of keys.
 - Supports generic maps and sets: a `'m map` that maps `'k key` to `('k, 'm) value`.
-  This is especially useful when using [GADTs](https://v2.ocaml.org/manual/gadts-tutorial.html) for the type of keys.
+  This is especially useful when using [GADTs](https://v2.ocaml.org/manual/gadts-tutorial.html) for the type of keys. This is also sometimes called a dependent map.
 - Allows easy and fast operations across different types of maps and set (e.g.
   an intersection between a map and a set), since all sets and maps, no matter their key type, are really integer sets or maps.
 - Multiple choices for internal representation (`NODE`), which allows for efficient
@@ -268,6 +268,11 @@ These are smaller and closer to OCaml's built-in Map and Set, however:
 - We support operation between sets and maps of different types.
 - We use a big-endian representation, allowing easy access to min/max elements of
   maps and trees.
+
+Additionally, there is a dependent map library: [dmap](https://gitlab.inria.fr/bmontagu/dmap).
+It allows creating type safe dependent maps similar to our heterogeneous maps.
+However, its maps aren't Patricia trees. They are binary trees build using a
+(polymorphic) comparison function, similarly to the maps of the standard library.
 
 ## Contributions and bug reports
 
