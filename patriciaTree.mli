@@ -890,7 +890,7 @@ module MakeHeterogeneousMap(Key:HeterogeneousKey)(Value:Value):HeterogeneousMap_
    disk, lazy evaluation and/or caching, etc. *)
 
 (** Create a Homogeneous Map with a custom {!Node}. *)
-module MakeCustomHomogeneous
+module MakeCustom
     (Key:Key)
     (Node:Node with type 'a key = Key.t and type ('key,'map) value = ('key,'map) snd)
   :Map_S
@@ -898,7 +898,7 @@ module MakeCustomHomogeneous
      and type 'm t = 'm Node.t
 
 (** Create an Heterogeneous map with a custom {!Node}. *)
-module MakeCustom
+module MakeCustomHeterogeneous
     (Key:HeterogeneousKey)
     (Value:Value)
     (Node:Node with type 'a key = 'a Key.t and type ('key,'map) value = ('key,'map) Value.t)

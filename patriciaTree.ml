@@ -597,7 +597,7 @@ module WeakSetNode(Key:sig type 'a t end)(* :Node *) = struct
 
 end
 
-module MakeCustom
+module MakeCustomHeterogeneous
     (Key:HeterogeneousKey)
     (Value:Value)
     (Node:Node with type 'a key = 'a Key.t and type ('key,'map) value = ('key,'map) Value.t) :
@@ -1389,7 +1389,7 @@ end
 module MakeHeterogeneousSet(Key:HeterogeneousKey) : HeterogeneousSet_S
   with type 'a elt = 'a Key.t = struct
   module Node = SetNode(Key)
-  module BaseMap = MakeCustom(Key)(struct type ('a,'b) t = unit end)(Node)
+  module BaseMap = MakeCustomHeterogeneous(Key)(struct type ('a,'b) t = unit end)(Node)
 
   (* No need to differentiate the values. *)
   include BaseMap
@@ -1456,7 +1456,7 @@ module MakeHeterogeneousSet(Key:HeterogeneousKey) : HeterogeneousSet_S
 end
 
 module MakeHeterogeneousMap(Key:HeterogeneousKey)(Value:Value) =
-  MakeCustom(Key)(Value)(SimpleNode(Key)(Value))
+  MakeCustomHeterogeneous(Key)(Value)(SimpleNode(Key)(Value))
 
 
 
@@ -1486,14 +1486,14 @@ module HeterogeneousKeyFromKey(Key:Key):(HeterogeneousKey with type 'a t = Key.t
   let to_int = Key.to_int
 end
 
-module MakeCustomHomogeneous
+module MakeCustom
     (Key:Key)
     (Node:Node with type 'a key = Key.t and type ('key,'map) value = ('key,'map) snd)
 = struct
 
   module NewKey(* :Key *) = HeterogeneousKeyFromKey(Key)
 
-  module BaseMap = MakeCustom(NewKey)(WrappedHomogeneousValue)(Node)
+  module BaseMap = MakeCustomHeterogeneous(NewKey)(WrappedHomogeneousValue)(Node)
   include BaseMap
   type key = Key.t
 
@@ -1592,7 +1592,7 @@ end
 module MakeMap(Key:Key) = struct
   module NKey = struct type 'a t = Key.t end
   module Node = SimpleNode(NKey)(WrappedHomogeneousValue)
-  include MakeCustomHomogeneous(Key)(Node)
+  include MakeCustom(Key)(Node)
 end
 
 module MakeSet(Key : Key) : Set_S with type elt = Key.t = struct

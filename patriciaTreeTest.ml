@@ -51,7 +51,7 @@ let%test_module "TestHeterogeneous" = (module struct
   end
 
 
-  module Map = MakeCustom(MyKey)(MyValue)(SimpleNode(MyKey)(MyValue))
+  module Map = MakeCustomHeterogeneous(MyKey)(MyValue)(SimpleNode(MyKey)(MyValue))
   open Map
 
   let _m1 = singleton (MyKey.Int 7) (MyValue.AString "seven")
@@ -108,7 +108,7 @@ let%test_module "TestHeterogeneous" = (module struct
       | _ -> NBranch{prefix;branching_bit;tree0;tree1}
   end
 
-  module Map2 = MakeCustom(MyKey)(MyValue)(SimpleNode(MyKey)(MyValue))
+  module Map2 = MakeCustomHeterogeneous(MyKey)(MyValue)(SimpleNode(MyKey)(MyValue))
   open Map2
 
   let _m1 = singleton (MyKey.Int 7) (MyValue.AString "seven")
@@ -500,7 +500,7 @@ let%test_module "TestWeak" = (module struct
   end
 
   module Node = WeakNode(struct type 'a t = MyKey.t end)(WrappedHomogeneousValue)
-  module Map = MakeCustomHomogeneous(MyKey)(Node)
+  module Map = MakeCustom(MyKey)(Node)
   open Map
 
   let _m1 = singleton (MyKey.Block 7) "seven"
