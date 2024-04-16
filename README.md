@@ -14,6 +14,10 @@ It is a space-efficient prefix trie over the big-endian representation of the ke
 <!-- TOC -->
 - [Installation](#installation)
 - [Features](#features)
+- [Quick overview](#quick-overview)
+- [Examples](#examples)
+  - [Non-generic map (homogeneous)](#non-generic-map-homogeneous)
+  - [Generic map (heterogeneous)](#generic-map-heterogeneous)
 - [Release status](#release-status)
 - [Known issues](#known-issues)
 - [Comparison to other OCaml libraries](#comparison-to-other-ocaml-libraries)
