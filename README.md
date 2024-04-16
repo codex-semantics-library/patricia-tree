@@ -271,6 +271,8 @@ These are smaller and closer to OCaml's built-in Map and Set, however:
 - We support operation between sets and maps of different types.
 - We use a big-endian representation, allowing easy access to min/max elements of
   maps and trees.
+- Our interface and implementation tries to maximize the sharing between different
+  versions of the tree, and to benefit from this memory sharing.
 
 ### dmap
 
