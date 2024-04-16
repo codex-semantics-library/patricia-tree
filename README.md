@@ -67,6 +67,166 @@ dune install
 - Exposes a common interface (`view`) to allow users to write their own pattern
   matching on the tree structure without depending on the `Node` being used.
 
+## Quick overview
+
+<!-- TODO: links to documentation -->
+
+This library contains a single module, `PatriciaTree`.
+The main functor used to build our maps and sets are the following:
+```ocaml
+(** {2 Homogeneous maps and sets} *)
+
+module MakeMap(Key: Key) : Map_S with type key = Key.t
+module MakeSet(Key: Key) : Set_S with type elt = Key.t
+
+(** {2 Heterogeneous maps and sets} *)
+
+module MakeHeterogeneousSet(Key: HeterogeneousKey) : HeterogeneousSet_S
+  with type 'a elt = 'a Key.t
+module MakeHeterogeneousMap(Key: HeterogeneousKey)(Value: Value) : HeterogeneousMap_S
+  with type 'a key = 'a Key.t
+   and type ('k,'m) value = ('k,'m) Value.t
+```
+
+Here is a brief overview of the various module types of our library:
+- `BaseMap_S`: the underlying module type of all our trees (maps end sets). It
+  represents a `'b map` binding `'a key` to `('a,'b) value`, as well as all functions needed to manipulate them.
+
+  It can be accessed from any of the more specific maps types, thus providing a
+  unified representation, useful for cross map operations. However, for practical
+  purposes, it is often best to use the more specific interfaces:
+  - `HeterogeneousMap_S` for heterogeneous maps (this is just `BaseMap_S` with a
+    `WithForeign` functor).
+  - `Map_S` for homogeneous maps, this interface is close to [`Stdlib.Map.S`](https://ocaml.org/api/Map.S.html).
+  - `HeterogeneousSet_S` for heterogeneous sets (sets of `'a elt`). These are just
+    maps to unit, but with a custom node representation to avoid storing unit in
+    nodes.
+  - `Set_S` for homogeneous sets, this interface is close to [`Stdlib.Set.S`](https://ocaml.org/api/Set.S.html).
+- The parameter of our functor are either `Key` or `HeterogeneousKey`.
+  These just consist of a type, a (polymorphic) equality function, and an
+  injective `to_int` coercion.
+
+  The heterogeneous map functor also has a `Value` parameter to specify the
+  `('a, 'b) value` type
+- The internal representations of our tree can be customized to use different
+  internal `Node`. Each node come with its own private constructors and destructors,
+  as well as a cast to a uniform `view` type used for pattern matching.
+
+  A number of implementations are provided `SimpleNode` (exactly the `view` type),
+  `WeakNode` (node which only store weak pointer to its elements), `NodeWithId`
+  (node which contain a unique identifier), `SetNode` (node optimized for set,
+  doesn't store the `unit` value) and `WeakSetNode`.
+
+## Examples
+
+### Non-generic map (homogeneous)
+
+Here is a small example of a non-generic map:
+
+```ocaml
+(** Create a key struct *)
+module Int (*: PatriciaTree.Key*) = struct
+  type t = int
+  let to_int x = x
+end
+
+(** Call the map and/or set functors *)
+module IMap = PatriciaTree.MakeMap(Int)
+module ISet = PatriciaTree.MakeSet(Int)
+
+(** Use all the usual map operations *)
+let map =
+  IMap.empty |>
+  IMap.add 1 "hello" |>
+  IMap.add 2 "world" |>
+  IMap.add 3 "how do you do?"
+  (* Also has an [of_list] and [of_seq] operation for initialization *)
+
+let _ = IMap.find 1 map (* "hello" *)
+let _ = IMap.cardinal map (* 3 *)
+
+(** The strength of Patricia Tree is the speedup of operation on multiple maps
+    with common subtrees. *)
+let map2 =
+  IMap.idempotent_inter_filter (fun _key _l _r -> None)
+  (IMap.add 4 "something" map) (IMap.add 5 "something else" map)
+let _ = map == map2 (* true *)
+(* physical equality is preserved as much as possible, although some intersections
+   may need to build new nodes and won't be fully physically equal, they will
+   still share subtrees if possible. *)
+
+(** Many operations preserve physical equality whenever possible *)
+let _ = (IMap.add 1 "hello" map) == map (* true: already present *)
+
+(** Example of cross map/set operation: only keep the bindings of [map]
+    whose keys are in a given set *)
+let set = ISet.of_list [1; 3]
+module CrossOperations = IMap.WithForeign(ISet.BaseMap)
+let restricted_map = CrossOperations.nonidempotent_inter
+  {f=fun _key value () -> value } map set
+```
+
+### Generic map (heterogeneous)
+
+```ocaml
+(** Very small typed expression language *)
+type 'a expr =
+  | G_Const_Int : int -> int expr
+  | G_Const_Bool : bool -> bool expr
+  | G_Addition : int expr * int expr -> int expr
+  | G_Equal : 'a expr * 'a expr -> bool expr
+
+module Expr : PatriciaTree.HeterogeneousKey with type 'a t = 'a expr = struct
+  type 'a t = 'a expr
+
+  (** Injective, so long as expression are small enough
+      (encodes the constructor discriminant in two lowest bits).
+      Ideally, use a hash-consed type, to_int needs to be fast *)
+  let rec to_int : type a. a expr -> int = function
+    | G_Const_Int i ->   0 + 4*i
+    | G_Const_Bool b ->  1 + 4*(if b then 1 else 0)
+    | G_Addition(l,r) -> 2 + 4*(to_int l mod 10000 + 10000*(to_int r))
+    | G_Equal(l,r) ->    3 + 4*(to_int l mod 10000 + 10000*(to_int r))
+
+  (** Full polymorphic equality *)
+  let rec polyeq : type a b. a expr -> b expr -> (a, b) PatriciaTree.cmp =
+    fun l r -> match l, r with
+    | G_Const_Int l, G_Const_Int r -> if l = r then Eq else Diff
+    | G_Const_Bool l, G_Const_Bool r -> if l = r then Eq else Diff
+    | G_Addition(ll, lr), G_Addition(rl, rr) -> (
+        match polyeq ll rl with
+        | Eq -> polyeq lr rr
+        | Diff -> Diff)
+    | G_Equal(ll, lr), G_Equal(rl, rr) ->    (
+        match polyeq ll rl with
+        | Eq -> (match polyeq lr rr with Eq -> Eq | Diff -> Diff) (* Match required by typechecker *)
+        | Diff -> Diff)
+    | _ -> Diff
+end
+
+(** Map from expression to their values: here the value only depends on the type
+    of the key, not that of the map *)
+module EMap = PatriciaTree.MakeHeterogeneousMap(Expr)(struct type ('a, _) t = 'a end)
+
+(** You can use all the usual map operations *)
+let map : unit EMap.t =
+  EMap.empty |>
+  EMap.add (G_Const_Bool false) false |>
+  EMap.add (G_Const_Int 5) 5 |>
+  EMap.add (G_Addition (G_Const_Int 3, G_Const_Int 6)) 9 |>
+  EMap.add (G_Equal (G_Const_Bool false, G_Equal (G_Const_Int 5, G_Const_Int 7))) true
+
+let _ = EMap.find (G_Const_Bool false) map (* false *)
+let _ = EMap.cardinal map (* 4 *)
+
+(** Fast operations on multiple maps with common subtrees. *)
+let map2 =
+  EMap.idempotent_inter_filter
+    { f = fun _key _l _r -> None } (* polymorphic 1rst order functions are wrapped in records *)
+    (EMap.add (G_Const_Int 0) 8 map)
+    (EMap.add (G_Const_Int 0) 9 map)
+```
+
 ## Release status
 
 This should be close to a stable release. It is already being
