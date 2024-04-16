@@ -64,7 +64,7 @@ let%test_module "TestHeterogeneous" = (module struct
 
   (* Here we redefine a node to store key and value a flat way, which
      should decrease the amount of allocations. *)
-  module OptimizedNode : Node
+  module OptimizedNode : NODE
     with type 'key key = 'key MyKey.t
      and type ('key,'map) value = ('key,'map) MyValue.t
   = struct
@@ -494,13 +494,13 @@ end)
 
 let%test_module "TestWeak" = (module struct
 
-  module MyKey(* :Key *) = struct
+  module MyKey(* :KEY *) = struct
     type t = Block of int [@@ocaml.boxed]
     let to_int (Block x) = x
   end
 
-  module Node = WeakNode(struct type 'a t = MyKey.t end)(WrappedHomogeneousValue)
-  module Map = MakeCustom(MyKey)(Node)
+  module NODE = WeakNode(struct type 'a t = MyKey.t end)(WrappedHomogeneousValue)
+  module Map = MakeCustom(MyKey)(NODE)
   open Map
 
   let _m1 = singleton (MyKey.Block 7) "seven"

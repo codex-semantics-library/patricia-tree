@@ -43,8 +43,9 @@ dune install
 - Similar to OCaml's `Map` and `Set`, using the same function names when possible
   and the same convention for order of arguments. This should allow switching to
   and from Patricia Tree with minimal effort.
-- The functor parameters (`Key` module) requires an injective `to_int : t -> int`
-  function instead of a `compare` function.
+- The functor parameters (`KEY` module) requires an injective `to_int : t -> int`
+  function instead of a `compare` function. `to_int` should be fast and injective,
+  this works well with [hash-consed](https://en.wikipedia.org/wiki/Hash_consing) types.
 - The Patricia Tree representation is stable, contrary to maps, inserting nodes
   in any order will return the same shape.
   This allows different versions of a map to share more subtrees in memory, and
@@ -65,11 +66,11 @@ dune install
   This is especially useful when using [GADTs](https://v2.ocaml.org/manual/gadts-tutorial.html) for the type of keys.
 - Allows easy and fast operations across different types of maps and set (e.g.
   an intersection between a map and a set), since all sets and maps, no matter their key type, are really integer sets or maps.
-- Multiple choices for internal representation (`Node`), which allows for efficient
+- Multiple choices for internal representation (`NODE`), which allows for efficient
   storage (no need to store a value for sets), or using weak nodes only (values removed from the tree if no other pointer to it exists). This system can also
   be extended to store size information in nodes if needed.
 - Exposes a common interface (`view`) to allow users to write their own pattern
-  matching on the tree structure without depending on the `Node` being used.
+  matching on the tree structure without depending on the `NODE` being used.
 
 ## Quick overview
 
@@ -80,40 +81,40 @@ The main functor used to build our maps and sets are the following:
 ```ocaml
 (** {2 Homogeneous maps and sets} *)
 
-module MakeMap(Key: Key) : Map_S with type key = Key.t
-module MakeSet(Key: Key) : Set_S with type elt = Key.t
+module MakeMap(Key: KEY) : MAP with type key = Key.t
+module MakeSet(Key: KEY) : SET with type elt = Key.t
 
 (** {2 Heterogeneous maps and sets} *)
 
-module MakeHeterogeneousSet(Key: HeterogeneousKey) : HeterogeneousSet_S
+module MakeHeterogeneousSet(Key: HETEROGENEOUS_KEY) : HETEROGENEOUS_SET
   with type 'a elt = 'a Key.t
-module MakeHeterogeneousMap(Key: HeterogeneousKey)(Value: Value) : HeterogeneousMap_S
+module MakeHeterogeneousMap(Key: HETEROGENEOUS_KEY)(Value: VALUE) : HETEROGENEOUS_MAP
   with type 'a key = 'a Key.t
    and type ('k,'m) value = ('k,'m) Value.t
 ```
 
 Here is a brief overview of the various module types of our library:
-- `BaseMap_S`: the underlying module type of all our trees (maps end sets). It
+- `BASE_MAP`: the underlying module type of all our trees (maps end sets). It
   represents a `'b map` binding `'a key` to `('a,'b) value`, as well as all functions needed to manipulate them.
 
   It can be accessed from any of the more specific maps types, thus providing a
   unified representation, useful for cross map operations. However, for practical
   purposes, it is often best to use the more specific interfaces:
-  - `HeterogeneousMap_S` for heterogeneous maps (this is just `BaseMap_S` with a
+  - `HETEROGENEOUS_MAP` for heterogeneous maps (this is just `BASE_MAP` with a
     `WithForeign` functor).
-  - `Map_S` for homogeneous maps, this interface is close to [`Stdlib.Map.S`](https://ocaml.org/api/Map.S.html).
-  - `HeterogeneousSet_S` for heterogeneous sets (sets of `'a elt`). These are just
+  - `MAP` for homogeneous maps, this interface is close to [`Stdlib.Map.S`](https://ocaml.org/api/Map.S.html).
+  - `HETEROGENEOUS_SET` for heterogeneous sets (sets of `'a elt`). These are just
     maps to unit, but with a custom node representation to avoid storing unit in
     nodes.
-  - `Set_S` for homogeneous sets, this interface is close to [`Stdlib.Set.S`](https://ocaml.org/api/Set.S.html).
-- The parameter of our functor are either `Key` or `HeterogeneousKey`.
+  - `SET` for homogeneous sets, this interface is close to [`Stdlib.Set.S`](https://ocaml.org/api/Set.S.html).
+- The parameter of our functor are either `KEY` or `HETEROGENEOUS_KEY`.
   These just consist of a type, a (polymorphic) equality function, and an
   injective `to_int` coercion.
 
-  The heterogeneous map functor also has a `Value` parameter to specify the
+  The heterogeneous map functor also has a `VALUE` parameter to specify the
   `('a, 'b) value` type
 - The internal representations of our tree can be customized to use different
-  internal `Node`. Each node come with its own private constructors and destructors,
+  internal `NODE`. Each node come with its own private constructors and destructors,
   as well as a cast to a uniform `view` type used for pattern matching.
 
   A number of implementations are provided `SimpleNode` (exactly the `view` type),
@@ -121,8 +122,8 @@ Here is a brief overview of the various module types of our library:
   (node which contain a unique identifier), `SetNode` (node optimized for set,
   doesn't store the `unit` value) and `WeakSetNode`.
 
-  Use the functors `MakeCustomHeterogeneous` and `MakeCustomHeterogenous` to build maps using
-  these nodes, or any other custom nodes.
+  Use the functors `MakeCustomHeterogeneous` and `MakeCustom` to build
+  maps using these nodes, or any other custom nodes.
 
 ## Examples
 
@@ -132,7 +133,7 @@ Here is a small example of a non-generic map:
 
 ```ocaml
 (** Create a key struct *)
-module Int (*: PatriciaTree.Key*) = struct
+module Int (*: PatriciaTree.KEY*) = struct
   type t = int
   let to_int x = x
 end
@@ -183,7 +184,7 @@ type 'a expr =
   | G_Addition : int expr * int expr -> int expr
   | G_Equal : 'a expr * 'a expr -> bool expr
 
-module Expr : PatriciaTree.HeterogeneousKey with type 'a t = 'a expr = struct
+module Expr : PatriciaTree.HETEROGENEOUS_KEY with type 'a t = 'a expr = struct
   type 'a t = 'a expr
 
   (** Injective, so long as expression are small enough

@@ -26,7 +26,7 @@ type intkey = int
 (** A mask is an integer with a single bit set (i.e. a power of 2). *)
 type mask = int
 
-module type Node = sig
+module type NODE = sig
   type 'key key
   type ('key, 'map) value
   type 'map t
@@ -47,13 +47,13 @@ module type Node = sig
   val view: 'a t -> 'a view
 end
 
-module type NodeWithId = sig
-  include Node
+module type NODE_WITH_ID = sig
+  include NODE
   val get_id: 'a t -> int
 end
 
-module type BaseMap_S = sig
-  include Node
+module type BASE_MAP = sig
+  include NODE
 
   type 'map key_value_pair =
       KeyValue : 'a key * ('a, 'map) value -> 'map key_value_pair
@@ -143,10 +143,10 @@ end
 
 (** {2 Heterogeneous maps and sets} *)
 
-module type HeterogeneousMap_S = sig
-  include BaseMap_S
+module type HETEROGENEOUS_MAP = sig
+  include BASE_MAP
 
-  module WithForeign(Map2:BaseMap_S with type 'a key = 'a key):sig
+  module WithForeign(Map2:BASE_MAP with type 'a key = 'a key):sig
     type ('map1,'map2) polyinter_foreign = { f: 'a. 'a key -> ('a,'map1) value -> ('a,'map2) Map2.value -> ('a,'map1) value } [@@unboxed]
 
     val nonidempotent_inter : ('a,'b) polyinter_foreign -> 'a t -> 'b Map2.t -> 'a t
@@ -154,7 +154,7 @@ module type HeterogeneousMap_S = sig
     type ('map2,'map1) polyfilter_map_foreign =
       { f : 'a. 'a key -> ('a, 'map2) Map2.value -> ('a, 'map1) value option; } [@@unboxed]
     val filter_map_no_share : ('map2,'map1) polyfilter_map_foreign -> 'map2 Map2.t -> 'map1 t
-    (** Like {!BaseMap_S.filter_map_no_share}, but allows to transform a foreigh map into the current one. *)
+    (** Like {!BASE_MAP.filter_map_no_share}, but allows to transform a foreigh map into the current one. *)
 
     type ('map1,'map2) polyupdate_multiple = { f: 'a. 'a key -> ('a,'map1) value option -> ('a,'map2) Map2.value -> ('a,'map1) value option } [@@unboxed]
     val update_multiple_from_foreign : 'b Map2.t -> ('a,'b) polyupdate_multiple -> 'a t -> 'a t
@@ -165,10 +165,10 @@ module type HeterogeneousMap_S = sig
 end
 
 
-module type HeterogeneousSet_S = sig
+module type HETEROGENEOUS_SET = sig
   type 'a elt
 
-  module BaseMap : HeterogeneousMap_S
+  module BaseMap : HETEROGENEOUS_MAP
     with type 'a key = 'a elt
      and type (_,_) value = unit
 
@@ -223,10 +223,10 @@ end
 (** {2 Homogeneous maps and sets} *)
 
 (** Signature for sets implemented using Patricia trees. *)
-module type Set_S = sig
+module type SET = sig
   type elt
 
-  module BaseMap : HeterogeneousMap_S
+  module BaseMap : HETEROGENEOUS_MAP
     with type _ key = elt
      and type (_,_) value = unit
 
@@ -280,11 +280,11 @@ end
 type (_, 'b) snd = Snd of 'b [@@unboxed]
 
 (** The signature for maps with a single type for keys and values. *)
-module type Map_S = sig
+module type MAP = sig
   type key
   type 'a t
 
-  module BaseMap : HeterogeneousMap_S
+  module BaseMap : HETEROGENEOUS_MAP
    with type 'a t = 'a t
     and type _ key = key
     and type ('a,'b) value = ('a,'b) snd
@@ -326,7 +326,7 @@ module type Map_S = sig
   val slow_merge : (key -> 'a option -> 'b option -> 'c option) -> 'a t -> 'b t -> 'c t
   val disjoint : 'a t -> 'a t -> bool
 
-  module WithForeign(Map2 : BaseMap_S with type _ key = key):sig
+  module WithForeign(Map2 : BASE_MAP with type _ key = key):sig
     type ('b,'c) polyfilter_map_foreign = { f: 'a. key -> ('a,'b) Map2.value -> 'c option } [@@unboxed]
     val filter_map_no_share : ('b, 'c) polyfilter_map_foreign -> 'b Map2.t ->  'c t
 
@@ -358,20 +358,20 @@ end
 
 (** {2 Keys and Value} *)
 
-module type Key = sig
+module type KEY = sig
   type t
   val to_int: t -> int
 end
 
 type (_,_) cmp = Eq: ('a,'a) cmp | Diff: ('a,'b) cmp
 
-module type HeterogeneousKey = sig
+module type HETEROGENEOUS_KEY = sig
   type 'key t
   val to_int: ('key) t -> int
   val polyeq: 'a t -> 'b t -> ('a,'b) cmp
 end
 
-module type Value = sig
+module type VALUE = sig
   type ('key,'map) t
 end
 
@@ -419,7 +419,7 @@ let mask i m = i land (lnot (2*m-1))
 (** {1 Nodes} *)
 
 (** Simple node, with no hash consing. *)
-module [@inline] SimpleNode(Key:sig type 'a t end)(Value:Value) = struct
+module [@inline] SimpleNode(Key:sig type 'a t end)(Value:VALUE) = struct
   type 'a key = 'a Key.t
   type ('key,'map) value = ('key,'map) Value.t
 
@@ -440,7 +440,7 @@ module [@inline] SimpleNode(Key:sig type 'a t end)(Value:Value) = struct
     | _ -> Branch{prefix;branching_bit;tree0;tree1}
 end
 
-module WeakNode(Key:sig type 'a t end)(Value:Value)(* :Node *) = struct
+module WeakNode(Key:sig type 'a t end)(Value:VALUE)(* :NODE *) = struct
   type 'a key = 'a Key.t
   type ('key,'map) value = ('key,'map) Value.t
 
@@ -483,7 +483,7 @@ end
 
 
 (** Add a unique id to nodes, e.g. so that they can be used as keys in maps or sets.  *)
-module NodeWithId(Key:sig type 'a t end)(Value:Value):NodeWithId
+module NodeWithId(Key:sig type 'a t end)(Value:VALUE):NODE_WITH_ID
   with type 'key key = 'key Key.t
    and type ('key,'map) value = ('key,'map) Value.t
 = struct
@@ -524,8 +524,8 @@ module NodeWithId(Key:sig type 'a t end)(Value:Value):NodeWithId
 end
 
 
-(** Node for sets, i.e. when there is no associated values.  *)
-module SetNode(Key:sig type 'a t end):Node
+(** NODE for sets, i.e. when there is no associated values.  *)
+module SetNode(Key:sig type 'a t end):NODE
   with type 'key key = 'key Key.t
    and type ('key,'map) value = unit
 = struct
@@ -559,7 +559,7 @@ module SetNode(Key:sig type 'a t end):Node
 
 end
 
-module WeakSetNode(Key:sig type 'a t end)(* :Node *) = struct
+module WeakSetNode(Key:sig type 'a t end)(* :NODE *) = struct
   type 'a key = 'a Key.t
   type ('key,'map) value = unit
 
@@ -598,12 +598,12 @@ module WeakSetNode(Key:sig type 'a t end)(* :Node *) = struct
 end
 
 module MakeCustomHeterogeneous
-    (Key:HeterogeneousKey)
-    (Value:Value)
-    (Node:Node with type 'a key = 'a Key.t and type ('key,'map) value = ('key,'map) Value.t) :
-  HeterogeneousMap_S with type 'a key = 'a Key.t
+    (Key:HETEROGENEOUS_KEY)
+    (Value:VALUE)
+    (NODE:NODE with type 'a key = 'a Key.t and type ('key,'map) value = ('key,'map) Value.t) :
+  HETEROGENEOUS_MAP with type 'a key = 'a Key.t
                        and type ('key,'map) value = ('key,'map) Value.t
-                       and type 'a t = 'a Node.t
+                       and type 'a t = 'a NODE.t
 = struct
 
   (* We provide two versions: with or without hash-consing. Hash-consing
@@ -615,15 +615,15 @@ module MakeCustomHeterogeneous
   (* With hash-consing of interior nodes: slower node construction, but
      faster comparison with fold_on_diff. *)
 
-  (* module Node = TNoHashCons;; *)
-  include Node
+  (* module NODE = TNoHashCons;; *)
+  include NODE
 
   type 'map key_value_pair = KeyValue: 'a Key.t * ('a,'map) value -> 'map key_value_pair
-  let rec min_binding x = match Node.view x with
+  let rec min_binding x = match NODE.view x with
     | Empty -> raise Not_found
     | Leaf{key;value} -> KeyValue(key,value)
     | Branch{tree0;_} -> min_binding tree0
-  let rec max_binding x = match Node.view x with
+  let rec max_binding x = match NODE.view x with
     | Empty -> raise Not_found
     | Leaf{key;value} -> KeyValue(key,value)
     | Branch{tree1;_} -> max_binding tree1
@@ -646,18 +646,18 @@ module MakeCustomHeterogeneous
   let singleton = leaf
 
   let rec cardinal m =
-    match Node.view m with
+    match NODE.view m with
     | Empty -> 0
     | Leaf _ -> 1
     | Branch{tree0; tree1; _ } -> cardinal tree0 + cardinal tree1
 
   let is_singleton m =
-    match Node.view m with
+    match NODE.view m with
     | Leaf{key;value} -> Some (KeyValue(key,value))
     | _ -> None
 
   let rec findint: type a map. a Key.t -> int -> map t -> (a,map) value =
-    fun witness searched m -> match Node.view m with
+    fun witness searched m -> match NODE.view m with
       | Leaf{key;value} -> begin
           match Key.polyeq key witness with
           | Eq -> value
@@ -672,26 +672,26 @@ module MakeCustomHeterogeneous
   let find searched m = findint searched (Key.to_int searched) m
 
   let rec split: type a map. a key -> int -> map t -> map t * ((a,map) value) option * map t =
-    fun split_key split_key_int m -> match Node.view m with
+    fun split_key split_key_int m -> match NODE.view m with
       | Leaf{key;value} -> begin
           match Key.polyeq key split_key with
-          | Eq -> Node.empty, Some value, Node.empty
+          | Eq -> NODE.empty, Some value, NODE.empty
           | Diff ->
             if Key.to_int key < split_key_int then
-              m, None, Node.empty else Node.empty, None, m
+              m, None, NODE.empty else NODE.empty, None, m
         end
       | Branch{prefix;branching_bit;tree0;tree1} ->
           if not (match_prefix split_key_int prefix branching_bit) then
             if prefix < split_key_int
-            then m, None, Node.empty
-            else Node.empty, None, m
+            then m, None, NODE.empty
+            else NODE.empty, None, m
           else if (branching_bit land split_key_int == 0) then
             let left, found, right = split split_key split_key_int tree0 in
-            left, found, Node.branch ~prefix ~branching_bit ~tree0:right ~tree1
+            left, found, NODE.branch ~prefix ~branching_bit ~tree0:right ~tree1
           else
             let left, found, right = split split_key split_key_int tree1 in
-            Node.branch ~prefix ~branching_bit ~tree0 ~tree1:left, found, right
-      | Empty -> Node.empty, None, Node.empty
+            NODE.branch ~prefix ~branching_bit ~tree0 ~tree1:left, found, right
+      | Empty -> NODE.empty, None, NODE.empty
 
   let split k m = split k (Key.to_int k) m
 
@@ -705,7 +705,7 @@ module MakeCustomHeterogeneous
     | _ -> true
 
   type ('map1,'map2) polymapi = { f: 'a. 'a Key.t -> ('a,'map1) Value.t -> ('a,'map2) Value.t } [@@unboxed]
-  let rec mapi (f:('map1,'map1) polymapi) m = match Node.view m with
+  let rec mapi (f:('map1,'map1) polymapi) m = match NODE.view m with
     | Empty -> empty
     | Leaf{key;value} ->
       let newval = (f.f key value) in
@@ -720,7 +720,7 @@ module MakeCustomHeterogeneous
 
 
   (* MAYBE: A map (and map_filter) homogeneous, that try to preserve physical equality. *)
-  let rec mapi_no_share (f:('map1,'map2) polymapi) m = match Node.view m with
+  let rec mapi_no_share (f:('map1,'map2) polymapi) m = match NODE.view m with
     | Empty -> empty
     | Leaf{key;value} -> leaf key (f.f key value)
     | Branch{prefix;branching_bit;tree0;tree1} ->
@@ -733,7 +733,7 @@ module MakeCustomHeterogeneous
   let map_no_share (f:('map1,'map2) polymap) m = mapi_no_share { f=fun _ v -> f.f v } m
 
   type ('map1,'map2) polyfilter_map = { f: 'a. 'a Key.t -> ('a,'map1) Value.t -> ('a,'map2) Value.t option } [@@unboxed]
-  let rec filter_map (f:('map1,'map1) polyfilter_map) m = match Node.view m with
+  let rec filter_map (f:('map1,'map1) polyfilter_map) m = match NODE.view m with
     | Empty -> empty
     | Leaf{key;value} ->
       (match f.f key value with
@@ -745,7 +745,7 @@ module MakeCustomHeterogeneous
       if tree0 == newtree0 && tree1 == newtree1 then m
       else branch ~prefix ~branching_bit ~tree0:newtree0 ~tree1:newtree1
 
-  let rec filter_map_no_share (f:('b,'c) polyfilter_map) m = match Node.view m with
+  let rec filter_map_no_share (f:('b,'c) polyfilter_map) m = match NODE.view m with
     | Empty -> empty
     | Leaf{key;value} -> (match (f.f key value) with Some v -> leaf key v | None -> empty)
     | Branch{prefix;branching_bit;tree0;tree1} ->
@@ -755,7 +755,7 @@ module MakeCustomHeterogeneous
 
   type 'map polypretty = { f: 'a. Format.formatter -> 'a Key.t -> ('a, 'map) Value.t -> unit } [@@unboxed]
   let rec pretty ?(pp_sep=Format.pp_print_cut) (f : 'map polypretty) fmt m =
-    match Node.view m with
+    match NODE.view m with
     | Empty -> ()
     | Leaf{key;value} -> (f.f fmt key value)
     | Branch{tree0; tree1; _} ->
@@ -763,7 +763,7 @@ module MakeCustomHeterogeneous
         pp_sep fmt ();
         pretty f ~pp_sep fmt tree1
 
-  let rec removeint to_remove m = match Node.view m with
+  let rec removeint to_remove m = match NODE.view m with
     | Leaf{key;_} when (Key.to_int key) == to_remove -> empty
     | (Empty | Leaf _) -> m
     | Branch{prefix;branching_bit;tree0;tree1} ->
@@ -789,7 +789,7 @@ module MakeCustomHeterogeneous
      retry. *)
   exception Disappeared
 
-  let rec pop_min_nonempty m = match Node.view m with
+  let rec pop_min_nonempty m = match NODE.view m with
     | Leaf{key;value} -> KeyValue(key,value),empty
     | Branch{prefix;branching_bit;tree0;tree1} ->
       let res,tree0' = pop_min_nonempty tree0 in
@@ -800,11 +800,11 @@ module MakeCustomHeterogeneous
     | Empty ->
       (* Can only happen in weak sets and maps. *)
       raise Disappeared ;;
-  let pop_minimum m = match Node.view m with
+  let pop_minimum m = match NODE.view m with
     | Empty -> None
     | _ -> Some(pop_min_nonempty m)
 
-  let rec pop_max_nonempty m = match Node.view m with
+  let rec pop_max_nonempty m = match NODE.view m with
     | Leaf{key;value} -> KeyValue(key,value),empty
     | Branch{prefix;branching_bit;tree0;tree1} ->
       let res,tree1' = pop_max_nonempty tree1 in
@@ -815,7 +815,7 @@ module MakeCustomHeterogeneous
       (* Can only happen in weak sets and maps. *)
     | Empty -> raise Disappeared
 
-  let pop_maximum m = match Node.view m with
+  let pop_maximum m = match NODE.view m with
     | Empty -> None
     | _ -> Some(pop_max_nonempty m)
 
@@ -825,7 +825,7 @@ module MakeCustomHeterogeneous
     (* Preserve physical equality whenever possible. *)
     let exception Unmodified in
     try
-      let rec loop t = match Node.view t with
+      let rec loop t = match NODE.view t with
         | Empty -> leaf thekey (f None)
         | Leaf{key;value=old} ->
           begin match Key.polyeq key thekey with
@@ -855,7 +855,7 @@ module MakeCustomHeterogeneous
     (* Preserve physical equality whenever possible. *)
     let exception Unmodified in
     try
-      let rec loop t = match Node.view t with
+      let rec loop t = match NODE.view t with
         | Empty -> begin
             match (f None) with
             | None -> raise Unmodified
@@ -896,7 +896,7 @@ module MakeCustomHeterogeneous
     (* Preserve physical equality whenever possible. *)
     let exception Unmodified in
     try
-      let rec loop t = match Node.view t with
+      let rec loop t = match NODE.view t with
         | Empty -> leaf thekey value
         | Leaf{key;value=old} ->
           begin match Key.polyeq key thekey with
@@ -922,7 +922,7 @@ module MakeCustomHeterogeneous
 
   type ('map1,'map2) polysame_domain_for_all2 = { f: 'a 'b. 'a Key.t -> ('a,'map1) Value.t -> ('a,'map2) Value.t -> bool } [@@unboxed]
   (* Fast equality test between two maps. *)
-  let rec reflexive_same_domain_for_all2 f ta tb = match (Node.view ta),(Node.view tb) with
+  let rec reflexive_same_domain_for_all2 f ta tb = match (NODE.view ta),(NODE.view tb) with
     | _ when ta == tb -> true (* Skip same subtrees thanks to reflexivity. *)
     | Empty, _ | _, Empty -> false
     | Leaf _, Branch _ | Branch _, Leaf _ -> false
@@ -937,7 +937,7 @@ module MakeCustomHeterogeneous
       reflexive_same_domain_for_all2 f ta0 tb0 &&
       reflexive_same_domain_for_all2 f ta1 tb1
 
-  let rec nonreflexive_same_domain_for_all2 f ta tb = match (Node.view ta),(Node.view tb) with
+  let rec nonreflexive_same_domain_for_all2 f ta tb = match (NODE.view ta),(NODE.view tb) with
     | Empty, _ | _, Empty -> false
     | Leaf _, Branch _ | Branch _, Leaf _ -> false
     | Leaf{key=keya;value=valuea}, Leaf{key=keyb;value=valueb} ->
@@ -951,7 +951,7 @@ module MakeCustomHeterogeneous
       nonreflexive_same_domain_for_all2 f ta0 tb0 &&
       nonreflexive_same_domain_for_all2 f ta1 tb1
 
-  let rec reflexive_subset_domain_for_all2 f ta tb = match (Node.view ta),(Node.view tb) with
+  let rec reflexive_subset_domain_for_all2 f ta tb = match (NODE.view ta),(NODE.view tb) with
     | _ when ta == tb -> true   (* Skip same subtrees thanks to reflexivity. *)
     | Empty, _ -> true
     | _, Empty -> false
@@ -969,8 +969,8 @@ module MakeCustomHeterogeneous
           end
         | Branch{branching_bit;tree0;tree1;_} ->
           if (branching_bit land searched == 0)
-          then search (Node.view tree0)
-          else search (Node.view tree1)
+          then search (NODE.view tree0)
+          else search (NODE.view tree1)
         | Empty -> assert false (* We already saw that tb is not empty. *)
       in search viewb
     | Branch{prefix=pa;branching_bit=ma;tree0=ta0;tree1=ta1},
@@ -990,7 +990,7 @@ module MakeCustomHeterogeneous
 
   let rec disjoint ta tb =
     if ta == tb then is_empty ta
-    else match Node.view ta,Node.view tb with
+    else match NODE.view ta,NODE.view tb with
       | Empty, _ | _, Empty -> true
       | Leaf{key;_},_ -> not (mem key tb)
       | _,Leaf{key;_} -> not (mem key ta)
@@ -1013,7 +1013,7 @@ module MakeCustomHeterogeneous
   let rec idempotent_union f ta tb =
     if ta == tb then ta
     else
-      match Node.view ta,Node.view tb with
+      match NODE.view ta,NODE.view tb with
       | Empty, _ -> tb
       | _, Empty -> ta
       | Leaf{key;value},_ -> insert_for_union ({f=fun ~key ~old ~value -> f.f key value old}) key value tb
@@ -1041,7 +1041,7 @@ module MakeCustomHeterogeneous
   type ('map1,'map2,'map3) polyinter = { f: 'a. 'a Key.t -> ('a,'map1) Value.t -> ('a,'map2) Value.t -> ('a,'map3) Value.t } [@@unboxed]
   let rec idempotent_inter f ta tb =
     if ta == tb then ta
-    else match Node.view ta,Node.view tb with
+    else match NODE.view ta,NODE.view tb with
       | Empty, _ | _, Empty -> empty
       | Leaf{key;value},_ ->
         (try let res = find key tb in
@@ -1077,7 +1077,7 @@ module MakeCustomHeterogeneous
 
   (* Same as above, without the same subtree optimisation. *)
   let rec nonidempotent_inter_no_share f ta tb =
-    match Node.view ta,Node.view tb with
+    match NODE.view ta,NODE.view tb with
     | Empty, _ | _, Empty -> empty
     | Leaf{key;value},_ ->
       (try let res = find key tb in
@@ -1108,7 +1108,7 @@ module MakeCustomHeterogeneous
   type ('map1,'map2,'map3) polyinterfilter = { f: 'a. 'a Key.t -> ('a,'map1) Value.t -> ('a,'map2) Value.t -> ('a,'map3) Value.t option } [@@unboxed]
   let rec idempotent_inter_filter f ta tb =
     if ta == tb then ta
-    else match Node.view ta,Node.view tb with
+    else match NODE.view ta,NODE.view tb with
       | Empty, _ | _, Empty -> empty
       | Leaf{key;value},_ ->
         (try let res = find key tb in
@@ -1145,12 +1145,12 @@ module MakeCustomHeterogeneous
         else empty
 
   type ('map1,'map2,'map3) polymerge = { f: 'a. 'a Key.t -> ('a,'map1) Value.t option -> ('a,'map2) Value.t option -> ('a,'map3) Value.t option } [@@unboxed]
-  let rec slow_merge: type mapa mapb mapc. (mapa,mapb,mapc) polymerge -> mapa Node.t -> mapb Node.t -> mapc Node. t=
+  let rec slow_merge: type mapa mapb mapc. (mapa,mapb,mapc) polymerge -> mapa NODE.t -> mapb NODE.t -> mapc NODE. t=
     fun f ta tb ->
     let upd_ta ta = filter_map_no_share {f=fun key value -> f.f key (Some value) None} ta in
     let upd_tb tb = filter_map_no_share {f=fun key value -> f.f key None (Some value)} tb in
     let oldf = f in
-    match Node.view ta,Node.view tb with
+    match NODE.view ta,NODE.view tb with
     | Empty, _ -> upd_tb tb
     | _, Empty -> upd_ta ta
     | Leaf{key;value},_ ->
@@ -1200,13 +1200,13 @@ module MakeCustomHeterogeneous
       else join pa (upd_ta ta) pb (upd_tb tb)
 
   type 'map polyiter = { f: 'a. 'a Key.t -> ('a,'map) Value.t -> unit } [@@unboxed]
-  let rec iter f x = match Node.view x with
+  let rec iter f x = match NODE.view x with
     | Empty -> ()
     | Leaf{key;value} -> f.f key value
     | Branch{tree0;tree1;_} -> iter f tree0; iter f tree1
 
   type ('acc,'map) polyfold = { f: 'a. 'a Key.t -> ('a,'map) Value.t -> 'acc -> 'acc } [@@unboxed]
-  let rec fold f m acc = match Node.view m with
+  let rec fold f m acc = match NODE.view m with
     | Empty -> acc
     | Leaf{key;value} -> f.f key value acc
     | Branch{tree0;tree1;_} ->
@@ -1215,30 +1215,30 @@ module MakeCustomHeterogeneous
 
   type 'map polypredicate = { f: 'a. 'a key -> ('a,'map) value -> bool; } [@@unboxed]
   let filter f m = filter_map {f = fun k v -> if f.f k v then Some v else None } m
-  let rec for_all f m = match Node.view m with
+  let rec for_all f m = match NODE.view m with
     | Empty -> true
     | Leaf{key;value} -> f.f key value
     | Branch{tree0; tree1; _ } -> for_all f tree0 && for_all f tree1
 
-  module WithForeign(Map2:BaseMap_S with type 'a key = 'a key) = struct
+  module WithForeign(Map2:BASE_MAP with type 'a key = 'a key) = struct
 
     (* Intersects the first map with the values of the second map,
        trying to preserve physical equality of the first map whenever
        possible. *)
     type ('map1,'map2) polyinter_foreign = { f: 'a. 'a key -> ('a,'map1) value -> ('a,'map2) Map2.value -> ('a,'map1) value } [@@unboxed]
     let rec nonidempotent_inter f ta tb =
-      match Node.view ta,Map2.view tb with
-      | Empty, _ | _, Empty -> Node.empty
+      match NODE.view ta,Map2.view tb with
+      | Empty, _ | _, Empty -> NODE.empty
       | Leaf{key;value},_ ->
         (try let res = Map2.find key tb in
            let newval = (f.f key value res) in
            if newval == value then ta
-           else Node.leaf key newval
-         with Not_found -> Node.empty)
+           else NODE.leaf key newval
+         with Not_found -> NODE.empty)
       | _,Leaf{key;value} ->
         (try let res = find key ta in
-           Node.leaf key (f.f key res value)
-         with Not_found -> Node.empty)
+           NODE.leaf key (f.f key res value)
+         with Not_found -> NODE.empty)
       | Branch{prefix=pa;branching_bit=ma;tree0=ta0;tree1=ta1},
         Branch{prefix=pb;branching_bit=mb;tree0=tb0;tree1=tb1} ->
         if ma == mb && pa == pb
@@ -1248,7 +1248,7 @@ module MakeCustomHeterogeneous
           let tree1 = (nonidempotent_inter f ta1 tb1) in
           if(ta0 == tree0 && ta1 == tree1)
           then ta
-          else Node.branch ~prefix:pa ~branching_bit:ma ~tree0 ~tree1
+          else NODE.branch ~prefix:pa ~branching_bit:ma ~tree0 ~tree1
         else if ma > mb && match_prefix pb pa ma
         then if ma land pb == 0
           then nonidempotent_inter f ta0 tb
@@ -1257,7 +1257,7 @@ module MakeCustomHeterogeneous
         then if mb land pa == 0
           then nonidempotent_inter f ta tb0
           else nonidempotent_inter f ta tb1
-        else Node.empty
+        else NODE.empty
 
   type ('map2,'map1) polyfilter_map_foreign = { f: 'a. 'a Key.t -> ('a,'map2) Map2.value -> ('a,'map1) value option } [@@unboxed]
   let rec filter_map_no_share (f:('b,'c) polyfilter_map_foreign) m = match Map2.view m with
@@ -1272,7 +1272,7 @@ module MakeCustomHeterogeneous
   type ('map1,'map2) polyupdate_multiple = { f: 'a. 'a Key.t -> ('a,'map1) value option -> ('a,'map2) Map2.value -> ('a,'map1) value option } [@@unboxed]
   let rec update_multiple_from_foreign (tb:'map2 Map2.t) f (ta:'map1 t) =
     let upd_tb tb = filter_map_no_share {f=fun key value -> f.f key None value} tb in
-    match Node.view ta,Map2.view tb with
+    match NODE.view ta,Map2.view tb with
     | Empty, _ -> upd_tb tb
     | _, Empty -> ta
     | _,Leaf{key;value} -> update key (fun maybeval -> f.f key maybeval value) ta
@@ -1322,7 +1322,7 @@ module MakeCustomHeterogeneous
   (* Map difference: (possibly) remove from ta elements that are in tb, the other are preserved, no element is added. *)
   type ('map1,'map2) polyupdate_multiple_inter = { f: 'a. 'a Key.t -> ('a,'map1) value -> ('a,'map2) Map2.value -> ('a,'map1) value option } [@@unboxed]
   let rec update_multiple_from_inter_with_foreign tb f ta =
-    match Node.view ta, Map2.view tb with
+    match NODE.view ta, Map2.view tb with
     | Empty, _ -> ta
     | _, Empty -> ta
     | Leaf{key;value},_ ->
@@ -1363,12 +1363,12 @@ module MakeCustomHeterogeneous
       else ta
   end
 
-  let rec to_seq m () = match Node.view m with
+  let rec to_seq m () = match NODE.view m with
     | Empty -> Seq.Nil
     | Leaf{key; value} -> Seq.Cons (KeyValue(key,value), Seq.empty)
     | Branch{tree0; tree1; _} -> Seq.append (to_seq tree0) (to_seq tree1) ()
 
-  let rec to_rev_seq m () = match Node.view m with
+  let rec to_rev_seq m () = match NODE.view m with
     | Empty -> Seq.Nil
     | Leaf{key; value} -> Seq.Cons (KeyValue(key,value), Seq.empty)
     | Branch{tree0; tree1; _} -> Seq.append (to_rev_seq tree1) (to_rev_seq tree0) ()
@@ -1386,10 +1386,10 @@ end
 
 (* TODO: We should make it a functor, so that we can simplify the
    interface for set independently from how it is constructed. *)
-module MakeHeterogeneousSet(Key:HeterogeneousKey) : HeterogeneousSet_S
+module MakeHeterogeneousSet(Key:HETEROGENEOUS_KEY) : HETEROGENEOUS_SET
   with type 'a elt = 'a Key.t = struct
-  module Node = SetNode(Key)
-  module BaseMap = MakeCustomHeterogeneous(Key)(struct type ('a,'b) t = unit end)(Node)
+  module NODE = SetNode(Key)
+  module BaseMap = MakeCustomHeterogeneous(Key)(struct type ('a,'b) t = unit end)(NODE)
 
   (* No need to differentiate the values. *)
   include BaseMap
@@ -1455,7 +1455,7 @@ module MakeHeterogeneousSet(Key:HeterogeneousKey) : HeterogeneousSet_S
   let to_list s = List.of_seq (to_seq s)
 end
 
-module MakeHeterogeneousMap(Key:HeterogeneousKey)(Value:Value) =
+module MakeHeterogeneousMap(Key:HETEROGENEOUS_KEY)(Value:VALUE) =
   MakeCustomHeterogeneous(Key)(Value)(SimpleNode(Key)(Value))
 
 
@@ -1468,7 +1468,7 @@ module WrappedHomogeneousValue = struct
   type ('a, 'map) t = ('a, 'map) snd
 end
 
-module HeterogeneousKeyFromKey(Key:Key):(HeterogeneousKey with type 'a t = Key.t)  = struct
+module HeterogeneousKeyFromKey(Key:KEY):(HETEROGENEOUS_KEY with type 'a t = Key.t)  = struct
   type 'a t = Key.t
 
   (** The type-safe way to do it would be to define this type, to
@@ -1487,13 +1487,13 @@ module HeterogeneousKeyFromKey(Key:Key):(HeterogeneousKey with type 'a t = Key.t
 end
 
 module MakeCustom
-    (Key:Key)
-    (Node:Node with type 'a key = Key.t and type ('key,'map) value = ('key,'map) snd)
+    (Key:KEY)
+    (NODE:NODE with type 'a key = Key.t and type ('key,'map) value = ('key,'map) snd)
 = struct
 
   module NewKey(* :Key *) = HeterogeneousKeyFromKey(Key)
 
-  module BaseMap = MakeCustomHeterogeneous(NewKey)(WrappedHomogeneousValue)(Node)
+  module BaseMap = MakeCustomHeterogeneous(NewKey)(WrappedHomogeneousValue)(NODE)
   include BaseMap
   type key = Key.t
 
@@ -1559,7 +1559,7 @@ module MakeCustom
 
   let for_all (f : key -> 'a -> bool) m = BaseMap.for_all {f = fun k (Snd v) -> f k v} m
 
-  module WithForeign(Map2 : BaseMap_S with type _ key = key) = struct
+  module WithForeign(Map2 : BASE_MAP with type _ key = key) = struct
     module BaseForeign = BaseMap.WithForeign(Map2)
     type ('b,'c) polyfilter_map_foreign = { f: 'a. key -> ('a,'b) Map2.value -> 'c option } [@@unboxed]
     let filter_map_no_share f m2 =
@@ -1589,13 +1589,13 @@ module MakeCustom
   let to_list s = List.of_seq (to_seq s)
 end
 
-module MakeMap(Key:Key) = struct
+module MakeMap(Key: KEY) = struct
   module NKey = struct type 'a t = Key.t end
-  module Node = SimpleNode(NKey)(WrappedHomogeneousValue)
-  include MakeCustom(Key)(Node)
+  module NODE = SimpleNode(NKey)(WrappedHomogeneousValue)
+  include MakeCustom(Key)(NODE)
 end
 
-module MakeSet(Key : Key) : Set_S with type elt = Key.t = struct
+module MakeSet(Key: KEY) : SET with type elt = Key.t = struct
   module HKey = HeterogeneousKeyFromKey(Key)
   module S = MakeHeterogeneousSet(HKey)
   include S

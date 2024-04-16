@@ -69,7 +69,7 @@ type mask
 
 (** This module explains how a node is stored in memory, with
     functions to create and view nodes. *)
-module type Node = sig
+module type NODE = sig
   (** We use a uniform type ['map view] to pattern match on maps and sets
       The actual types ['map t] can be a bit different from ['map view]
       to allow for more efficient representations, but {!val:view} should be a
@@ -89,10 +89,26 @@ module type Node = sig
   (** {2 Constructors: build values} *)
 
   val empty : 'map t
+  (** The empty map *)
+
   val leaf : 'key key -> ('key, 'map) value -> 'map t
+  (** A singleton leaf, similar to {!BASE_MAP.singleton} *)
+
   val branch :
     prefix:intkey ->
     branching_bit:mask -> tree0:'map t -> tree1:'map t -> 'map t
+  (** A branch node.
+      {b This shouldn't be called externally unless you know what you're doing!}
+      Doing so could easily break the data structure's invariants.
+
+      When called, it assumes that:
+      - Neither [tree0] nor [tree1] should be empty.
+      - [branching_bit] should have a single bit set
+      - [prefix] should be normalized (bits below [branching_bit] set to zero)
+      - All elements of [tree0] should have their [to_int] start by
+        [prefix] followed by 0 at position [branching_bit]).
+      - All elements of [tree1] should have their [to_int] start by
+        [prefix] followed by 0 at position [branching_bit]). *)
 
   (** {2 Destructors: access the value} *)
 
@@ -113,15 +129,15 @@ module type Node = sig
     (** A key -> value mapping. *)
 
   val is_empty: 'map t -> bool
-  (** Check if the map is empty *)
+  (** Check if the map is empty. Should be constant time. *)
 
   val view: 'a t -> 'a view
-  (** Convert the map to a view *)
+  (** Convert the map to a view. Should be constant time. *)
 end
 
 (** Associate a unique number to each node. *)
-module type NodeWithId = sig
-  include Node
+module type NODE_WITH_ID = sig
+  include NODE
   val get_id: 'a t -> int
 end
 
@@ -133,15 +149,15 @@ end
     of ['a key] to [('a,'b) values].
     All maps and set are a variation of this type,
     sometimes with a simplified interface:
-    - {!HeterogeneousMap_S} is just a {!BaseMap_S} with a functor {!HeterogeneousMap_S.WithForeign}
+    - {!HETEROGENEOUS_MAP} is just a {!BASE_MAP} with a functor {!HETEROGENEOUS_MAP.WithForeign}
       for building operations that operate on two maps of different base types.
-    - {!Map_S} specializes the interface for non-generic keys ([key] instead of ['a key])
-    - {!HeterogeneousSet_S} specializes {!BaseMap_S} for sets ([('a,'b) value = unit])n
+    - {!MAP} specializes the interface for non-generic keys ([key] instead of ['a key])
+    - {!HETEROGENEOUS_SET} specializes {!BASE_MAP} for sets ([('a,'b) value = unit])n
       removes value argument from most operations
-    - {!Set_S} specializes {!HeterogeneousSet_S} further by making elements (keys)
+    - {!SET} specializes {!HETEROGENEOUS_SET} further by making elements (keys)
       non-generic ([elt] instead of ['a elt]).  *)
-module type BaseMap_S = sig
-  include Node
+module type BASE_MAP = sig
+  include NODE
 
   type 'map key_value_pair =
       KeyValue : 'a key * ('a, 'map) value -> 'map key_value_pair
@@ -336,11 +352,11 @@ end
 (** {2 Heterogeneous maps and sets} *)
 (** Maps and sets with generic keys ['a key] and values [('a,'b) value]  *)
 
-module type HeterogeneousMap_S = sig
-  (** This is the same as {!Map_S}, but with simple type [key] being replaced by type
+module type HETEROGENEOUS_MAP = sig
+  (** This is the same as {!MAP}, but with simple type [key] being replaced by type
       constructor ['a key] and ['b value] being replaced by [('a,'b) value].
 
-      The main changes from {!Map_S} are:
+      The main changes from {!MAP} are:
       - The type of {!key} is replaced by a type constructor ['k key].
         Because of that, most higher-order arguments require higher-ranking
         polymorphism, and we provide records that allows to
@@ -351,19 +367,19 @@ module type HeterogeneousMap_S = sig
       - The type of some return values, like key-value pairs, must be
         concealed existentially, hence the {!KeyValue} constructor. *)
 
-  include BaseMap_S
+  include BASE_MAP
 
-  module WithForeign(Map2:BaseMap_S with type 'a key = 'a key):sig
+  module WithForeign(Map2:BASE_MAP with type 'a key = 'a key):sig
     type ('map1,'map2) polyinter_foreign = { f: 'a. 'a key -> ('a,'map1) value -> ('a,'map2) Map2.value -> ('a,'map1) value } [@@unboxed]
 
     val nonidempotent_inter : ('a,'b) polyinter_foreign -> 'a t -> 'b Map2.t -> 'a t
-    (** Like {!BaseMap_S.idempotent_inter}. Tries to preserve physical equality on the first argument when possible. *)
+    (** Like {!BASE_MAP.idempotent_inter}. Tries to preserve physical equality on the first argument when possible. *)
 
 
     type ('map2,'map1) polyfilter_map_foreign =
       { f : 'a. 'a key -> ('a, 'map2) Map2.value -> ('a, 'map1) value option; } [@@unboxed]
     val filter_map_no_share : ('map2,'map1) polyfilter_map_foreign -> 'map2 Map2.t -> 'map1 t
-    (** Like {!BaseMap_S.filter_map_no_share}, but allows to transform a foreigh map into the current one. *)
+    (** Like {!BASE_MAP.filter_map_no_share}, but allows to transform a foreigh map into the current one. *)
 
     type ('map1,'map2) polyupdate_multiple = { f: 'a. 'a key -> ('a,'map1) value option -> ('a,'map2) Map2.value -> ('a,'map1) value option } [@@unboxed]
     val update_multiple_from_foreign : 'b Map2.t -> ('a,'b) polyupdate_multiple -> 'a t -> 'a t
@@ -386,11 +402,11 @@ module type HeterogeneousMap_S = sig
   end
 end
 
-module type HeterogeneousSet_S = sig
+module type HETEROGENEOUS_SET = sig
   (** A set containing different keys, very similar to
-      {!Set_S}, but with simple type [elt] being replaced by type
+      {!SET}, but with simple type [elt] being replaced by type
       constructor ['a elt]. *)
-  (** The main changes from {!Set_S} are:
+  (** The main changes from {!SET} are:
       - The type of {!elt} is replaced by a type constructor ['k elt].
         Because of that, most higher-order arguments require higher-ranking
         polymorphism, and we provide records that allows to
@@ -402,7 +418,7 @@ module type HeterogeneousSet_S = sig
   (** Elements of the set *)
 
   (** Underlying basemap, for cross map/set operations *)
-  module BaseMap : HeterogeneousMap_S
+  module BaseMap : HETEROGENEOUS_MAP
     with type 'a key = 'a elt
      and type (_,_) value = unit
 
@@ -465,11 +481,11 @@ end
 (** Same as above, but simple interfaces for non-generic keys *)
 
 (** Signature for sets implemented using Patricia trees. *)
-module type Set_S = sig
+module type SET = sig
   type elt
 
   (** Underlying basemap, for cross map/set operations *)
-  module BaseMap : HeterogeneousMap_S
+  module BaseMap : HETEROGENEOUS_MAP
     with type _ key = elt
      and type (_,_) value = unit
 
@@ -543,7 +559,7 @@ end
 type (_, 'b) snd = Snd of 'b [@@unboxed]
 
 (** The signature for maps with a single type for keys and values. *)
-module type Map_S = sig
+module type MAP = sig
   type key
   (** The type of keys. *)
 
@@ -551,7 +567,7 @@ module type Map_S = sig
   (** A map from keys to values of type 'a.  *)
 
   (** Underlying basemap, for cross map/set operations *)
-  module BaseMap : HeterogeneousMap_S
+  module BaseMap : HETEROGENEOUS_MAP
    with type 'a t = 'a t
     and type _ key = key
     and type ('a,'b) value = ('a,'b) snd
@@ -781,7 +797,7 @@ module type Map_S = sig
   (* Maybe: WithForeign and WithForeignHeterogeneous.  *)
 
   (** Combination with other kinds of maps. *)
-  module WithForeign(Map2 : BaseMap_S with type _ key = key):sig
+  module WithForeign(Map2 : BASE_MAP with type _ key = key):sig
 
     type ('b,'c) polyfilter_map_foreign = { f: 'a. key -> ('a,'b) Map2.value -> 'c option } [@@unboxed]
     val filter_map_no_share : ('b, 'c) polyfilter_map_foreign -> 'b Map2.t ->  'c t
@@ -836,7 +852,7 @@ end
 (** Keys are the functor arguments used to build the maps. *)
 
 (** The signature of keys when they are all of the same type.  *)
-module type Key = sig
+module type KEY = sig
   type t
 
   (** A unique identifier for values of the type. Usually, we use a
@@ -852,7 +868,7 @@ end
 type (_, _) cmp = Eq : ('a, 'a) cmp | Diff : ('a, 'b) cmp
 
 (** The signature of heterogeneous keys.  *)
-module type HeterogeneousKey = sig
+module type HETEROGENEOUS_KEY = sig
   type 'key t
   val to_int : 'key t -> int
   val polyeq : 'a t -> 'b t -> ('a, 'b) cmp
@@ -860,23 +876,23 @@ end
 
 
 (** The moodule type of values, which can be heterogeneous.  *)
-module type Value = sig type ('key, 'map) t end
+module type VALUE = sig type ('key, 'map) t end
 
 (** To use when the type of the value is the same (but the keys can still be heterogeneous). *)
-module HomogeneousValue:Value with type ('a,'map) t = 'map
-module WrappedHomogeneousValue:Value with type ('a,'map) t = ('a,'map) snd
+module HomogeneousValue:VALUE with type ('a,'map) t = 'map
+module WrappedHomogeneousValue:VALUE with type ('a,'map) t = ('a,'map) snd
 
 (** {1 Functors} *)
 
 (** {2 Homogeneous maps and sets} *)
 
-module MakeMap(Key:Key):Map_S with type key = Key.t
-module MakeSet(Key:Key):Set_S with type elt = Key.t
+module MakeMap(Key:KEY):MAP with type key = Key.t
+module MakeSet(Key:KEY):SET with type elt = Key.t
 
 (** {2 Heterogeneous maps and sets} *)
 
-module MakeHeterogeneousSet(Key:HeterogeneousKey):HeterogeneousSet_S with type 'a elt = 'a Key.t
-module MakeHeterogeneousMap(Key:HeterogeneousKey)(Value:Value):HeterogeneousMap_S
+module MakeHeterogeneousSet(Key:HETEROGENEOUS_KEY):HETEROGENEOUS_SET with type 'a elt = 'a Key.t
+module MakeHeterogeneousMap(Key:HETEROGENEOUS_KEY)(Value:VALUE):HETEROGENEOUS_MAP
   with type 'a key = 'a Key.t
    and type ('k,'m) value = ('k,'m) Value.t
 
@@ -889,60 +905,60 @@ module MakeHeterogeneousMap(Key:HeterogeneousKey)(Value:Value):HeterogeneousMap_
    giving unique number to nodes or keeping them in sync with the
    disk, lazy evaluation and/or caching, etc. *)
 
-(** Create a Homogeneous Map with a custom {!Node}. *)
+(** Create a Homogeneous Map with a custom {!NODE}. *)
 module MakeCustom
-    (Key:Key)
-    (Node:Node with type 'a key = Key.t and type ('key,'map) value = ('key,'map) snd)
-  :Map_S
+    (Key:KEY)
+    (NODE:NODE with type 'a key = Key.t and type ('key,'map) value = ('key,'map) snd)
+  :MAP
     with type key = Key.t
-     and type 'm t = 'm Node.t
+     and type 'm t = 'm NODE.t
 
-(** Create an Heterogeneous map with a custom {!Node}. *)
+(** Create an Heterogeneous map with a custom {!NODE}. *)
 module MakeCustomHeterogeneous
-    (Key:HeterogeneousKey)
-    (Value:Value)
-    (Node:Node with type 'a key = 'a Key.t and type ('key,'map) value = ('key,'map) Value.t)
-  :HeterogeneousMap_S
+    (Key:HETEROGENEOUS_KEY)
+    (Value:VALUE)
+    (NODE:NODE with type 'a key = 'a Key.t and type ('key,'map) value = ('key,'map) Value.t)
+  :HETEROGENEOUS_MAP
     with type 'a key = 'a Key.t
      and type ('k,'m) value = ('k,'m) Value.t
-     and type 'm t = 'm Node.t
+     and type 'm t = 'm NODE.t
 
 
-(** {1 Some implementations of Node} *)
+(** {1 Some implementations of NODE} *)
 
 (** This module is such that ['map t = 'map view].  *)
-module SimpleNode(Key : sig type 'k t end)(Value : Value):Node
+module SimpleNode(Key : sig type 'k t end)(Value : VALUE):NODE
   with type 'a key = 'a Key.t
    and type ('key,'map) value = ('key,'map) Value.t
 
 (** Here, nodes also contain a unique id, e.g. so that they can be
     used as keys of maps or hashtables. *)
-module NodeWithId(Key : sig type 'k t end)(Value:Value):NodeWithId
+module NodeWithId(Key : sig type 'k t end)(Value:VALUE):NODE_WITH_ID
   with type 'a key = 'a Key.t
    and type ('key,'map) value = ('key,'map) Value.t
 
 
-(** Maybe: we can make variations around NodeWithId; e.g. a version
+(* Maybe: we can make variations around NodeWithId; e.g. a version
     that does HashConsing, or a version that replicates the node to a
     key-value store on disk, etc. *)
 
 (** An optimized representation for sets, i.e. maps to unit: we do not
     store a reference to unit (note that you can further optimize when
     you know the representation of the key). *)
-module SetNode(Key : sig type 'k t end):Node
+module SetNode(Key : sig type 'k t end):NODE
   with type 'a key = 'a Key.t
    and type ('key,'map) value = unit
 
 
-(** Node used to implement weak key hashes (the key-binding pair is an
+(** NODE used to implement weak key hashes (the key-binding pair is an
     Ephemeron, the reference to the key is weak, and if the key is
     garbage collected, the binding disappears from the map *)
-module WeakNode(Key : sig type 'k t end)(Value : Value):Node
+module WeakNode(Key : sig type 'k t end)(Value : VALUE):NODE
   with type 'a key = 'a Key.t
    and type ('key,'map) value = ('key,'map) Value.t
 
 (** Both a {!WeakNode} and a {!SetNode}, useful to implement Weak sets.  *)
-module WeakSetNode(Key : sig type 'k t end):Node
+module WeakSetNode(Key : sig type 'k t end):NODE
   with type 'a key = 'a Key.t
    and type ('key,'map) value = unit
 
