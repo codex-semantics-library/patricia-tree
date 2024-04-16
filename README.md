@@ -7,7 +7,7 @@
 
 
 This is an [OCaml](https://ocaml.org/) library that implements sets and maps as
-Patricia Trees, as described in Oksasaki and Gill's 1998 paper [*Fast mergeable integer maps*](https://www.semanticscholar.org/paper/Fast-Mergeable-Integer-Maps-Okasaki-Gill/23003be706e5f586f23dd7fa5b2a410cc91b659d).
+Patricia Trees, as described in Okasasaki and Gill's 1998 paper [*Fast mergeable integer maps*](https://www.semanticscholar.org/paper/Fast-Mergeable-Integer-Maps-Okasaki-Gill/23003be706e5f586f23dd7fa5b2a410cc91b659d).
 It is a space-efficient prefix trie over the big-endian representation of the key's integer identifier.
 
 **Table of Contents:**
