@@ -268,11 +268,13 @@ module type BASE_MAP = sig
       Calls [f.f] in ascending order of [Key.to_int].
       Exits early if the domains mismatch.
 
-      It is useful to implement equality on maps: {[
+      It is useful to implement equality on maps:
+      {[
         let equal m1 m2 = reflexive_same_domain_for_all2
           { f = fun _ v1 v2 -> Value.equal v1 v2}
           m1 m2
-      ]}*)
+      ]}
+      *)
 
   val nonreflexive_same_domain_for_all2:
     ('map1,'map2) polysame_domain_for_all2 -> 'map1 t -> 'map2 t -> bool

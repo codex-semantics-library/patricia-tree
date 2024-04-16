@@ -24,6 +24,9 @@
  (libraries zarith)
  (modules PatriciaTree))
 
+(documentation
+ (package patricia-tree))
+
 ;; For test purposes only.
 
 (library

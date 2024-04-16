@@ -1,51 +1,32 @@
-# Patricia Tree
+{0 patricia-tree index}
 
-![Static Badge](https://img.shields.io/badge/version-0.9.0-yellow)
-[![OCaml Version](https://img.shields.io/badge/OCaml-4.14_--_5.x-blue?logo=ocaml&logoColor=white)](https://github.com/codex-semantics-library/patricia-tree/blob/main/dune-project)
-[![GitHub License](https://img.shields.io/github/license/codex-semantics-library/patricia-tree)](https://github.com/codex-semantics-library/patricia-tree/blob/main/LICENSE)
-[![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/codex-semantics-library/patricia-tree/ocaml.yml)](https://github.com/codex-semantics-library/patricia-tree/actions/workflows/ocaml.yml)
+{1 Library patricia-tree}
 
+This library contains a single module: {!PatriciaTree}.
 
-This is an [OCaml](https://ocaml.org/) library that implements sets and maps as
-Patricia Trees, as described in Oksasaki and Gill's 1998 paper [*Fast mergeable integer maps*](https://www.semanticscholar.org/paper/Fast-Mergeable-Integer-Maps-Okasaki-Gill/23003be706e5f586f23dd7fa5b2a410cc91b659d).
-It is a space-efficient prefix trie over the big-endian representation of the key's integer identifier.
-
-**Table of Contents:**
-<!-- TOC -->
-- [Installation](#installation)
-- [Features](#features)
-- [Quick overview](#quick-overview)
-- [Examples](#examples)
-  - [Non-generic map (homogeneous)](#non-generic-map-homogeneous)
-  - [Generic map (heterogeneous)](#generic-map-heterogeneous)
-- [Release status](#release-status)
-- [Known issues](#known-issues)
-- [Comparison to other OCaml libraries](#comparison-to-other-ocaml-libraries)
-- [Contributions and bug reports](#contributions-and-bug-reports)
-<!-- /TOC -->
-
-## Installation
+{2 Installation}
 
 This library can be installed with:
-```bash
+{@bash[
 opam install patricia-tree
-```
+]}
+
 Alternatively, you can clone the source repository and install with dune:
-```bash
+{@bash[
 git clone git@github.com:codex-semantics-library/patricia-tree.git
 cd patricia-tree
 dune build
 dune install
-```
+]}
 
-## Features
+{2 Features}
 
-- Similar to OCaml's `Map` and `Set`, using the same function names when possible
+- Similar to OCaml's [Map] and [Set], using the same function names when possible
   and the same convention for order of arguments. This should allow switching to
   and from Patricia Tree with minimal effort.
-- The functor parameters (`KEY` module) requires an injective `to_int : t -> int`
-  function instead of a `compare` function. `to_int` should be fast and injective,
-  this works well with [hash-consed](https://en.wikipedia.org/wiki/Hash_consing) types.
+- The functor parameters ({!PatriciaTree.KEY} module) requires an injective [to_int : t -> int]
+  function instead of a [compare] function. {!PatriciaTree.KEY.to_int} should be fast and injective,
+  this works well with {{: https://en.wikipedia.org/wiki/Hash_consing}hash-consed} types.
 - The Patricia Tree representation is stable, contrary to maps, inserting nodes
   in any order will return the same shape.
   This allows different versions of a map to share more subtrees in memory, and
@@ -55,83 +36,83 @@ dune install
   combining maps or sets is a frequent operation.
 
   To do so, these functions often have extra requirements on their argument
-  (e.g. `inter f m1 m2` can be optimized by not inspecting common subtrees when
-  `f` is idempotent). To avoid accidental errors, they are renamed (e.g. to
-  `idempotent_inter` for the efficient version and `nonidempotent_inter_no_share`
+  (e.g. [inter f m1 m2] can be optimized by not inspecting common subtrees when
+  [f] is idempotent). To avoid accidental errors, they are renamed (e.g. to
+  [idempotent_inter] for the efficient version and [nonidempotent_inter_no_share]
   for the general one)
 
 - Since our Patricia Tree use big-endian order on keys, the maps and sets are
   sorted in increasing order of keys.
-- Supports generic maps and sets: a `'m map` that maps `'k key` to `('k, 'm) value`.
-  This is especially useful when using [GADTs](https://v2.ocaml.org/manual/gadts-tutorial.html) for the type of keys. This is also sometimes called a dependent map.
+- Supports generic maps and sets: a ['m map] that maps ['k key] to [('k, 'm) value].
+  This is especially useful when using {{: https://v2.ocaml.org/manual/gadts-tutorial.html}GADTs}
+  for the type of keys. This is also sometimes called a dependent map.
 - Allows easy and fast operations across different types of maps and set (e.g.
   an intersection between a map and a set), since all sets and maps, no matter their key type, are really integer sets or maps.
-- Multiple choices for internal representation (`NODE`), which allows for efficient
+- Multiple choices for internal representation ({!PatriciaTree.NODE}), which allows for efficient
   storage (no need to store a value for sets), or using weak nodes only (values removed from the tree if no other pointer to it exists). This system can also
   be extended to store size information in nodes if needed.
-- Exposes a common interface (`view`) to allow users to write their own pattern
-  matching on the tree structure without depending on the `NODE` being used.
+- Exposes a common interface ({!type:PatriciaTree.NODE.view}) to allow users to write their own pattern
+  matching on the tree structure without depending on the {!PatriciaTree.NODE} being used.
 
-## Quick overview
+{2 Quick overview}
 
-<!-- TODO: links to documentation -->
-
-This library contains a single module, `PatriciaTree`.
+This library contains a single module, {!PatriciaTree}.
 The main functor used to build our maps and sets are the following:
-```ocaml
-(** {2 Homogeneous maps and sets} *)
+{[
+(** Homogeneous maps and sets *)
 
 module MakeMap(Key: KEY) : MAP with type key = Key.t
 module MakeSet(Key: KEY) : SET with type elt = Key.t
 
-(** {2 Heterogeneous maps and sets} *)
+(** Heterogeneous maps and sets *)
 
 module MakeHeterogeneousSet(Key: HETEROGENEOUS_KEY) : HETEROGENEOUS_SET
   with type 'a elt = 'a Key.t
 module MakeHeterogeneousMap(Key: HETEROGENEOUS_KEY)(Value: VALUE) : HETEROGENEOUS_MAP
   with type 'a key = 'a Key.t
    and type ('k,'m) value = ('k,'m) Value.t
-```
+]}
 
 Here is a brief overview of the various module types of our library:
-- `BASE_MAP`: the underlying module type of all our trees (maps end sets). It
-  represents a `'b map` binding `'a key` to `('a,'b) value`, as well as all functions needed to manipulate them.
+- {!PatriciaTree.BASE_MAP}: the underlying module type of all our trees (maps end sets). It
+  represents a ['b map] binding ['a key] to [('a,'b) value], as well as all
+  functions needed to manipulate them.
 
   It can be accessed from any of the more specific maps types, thus providing a
   unified representation, useful for cross map operations. However, for practical
   purposes, it is often best to use the more specific interfaces:
-  - `HETEROGENEOUS_MAP` for heterogeneous maps (this is just `BASE_MAP` with a
-    `WithForeign` functor).
-  - `MAP` for homogeneous maps, this interface is close to [`Stdlib.Map.S`](https://ocaml.org/api/Map.S.html).
-  - `HETEROGENEOUS_SET` for heterogeneous sets (sets of `'a elt`). These are just
-    maps to unit, but with a custom node representation to avoid storing unit in
+  - {!PatriciaTree.HETEROGENEOUS_MAP} for heterogeneous maps (this is just [BASE_MAP] with a
+    [WithForeign] functor).
+  - {!PatriciaTree.MAP} for homogeneous maps, this interface is close to {{: https://ocaml.org/api/Map.S.html}[Stdlib.Map.S]}.
+  - {!PatriciaTree.HETEROGENEOUS_SET} for heterogeneous sets (sets of ['a elt]). These are just
+    maps to [unit], but with a custom node representation to avoid storing [unit] in
     nodes.
-  - `SET` for homogeneous sets, this interface is close to [`Stdlib.Set.S`](https://ocaml.org/api/Set.S.html).
-- The parameter of our functor are either `KEY` or `HETEROGENEOUS_KEY`.
+  - {!PatriciaTree.SET} for homogeneous sets, this interface is close to {{: https://ocaml.org/api/Set.S.html}[Stdlib.Set.S]}.
+- The parameter of our functor are either {!PatriciaTree.KEY} or {!PatriciaTree.HETEROGENEOUS_KEY}.
   These just consist of a type, a (polymorphic) equality function, and an
-  injective `to_int` coercion.
+  injective [to_int] coercion.
 
-  The heterogeneous map functor also has a `VALUE` parameter to specify the
-  `('a, 'b) value` type
+  The heterogeneous map functor also has a {!PatriciaTree.VALUE} parameter to specify the
+  [('a, 'b) value] type
 - The internal representations of our tree can be customized to use different
-  internal `NODE`. Each node come with its own private constructors and destructors,
-  as well as a cast to a uniform `view` type used for pattern matching.
+  internal {!PatriciaTree.NODE}. Each node come with its own private constructors and destructors,
+  as well as a cast to a uniform {!type:PatriciaTree.NODE.view} type used for pattern matching.
 
-  A number of implementations are provided `SimpleNode` (exactly the `view` type),
-  `WeakNode` (node which only store weak pointer to its elements), `NodeWithId`
-  (node which contain a unique identifier), `SetNode` (node optimized for set,
-  doesn't store the `unit` value) and `WeakSetNode`.
+  A number of implementations are provided {!PatriciaTree.SimpleNode} (exactly the {!type:PatriciaTree.NODE.view} type),
+  {!PatriciaTree.WeakNode} (node which only store weak pointer to its elements), {!PatriciaTree.NodeWithId}
+  (node which contain a unique identifier), {!PatriciaTree.SetNode} (node optimized for set,
+  doesn't store the [unit] value) and {!PatriciaTree.WeakSetNode}.
 
-  Use the functors `MakeCustomHeterogeneous` and `MakeCustom` to build
+  Use the functors {!PatriciaTree.MakeCustomHeterogeneous} and {!PatriciaTree.MakeCustom} to build
   maps using these nodes, or any other custom nodes.
 
-## Examples
+{2 Examples}
 
-### Non-generic map (homogeneous)
+{3 Non-generic map (homogeneous)}
 
 Here is a small example of a non-generic map:
 
-```ocaml
+{[
 (** Create a key struct *)
 module Int (*: PatriciaTree.KEY*) = struct
   type t = int
@@ -172,11 +153,11 @@ let set = ISet.of_list [1; 3]
 module CrossOperations = IMap.WithForeign(ISet.BaseMap)
 let restricted_map = CrossOperations.nonidempotent_inter
   { f = fun _key value () -> value } map set
-```
+]}
 
-### Generic map (heterogeneous)
+{3 Generic map (heterogeneous)}
 
-```ocaml
+{[
 (** Very small typed expression language *)
 type 'a expr =
   | G_Const_Int : int -> int expr
@@ -233,9 +214,9 @@ let map2 =
     { f = fun _key _l _r -> None } (* polymorphic 1rst order functions are wrapped in records *)
     (EMap.add (G_Const_Int 0) 8 map)
     (EMap.add (G_Const_Int 0) 9 map)
-```
+]}
 
-## Release status
+{2 Release status}
 
 This should be close to a stable release. It is already being
 used as part of a larger project successfully, and this usage as helped us mature
@@ -243,54 +224,55 @@ the interface. As is, we believe the project is usable, and we don't anticipate
 any major change before 1.0.0. We didn't commit to a stable release straight
 away as we would like a bit more time using this library before doing so.
 
-## Known issues
+
+{2 Known issues}
 
 There is a bug in the OCaml typechecker which prevents us from directly
 defining non-generic maps as instances of generic maps. To avoid this, non-generic maps use a separate value type (instead of just using `'b`)
-```ocaml
+{[
 type (_, 'b) snd = Snd of 'b [@@unboxed]
-```
+]}
 It should not incur any extra performance cost as it is unboxed, but can appear
 when manipulating non-generic maps.
 
-For more details about this issue, see [the OCaml discourse discussion](https://discuss.ocaml.org/t/weird-behaviors-with-first-order-polymorphism/13783).
+For more details about this issue, see {{: https://discuss.ocaml.org/t/weird-behaviors-with-first-order-polymorphism/13783}the OCaml discourse discussion}.
 
-## Comparison to other OCaml libraries
+{2 Comparison to other OCaml libraries}
 
 There are other implementations of Patricia Tree in OCaml, namely
-[ptmap](https://github.com/backtracking/ptmap) and
-[ptset](https://github.com/backtracking/ptset), both by J.C. Filliatre.
-These are smaller and closer to OCaml's built-in Map and Set, however:
-- Our library allows using any type `key` that comes with an injective `to_int`
-  function, instead of requiring `key = int`.
+{{: https://github.com/backtracking/ptmap}ptmap} and
+{{: https://github.com/backtracking/ptset}ptset}, both by J.C. Filliatre.
+These are smaller and closer to OCaml's built-in [Map] and [Set], however:
+- Our library allows using any type [key] that comes with an injective [to_int]
+  function, instead of requiring [key = int].
 - We support generic types for keys/elements.
 - We support operation between sets and maps of different types.
 - We use a big-endian representation, allowing easy access to min/max elements of
   maps and trees.
 
-Additionally, there is a dependent map library: [dmap](https://gitlab.inria.fr/bmontagu/dmap).
+Additionally, there is a dependent map library: {{: https://gitlab.inria.fr/bmontagu/dmap}dmap}.
 It allows creating type safe dependent maps similar to our heterogeneous maps.
 However, its maps aren't Patricia trees. They are binary trees build using a
 (polymorphic) comparison function, similarly to the maps of the standard library.
 
-## Contributions and bug reports
+{2 Contributions and bug reports}
 
 Any contributions are welcome!
 
-You can report any bug, issues, or desired features using the [Github issue tracker](https://github.com/codex-semantics-library/patricia-tree/issues).
+You can report any bug, issues, or desired features using the {{: https://github.com/codex-semantics-library/patricia-tree/issues}Github issue tracker}.
 Please include OCaml, dune, and library version information in you bug reports.
 
-If you want to contribute code, feel free to fork [the repository on Github](https://github.com/codex-semantics-library/patricia-tree)
+If you want to contribute code, feel free to fork {{: https://github.com/codex-semantics-library/patricia-tree}the repository on Github}
 and open a pull request. By doing so you agree to release your code under this
-project's license ([LGPL-2.1](https://choosealicense.com/licenses/lgpl-2.1/)).
+project's license ({{: https://choosealicense.com/licenses/lgpl-2.1/}LGPL-2.1}).
 
 
 There is no imposed coding style for this repository, here are just a few guidelines and conventions:
-- Module type names should use `SCREAMING_SNAKE_CASE`.
-- Module and functor names use `PascalCase`, functors names start with `Make`.
+- Module type names should use [SCREAMING_SNAKE_CASE].
+- Module and functor names use [PascalCase], functors names start with [Make].
 - Even though the library implements homogeneous maps as a specialization of
   heterogeneous ones, the naming convention is that no prefix means homogeneous,
-  and all heterogeneous objects are prefixed with `heterogeneous`.
-- Please document any new functions in the interface, using [ocamldoc style comments](https://v2.ocaml.org/manual/ocamldoc.html#s%3Aocamldoc-comments).
+  and all heterogeneous objects are prefixed with [heterogeneous].
+- Please document any new functions in the interface, using {{: https://v2.ocaml.org/manual/ocamldoc.html#s%3Aocamldoc-comments}ocamldoc style comments}.
 - Please consider adding test for new features/fixed bugs if at all possible.
-  This library uses a [QuickCheck](https://www.ocaml.org/p/quickcheck/latest/doc/QuickCheck/index.html) framework for tests.
+  This library uses a {{: https://www.ocaml.org/p/quickcheck/latest/doc/QuickCheck/index.html}QuickCheck} framework for tests.
