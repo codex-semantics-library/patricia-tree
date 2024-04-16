@@ -1,10 +1,11 @@
-{0 patricia-tree index}
-
-{1 Library patricia-tree}
+{0 Package patricia-tree}
 
 This library contains a single module: {!PatriciaTree}.
 
-{2 Installation}
+This is version [0.9.0] of the library. It is known to work with OCaml versions
+ranging from [4.14] to [5.2].
+
+{1 Installation}
 
 This library can be installed with:
 {@bash[
@@ -19,7 +20,7 @@ dune build
 dune install
 ]}
 
-{2 Features}
+{1 Features}
 
 - Similar to OCaml's [Map] and [Set], using the same function names when possible
   and the same convention for order of arguments. This should allow switching to
@@ -54,7 +55,7 @@ dune install
 - Exposes a common interface ({!type:PatriciaTree.NODE.view}) to allow users to write their own pattern
   matching on the tree structure without depending on the {!PatriciaTree.NODE} being used.
 
-{2 Quick overview}
+{1 Quick overview}
 
 This library contains a single module, {!PatriciaTree}.
 The main functor used to build our maps and sets are the following:
@@ -106,9 +107,9 @@ Here is a brief overview of the various module types of our library:
   Use the functors {!PatriciaTree.MakeCustomHeterogeneous} and {!PatriciaTree.MakeCustom} to build
   maps using these nodes, or any other custom nodes.
 
-{2 Examples}
+{1 Examples}
 
-{3 Non-generic map (homogeneous)}
+{2 Homogeneous map}
 
 Here is a small example of a non-generic map:
 
@@ -155,7 +156,7 @@ let restricted_map = CrossOperations.nonidempotent_inter
   { f = fun _key value () -> value } map set
 ]}
 
-{3 Generic map (heterogeneous)}
+{2 Heterogeneous map}
 
 {[
 (** Very small typed expression language *)
@@ -216,7 +217,7 @@ let map2 =
     (EMap.add (G_Const_Int 0) 9 map)
 ]}
 
-{2 Release status}
+{1 Release status}
 
 This should be close to a stable release. It is already being
 used as part of a larger project successfully, and this usage as helped us mature
@@ -225,7 +226,7 @@ any major change before 1.0.0. We didn't commit to a stable release straight
 away as we would like a bit more time using this library before doing so.
 
 
-{2 Known issues}
+{1 Known issues}
 
 There is a bug in the OCaml typechecker which prevents us from directly
 defining non-generic maps as instances of generic maps. To avoid this, non-generic maps use a separate value type (instead of just using `'b`)
@@ -237,7 +238,9 @@ when manipulating non-generic maps.
 
 For more details about this issue, see {{: https://discuss.ocaml.org/t/weird-behaviors-with-first-order-polymorphism/13783}the OCaml discourse discussion}.
 
-{2 Comparison to other OCaml libraries}
+{1 Comparison to other OCaml libraries}
+
+{2 ptmap and ptset}
 
 There are other implementations of Patricia Tree in OCaml, namely
 {{: https://github.com/backtracking/ptmap}ptmap} and
@@ -250,12 +253,14 @@ These are smaller and closer to OCaml's built-in [Map] and [Set], however:
 - We use a big-endian representation, allowing easy access to min/max elements of
   maps and trees.
 
+{2 dmap}
+
 Additionally, there is a dependent map library: {{: https://gitlab.inria.fr/bmontagu/dmap}dmap}.
 It allows creating type safe dependent maps similar to our heterogeneous maps.
 However, its maps aren't Patricia trees. They are binary trees build using a
 (polymorphic) comparison function, similarly to the maps of the standard library.
 
-{2 Contributions and bug reports}
+{1 Contributions and bug reports}
 
 Any contributions are welcome!
 

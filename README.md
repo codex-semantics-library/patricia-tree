@@ -16,11 +16,13 @@ It is a space-efficient prefix trie over the big-endian representation of the ke
 - [Features](#features)
 - [Quick overview](#quick-overview)
 - [Examples](#examples)
-  - [Non-generic map (homogeneous)](#non-generic-map-homogeneous)
-  - [Generic map (heterogeneous)](#generic-map-heterogeneous)
+  - [Homogeneous map](#homogeneous-map)
+  - [Heterogeneous map](#heterogeneous-map)
 - [Release status](#release-status)
 - [Known issues](#known-issues)
 - [Comparison to other OCaml libraries](#comparison-to-other-ocaml-libraries)
+  - [ptmap and ptset](#ptmap-and-ptset)
+  - [dmap](#dmap)
 - [Contributions and bug reports](#contributions-and-bug-reports)
 <!-- /TOC -->
 
@@ -127,7 +129,7 @@ Here is a brief overview of the various module types of our library:
 
 ## Examples
 
-### Non-generic map (homogeneous)
+### Homogeneous map
 
 Here is a small example of a non-generic map:
 
@@ -174,7 +176,7 @@ let restricted_map = CrossOperations.nonidempotent_inter
   { f = fun _key value () -> value } map set
 ```
 
-### Generic map (heterogeneous)
+### Heterogeneous map
 
 ```ocaml
 (** Very small typed expression language *)
@@ -257,6 +259,8 @@ For more details about this issue, see [the OCaml discourse discussion](https://
 
 ## Comparison to other OCaml libraries
 
+### ptmap and ptset
+
 There are other implementations of Patricia Tree in OCaml, namely
 [ptmap](https://github.com/backtracking/ptmap) and
 [ptset](https://github.com/backtracking/ptset), both by J.C. Filliatre.
@@ -267,6 +271,8 @@ These are smaller and closer to OCaml's built-in Map and Set, however:
 - We support operation between sets and maps of different types.
 - We use a big-endian representation, allowing easy access to min/max elements of
   maps and trees.
+
+### dmap
 
 Additionally, there is a dependent map library: [dmap](https://gitlab.inria.fr/bmontagu/dmap).
 It allows creating type safe dependent maps similar to our heterogeneous maps.
