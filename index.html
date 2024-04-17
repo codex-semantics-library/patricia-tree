@@ -6,28 +6,65 @@
   <link rel="stylesheet" href="./odoc.support/odoc.css" />
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <script src="./odoc.support/highlight.pack.js"></script>
+  <script>hljs.initHighlightingOnLoad();</script>
 </head>
 
-<body>
-  <main class="content">
-    <div class="by-name">
-      <h1>OCaml patricia-tree library</h1>
-      <p>This is an <a href="https://ocaml.org/">OCaml</a> library that implements sets and maps as Patricia Trees, as
-        described in Okasaki and Gill's 1998 paper <a
-          href="https://www.semanticscholar.org/paper/Fast-Mergeable-Integer-Maps-Okasaki-Gill/23003be706e5f586f23dd7fa5b2a410cc91b659d"><i>Fast
-            mergeable integer maps</i></a>. It is a space-efficient prefix trie over the big-endian representation of
-        the
-        key's integer identifier.</p>
-      <p>The source code of this library is available <a
-          href="https://github.com/codex-semantics-library/patricia-tree">on Github</a> under an <a
-          href="https://choosealicense.com/licenses/lgpl-2.1/">LGPL-2.1</a> license.</p>
-      <h2>Documentation versions</h2>
-      <ol>
-        <li><a href="main/index.html">patricia-tree</a> <span class="version">main</span> - development version
-        </li>
-      </ol>
-    </div>
-  </main>
+<body class="odoc">
+  <div class="odoc-content">
+    <h1>OCaml patricia-tree library</h1>
+
+    <p>
+      <a href="https://github.com/codex-semantics-library/patricia-tree/releases">
+        <img src="https://img.shields.io/badge/version-0.9.0-yellow" alt="Latest Version">
+      </a>
+      <a href="https://github.com/codex-semantics-library/patricia-tree/blob/main/dune-project">
+        <img src="https://img.shields.io/badge/OCaml-4.14_--_5.x-blue?logo=ocaml&logoColor=white" alt="OCaml Version">
+      </a>
+      <a href="https://github.com/codex-semantics-library/patricia-tree/blob/main/LICENSE">
+        <img src="https://img.shields.io/github/license/codex-semantics-library/patricia-tree" alt="GitHub License">
+      </a>
+      <a href="https://github.com/codex-semantics-library/patricia-tree/actions/workflows/ocaml.yml">
+        <img src="https://img.shields.io/github/actions/workflow/status/codex-semantics-library/patricia-tree/ocaml.yml"
+          alt="GitHub Actions Workflow Status">
+      </a>
+      <a href="https://codex.top/patricia-tree/">
+        <img
+          src="https://img.shields.io/website?url=https%3A%2F%2Fcodex.top%2Fpatricia-tree%2F&up_message=online&down_message=offline&label=documentation"
+          alt="Documentation">
+      </a>
+      </a>
+    </p>
+
+    <p>This is an <a href="https://ocaml.org/">OCaml</a> library that implements sets and maps as Patricia Trees, as
+      described in Okasaki and Gill's 1998 paper <a
+        href="https://www.semanticscholar.org/paper/Fast-Mergeable-Integer-Maps-Okasaki-Gill/23003be706e5f586f23dd7fa5b2a410cc91b659d"><i>Fast
+          mergeable integer maps</i></a>. It is a space-efficient prefix trie over the big-endian representation of
+      the
+      key's integer identifier.</p>
+    <p>The source code of this library is available <a
+        href="https://github.com/codex-semantics-library/patricia-tree">on Github</a> under an <a
+        href="https://choosealicense.com/licenses/lgpl-2.1/">LGPL-2.1</a> license.</p>
+
+    <h2 id="documentation-versions"><a href="#documentation-versions" class="anchor"></a>Documentation versions</h2>
+    <ol>
+      <li><a href="main/index.html">patricia-tree</a> – <span class="version">main branch</span> – development version
+      </li>
+    </ol>
+
+    <h2 id="installation"><a href="#installation" class="anchor"></a>Installation</h2>
+    <p>This library can be installed with <a href="https://opam.ocaml.org/">opam</a>:</p>
+    <pre class="language-bash"><code>opam install patricia-tree</code></pre>
+    <p>Alternatively, you can clone the source repository and install with <a href="https://dune.build/">dune</a>:</p>
+    <pre class="language-bash">
+<code>git clone git@github.com:codex-semantics-library/patricia-tree.git
+cd patricia-tree
+dune build
+dune install
+# To build documentation
+opam install odoc
+dune build @doc</code></pre>
+  </div>
 </body>
 
 </html>
