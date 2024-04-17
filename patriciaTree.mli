@@ -856,11 +856,14 @@ end
 (** The signature of keys when they are all of the same type.  *)
 module type KEY = sig
   type t
+  (** The type of keys *)
 
   (** A unique identifier for values of the type. Usually, we use a
       fresh counter that is increased to give a unique id to each
       object. Correctness of the operations requires that different
-      values in a tree correspond to different integers. *)
+      values in a tree correspond to different integers.
+
+      Must be injective, return only positive values, and ideally fast *)
   val to_int: t -> int
 end
 
@@ -872,8 +875,20 @@ type (_, _) cmp = Eq : ('a, 'a) cmp | Diff : ('a, 'b) cmp
 (** The signature of heterogeneous keys.  *)
 module type HETEROGENEOUS_KEY = sig
   type 'key t
+  (** The type of generic/heterogeneous keys *)
+
+
   val to_int : 'key t -> int
+  (** A unique identifier for values of the type. Usually, we use a
+      fresh counter that is increased to give a unique id to each
+      object. Correctness of the operations requires that different
+      values in a tree correspond to different integers.
+
+      Must be injective, return only positive values, and ideally fast *)
+
   val polyeq : 'a t -> 'b t -> ('a, 'b) cmp
+  (** Polymorphic equality function used to compare our keys.
+      It should satisfy [(to_int a) = (to_int b) ==> polyeq a b = Eq] *)
 end
 
 

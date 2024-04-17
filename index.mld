@@ -30,17 +30,19 @@ dune install
 
 {1 Features}
 
-- Similar to OCaml's [Map] and [Set], using the same function names when possible
+{ul
+{li Similar to OCaml's [Map] and [Set], using the same function names when possible}
   and the same convention for order of arguments. This should allow switching to
   and from Patricia Tree with minimal effort.
-- The functor parameters ({!PatriciaTree.KEY} module) requires an injective [to_int : t -> int]
-  function instead of a [compare] function. {!PatriciaTree.KEY.to_int} should be fast and injective,
-  this works well with {{: https://en.wikipedia.org/wiki/Hash_consing}hash-consed} types.
-- The Patricia Tree representation is stable, contrary to maps, inserting nodes
+{li The functor parameters ({!PatriciaTree.KEY} module) requires an injective [to_int : t -> int]
+  function instead of a [compare] function. {!PatriciaTree.KEY.to_int} should be fast,
+  injective, and only return positive integers.
+  This works well with {{: https://en.wikipedia.org/wiki/Hash_consing}hash-consed} types.}
+{li The Patricia Tree representation is stable, contrary to maps, inserting nodes
   in any order will return the same shape.
   This allows different versions of a map to share more subtrees in memory, and
   the operations over two maps to benefit from this sharing. The functions in
-  this library attempt to **maximally preserve sharing and benefit from sharing**,
+  this library attempt to {b maximally preserve sharing and benefit from sharing},
   allowing very important improvements in complexity and running time when
   combining maps or sets is a frequent operation.
 
@@ -48,23 +50,23 @@ dune install
   (e.g. [inter f m1 m2] can be optimized by not inspecting common subtrees when
   [f] is idempotent). To avoid accidental errors, they are renamed (e.g. to
   [idempotent_inter] for the efficient version and [nonidempotent_inter_no_share]
-  for the general one)
-
-- Since our Patricia Tree use big-endian order on keys, the maps and sets are
+  for the general one)}
+{li Since our Patricia Tree use big-endian order on keys, the maps and sets are
   sorted in increasing order of keys. We only support positive integer keys.
   This also avoids a bug in Okasaki's paper discussed in
   {{: https://www.cs.tufts.edu/comp/150FP/archive/jan-midtgaard/qc-patricia.pdf}{i QuickChecking Patricia Trees}}
-  by Jan Mitgaard.
-- Supports generic maps and sets: a ['m map] that maps ['k key] to [('k, 'm) value].
+  by Jan Mitgaard.}
+{li Supports generic maps and sets: a ['m map] that maps ['k key] to [('k, 'm) value].
   This is especially useful when using {{: https://v2.ocaml.org/manual/gadts-tutorial.html}GADTs}
-  for the type of keys. This is also sometimes called a dependent map.
-- Allows easy and fast operations across different types of maps and set (e.g.
-  an intersection between a map and a set), since all sets and maps, no matter their key type, are really integer sets or maps.
-- Multiple choices for internal representation ({!PatriciaTree.NODE}), which allows for efficient
+  for the type of keys. This is also sometimes called a dependent map.}
+{li Allows easy and fast operations across different types of maps and set (e.g.
+  an intersection between a map and a set), since all sets and maps, no matter their key type,
+  are really positive integer sets or maps.}
+{li Multiple choices for internal representation ({!PatriciaTree.NODE}), which allows for efficient
   storage (no need to store a value for sets), or using weak nodes only (values removed from the tree if no other pointer to it exists). This system can also
-  be extended to store size information in nodes if needed.
-- Exposes a common interface ({!type:PatriciaTree.NODE.view}) to allow users to write their own pattern
-  matching on the tree structure without depending on the {!PatriciaTree.NODE} being used.
+  be extended to store size information in nodes if needed.}
+{li Exposes a common interface ({!type:PatriciaTree.NODE.view}) to allow users to write their own pattern
+  matching on the tree structure without depending on the {!PatriciaTree.NODE} being used.}}
 
 {1 Quick overview}
 

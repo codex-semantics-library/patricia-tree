@@ -46,8 +46,9 @@ dune install
   and the same convention for order of arguments. This should allow switching to
   and from Patricia Tree with minimal effort.
 - The functor parameters (`KEY` module) requires an injective `to_int : t -> int`
-  function instead of a `compare` function. `to_int` should be fast and injective,
-  this works well with [hash-consed](https://en.wikipedia.org/wiki/Hash_consing) types.
+  function instead of a `compare` function. `to_int` should be fast, injective,
+  and only return positive integers.
+  This works well with [hash-consed](https://en.wikipedia.org/wiki/Hash_consing) types.
 - The Patricia Tree representation is stable, contrary to maps, inserting nodes
   in any order will return the same shape.
   This allows different versions of a map to share more subtrees in memory, and
@@ -69,7 +70,7 @@ dune install
 - Supports generic maps and sets: a `'m map` that maps `'k key` to `('k, 'm) value`.
   This is especially useful when using [GADTs](https://v2.ocaml.org/manual/gadts-tutorial.html) for the type of keys. This is also sometimes called a dependent map.
 - Allows easy and fast operations across different types of maps and set (e.g.
-  an intersection between a map and a set), since all sets and maps, no matter their key type, are really integer sets or maps.
+  an intersection between a map and a set), since all sets and maps, no matter their key type, are really positive integer sets or maps.
 - Multiple choices for internal representation (`NODE`), which allows for efficient
   storage (no need to store a value for sets), or using weak nodes only (values removed from the tree if no other pointer to it exists). This system can also
   be extended to store size information in nodes if needed.
