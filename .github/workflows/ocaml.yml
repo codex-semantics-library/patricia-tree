@@ -98,16 +98,16 @@ jobs:
         with:
           ref: gh-pages
       - name: Remove previous doc
-        run: rm -rf ${{ needs.build.outputs.ref }}
+        run: rm -rf ${{ needs.build-test-doc.outputs.ref }}
       - name: Retrieve new documentation
         uses: actions/download-artifact@v2
         with:
-          name: doc-${{ needs.build.outputs.ref }}
-          path: ${{ needs.build.outputs.ref }}
+          name: doc-${{ needs.build-test-doc.outputs.ref }}
+          path: ${{ needs.build-test-doc.outputs.ref }}
       - name: Deploy documentation
         run: |
           git config user.email "${{ github.actor }}@users.noreply.github.com"
           git config user.name "${{ github.actor }}"
-          git add ${{ needs.build.outputs.ref }}
+          git add ${{ needs.build-test-doc.outputs.ref }}
           git commit -m "Deploy ${GITHUB_SHA}"
           git push -f "https://${{ github.actor }}:${{ github.token }}@github.com/${{ github.repository }}.git" gh-pages
