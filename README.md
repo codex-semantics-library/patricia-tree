@@ -287,6 +287,8 @@ Additionally, there is a dependent map library: [dmap](https://gitlab.inria.fr/b
 It allows creating type safe dependent maps similar to our heterogeneous maps.
 However, its maps aren't Patricia trees. They are binary trees build using a
 (polymorphic) comparison function, similarly to the maps of the standard library.
+Another difference is that the type of values in the map is independent from the type of the keys,
+(allowing keys to be associated with different values in different maps).
 
 `dmap` also works with OCaml `>= 4.12`, whereas we require OCaml `>= 4.14`.
 
