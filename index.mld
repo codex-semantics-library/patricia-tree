@@ -15,17 +15,21 @@ under an {{: https://choosealicense.com/licenses/lgpl-2.1/}LGPL-2.1} license.
 
 {1 Installation}
 
-This library can be installed with:
+This library can be installed with {{: https://opam.ocaml.org/}opam}:
 {@bash[
 opam install patricia-tree
 ]}
 
-Alternatively, you can clone the source repository and install with dune:
+Alternatively, you can clone the source repository and install with {{: https://dune.build/}dune}:
 {@bash[
 git clone git@github.com:codex-semantics-library/patricia-tree.git
+opam install . --deps-only
 cd patricia-tree
 dune build
 dune install
+# To build documentation
+opam install odoc
+dune build @doc
 ]}
 
 {1 Features}

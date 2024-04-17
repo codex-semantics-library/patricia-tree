@@ -31,11 +31,11 @@ The documentation for this library can be found online at
 
 ## Installation
 
-This library can be installed with:
+This library can be installed with [opam](https://opam.ocaml.org/):
 ```bash
 opam install patricia-tree
 ```
-Alternatively, you can clone the source repository and install with dune:
+Alternatively, you can clone the source repository and install with [dune](https://dune.build/):
 ```bash
 git clone git@github.com:codex-semantics-library/patricia-tree.git
 cd patricia-tree
