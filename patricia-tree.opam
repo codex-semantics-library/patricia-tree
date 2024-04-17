@@ -9,7 +9,8 @@ authors: [
   "Dorian Lesbre <dorian.lesbre@cea.fr>"
 ]
 license: "LGPL-2.1"
-homepage: "https://github.com/codex-semantics-library/patricia-tree"
+homepage: "https://codex.top/patricia-tree/"
+doc: "https://codex.top/patricia-tree/"
 bug-reports:
   "https://github.com/codex-semantics-library/patricia-tree/issues"
 depends: [
@@ -33,3 +34,4 @@ build: [
     "@doc" {with-doc}
   ]
 ]
+dev-repo: "git+https://github.com/codex-semantics-library/patricia-tree.git"
