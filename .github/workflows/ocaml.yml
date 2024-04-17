@@ -7,6 +7,11 @@ on:
     branches: [main]
 
 jobs:
+  # We have two separate build jobs:
+  # - build-test-doc should run only once (one OS, one OCaml version), to avoid
+  #   needlessly building the doc artifact repeatedly
+  # - build-test can run on as many version as we want
+  # - doc is also only run once, and only on push events, not on pull requests
   build-test-doc:
     strategy:
       fail-fast: false
@@ -24,7 +29,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Use OCaml ${{ matrix.ocaml-compiler }}
         uses: ocaml/setup-ocaml@v2
@@ -49,7 +54,7 @@ jobs:
         shell: bash
         run: echo "##[set-output name=ref;]$(echo ${GITHUB_REF#refs/heads/})"
 
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v4
         with:
           name: doc-${{ steps.vars.outputs.ref }}
           path: _build/default/_doc/_html/
@@ -69,7 +74,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Use OCaml ${{ matrix.ocaml-compiler }}
         uses: ocaml/setup-ocaml@v2
@@ -94,13 +99,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout gh-pages
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           ref: gh-pages
       - name: Remove previous doc
         run: rm -rf ${{ needs.build-test-doc.outputs.ref }}
       - name: Retrieve new documentation
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4
         with:
           name: doc-${{ needs.build-test-doc.outputs.ref }}
           path: ${{ needs.build-test-doc.outputs.ref }}
