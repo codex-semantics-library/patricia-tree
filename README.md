@@ -1,6 +1,6 @@
 # Patricia Tree
 
-![Static Badge](https://img.shields.io/badge/version-0.9.0-yellow)
+[![Latest version](https://img.shields.io/badge/version-0.9.0-yellow)](https://github.com/codex-semantics-library/patricia-tree/releases)
 [![OCaml Version](https://img.shields.io/badge/OCaml-4.14_--_5.x-blue?logo=ocaml&logoColor=white)](https://github.com/codex-semantics-library/patricia-tree/blob/main/dune-project)
 [![GitHub License](https://img.shields.io/github/license/codex-semantics-library/patricia-tree)](https://github.com/codex-semantics-library/patricia-tree/blob/main/LICENSE)
 [![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/codex-semantics-library/patricia-tree/ocaml.yml)](https://github.com/codex-semantics-library/patricia-tree/actions/workflows/ocaml.yml)
@@ -39,8 +39,12 @@ Alternatively, you can clone the source repository and install with dune:
 ```bash
 git clone git@github.com:codex-semantics-library/patricia-tree.git
 cd patricia-tree
+opan install . --deps-only
 dune build
 dune install
+# To build documentation
+opam install odoc
+dune build @doc
 ```
 
 ## Features
