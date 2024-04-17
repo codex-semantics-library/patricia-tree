@@ -7,7 +7,7 @@
 
 
 This is an [OCaml](https://ocaml.org/) library that implements sets and maps as
-Patricia Trees, as described in Okasasaki and Gill's 1998 paper [*Fast mergeable integer maps*](https://www.semanticscholar.org/paper/Fast-Mergeable-Integer-Maps-Okasaki-Gill/23003be706e5f586f23dd7fa5b2a410cc91b659d).
+Patricia Trees, as described in Okasaki and Gill's 1998 paper [*Fast mergeable integer maps*](https://www.semanticscholar.org/paper/Fast-Mergeable-Integer-Maps-Okasaki-Gill/23003be706e5f586f23dd7fa5b2a410cc91b659d).
 It is a space-efficient prefix trie over the big-endian representation of the key's integer identifier.
 
 **Table of Contents:**
@@ -63,7 +63,9 @@ dune install
   for the general one)
 
 - Since our Patricia Tree use big-endian order on keys, the maps and sets are
-  sorted in increasing order of keys.
+  sorted in increasing order of keys. We only support positive integer keys.
+  This also avoids a bug in Okasaki's paper discussed in [*QuickChecking Patricia Trees*](https://www.cs.tufts.edu/comp/150FP/archive/jan-midtgaard/qc-patricia.pdf)
+  by Jan Mitgaard.
 - Supports generic maps and sets: a `'m map` that maps `'k key` to `('k, 'm) value`.
   This is especially useful when using [GADTs](https://v2.ocaml.org/manual/gadts-tutorial.html) for the type of keys. This is also sometimes called a dependent map.
 - Allows easy and fast operations across different types of maps and set (e.g.
@@ -267,12 +269,16 @@ There are other implementations of Patricia Tree in OCaml, namely
 These are smaller and closer to OCaml's built-in Map and Set, however:
 - Our library allows using any type `key` that comes with an injective `to_int`
   function, instead of requiring `key = int`.
-- We support generic types for keys/elements.
+- We support generic (heterogeneous) types for keys/elements.
 - We support operation between sets and maps of different types.
 - We use a big-endian representation, allowing easy access to min/max elements of
   maps and trees.
 - Our interface and implementation tries to maximize the sharing between different
-  versions of the tree, and to benefit from this memory sharing.
+  versions of the tree, and to benefit from this memory sharing. Theirs do not.
+- These libraries work with older version of OCaml (`>= 4.05` I believe), whereas
+  ours requires OCaml `>= 4.14` (for the new interface of `Ephemeron` used in
+  `WeakNode`).
+- Our keys are limited to positive integers.
 
 ### dmap
 
@@ -280,6 +286,8 @@ Additionally, there is a dependent map library: [dmap](https://gitlab.inria.fr/b
 It allows creating type safe dependent maps similar to our heterogeneous maps.
 However, its maps aren't Patricia trees. They are binary trees build using a
 (polymorphic) comparison function, similarly to the maps of the standard library.
+
+`dmap` also works with OCaml `>= 4.12`, whereas we require OCaml `>= 4.14`.
 
 ## Contributions and bug reports
 
