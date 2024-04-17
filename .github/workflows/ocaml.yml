@@ -20,6 +20,8 @@ jobs:
           - 5.1.x
 
     runs-on: ${{ matrix.os }}
+    outputs:
+      ref: ${{ steps.vars.outputs.ref }}
 
     steps:
       - name: Checkout code
