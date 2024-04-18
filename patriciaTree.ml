@@ -186,6 +186,10 @@ module type HETEROGENEOUS_SET = sig
   val cardinal: t -> int
   val is_singleton: t -> any_elt option
   val remove: 'a elt -> t -> t
+  val min_elt: t -> any_elt
+  val max_elt: t -> any_elt
+  val pop_minimum: t -> (any_elt * t) option
+  val pop_maximum: t -> (any_elt * t) option
   val union: t -> t -> t
   val inter: t -> t -> t
   val disjoint: t -> t -> bool
@@ -201,11 +205,6 @@ module type HETEROGENEOUS_SET = sig
 
   type 'acc polyfold = { f: 'a. 'a elt -> 'acc -> 'acc } [@@unboxed]
   val fold: 'acc polyfold -> t -> 'acc -> 'acc
-
-  val min_elt: t -> any_elt
-  val max_elt: t -> any_elt
-  val pop_minimum: t -> (any_elt * t) option
-  val pop_maximum: t -> (any_elt * t) option
 
   type polypretty = { f: 'a. Format.formatter -> 'a elt -> unit; } [@@unboxed]
   val pretty :
@@ -231,9 +230,6 @@ module type SET = sig
     with type _ key = elt
      and type (_,_) value = unit
 
-
-  (** {2 Function shared with {!Stdlib.Set.S}}                         *)
-
   type key = elt
   type t = unit BaseMap.t
 
@@ -245,30 +241,24 @@ module type SET = sig
   val cardinal: t -> int
   val is_singleton: t -> elt option
   val remove: elt -> t -> t
-  val union: t -> t -> t
-  val inter: t -> t -> t
-  val disjoint: t -> t -> bool
-  val split: elt -> t -> t * bool * t
-  val iter: (elt -> unit) -> t -> unit
-  val fold: (elt -> 'b -> 'b) -> t -> 'b -> 'b
-  val filter: (elt -> bool) -> t -> t
-  val for_all: (elt -> bool) -> t -> bool
   val min_elt: t -> elt
   val max_elt: t -> elt
-  val equal : t -> t -> bool
-  val subset : t -> t -> bool
-
-  (** {2 Extra functions}                                 *)
-  (** The following functions are not in {!Stdlib.Set.S}. *)
-
   val pop_minimum: t -> (elt * t) option
   val pop_maximum: t -> (elt * t) option
-
+  val iter: (elt -> unit) -> t -> unit
+  val filter: (elt -> bool) -> t -> t
+  val for_all: (elt -> bool) -> t -> bool
+  val fold: (elt -> 'b -> 'b) -> t -> 'b -> 'b
+  val split: elt -> t -> t * bool * t
   val pretty :
     ?pp_sep:(Format.formatter -> unit -> unit) ->
     (Format.formatter -> elt -> unit) ->
     Format.formatter -> t -> unit
-
+  val union: t -> t -> t
+  val inter: t -> t -> t
+  val disjoint: t -> t -> bool
+  val equal : t -> t -> bool
+  val subset : t -> t -> bool
   val to_seq : t -> elt Seq.t
   val to_rev_seq : t -> elt Seq.t
   val add_seq : elt Seq.t -> t -> t

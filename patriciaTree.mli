@@ -160,8 +160,11 @@ end
 module type BASE_MAP = sig
   include NODE
 
+  (** Existential wrapper for the ['a] parameter in a ['a key], [('a,'map) value] pair *)
   type 'map key_value_pair =
       KeyValue : 'a key * ('a, 'map) value -> 'map key_value_pair
+
+  (** {3 Basic functions} *)
 
   val min_binding : 'a t -> 'a key_value_pair
   (** @raises Not_found if the map is empty *)
@@ -172,7 +175,7 @@ module type BASE_MAP = sig
   val singleton : 'a key -> ('a, 'b) value -> 'b t
 
   val cardinal : 'a t -> int
-  (** The size of the map *)
+  (** The size of the map, O(n) complexity *)
 
   val is_singleton : 'a t -> 'a key_value_pair option
   (** [is_singleton m] returns [Some(KeyValue(k,v))] if and only if
@@ -185,13 +188,42 @@ module type BASE_MAP = sig
   (** Same as [find], but returns [None] for Not_found *)
 
   val mem : 'key key -> 'map t -> bool
+  (** [mem key map] returns [true] iff [key] is bound in [map], O(log(n)) complexity. *)
+
   val remove : 'key key -> 'map t -> 'map t
+  (** Returns a map with the element removed, O(log(n)) complexity.
+      Returns a physically equal map if the element is absent. *)
+
   val pop_minimum: 'map t -> ('map key_value_pair * 'map t) option
+  (** [pop_minimum m] returns [None] if [is_empty m], or [Some(key,value,m')] where
+      [(key,value) = min_binding m] and [m' = remove m key]. O(log(n)) complexity. *)
+
   val pop_maximum: 'map t -> ('map key_value_pair * 'map t) option
+  (** [pop_maximum m] returns [None] if [is_empty m], or [Some(key,value,m')] where
+      [(key,value) = max_binding m] and [m' = remove m key]. O(log(n)) complexity. *)
 
   val insert: 'a key -> (('a,'map) value option -> ('a,'map) value) -> 'map t -> 'map t
+  (** [insert key f map] modifies or insert an element of the map; [f]
+      takes [None] if the value was not previously bound, and [Some old]
+      where [old] is the previously bound value otherwise. The function
+      preserves physical equality when possible. O(log(n))
+      complexity.
+      Preserves physical equality if the new value is physically equal to the old. *)
+
   val update: 'a key -> (('a,'map) value option -> ('a,'map) value option) -> 'map t -> 'map t
+  (** [update key f map] modifies, insert, or remove an element from
+      the map; [f] takes [None] if the value was not previously bound, and
+      [Some old] where [old] is the previously bound value otherwise. The
+      function preserves physical equality when possible. It returns
+      None if the element should be removed O(log(n)) complexity.
+      Preserves physical equality if the new value is physically equal to the old. *)
+
   val add : 'key key -> ('key, 'map) value -> 'map t -> 'map t
+  (** Unconditionally adds a value in the map (independently from
+      whether the old value existed). O(log(n)) complexity.
+      Preserves physical equality if the new value is physically equal to the old. *)
+
+  (** {3 Iterators} *)
 
   val split : 'key key -> 'map t -> 'map t * ('key, 'map) value option * 'map t
   (** [split key map] splits the map into:
@@ -256,6 +288,8 @@ module type BASE_MAP = sig
       [pp_sep] is called once between each binding,
       it defaults to [Format.pp_print_cut].
       Bindings are printed in the order given by [Key.to_int] *)
+
+  (** {3 Functions on pairs of maps} *)
 
   type ('map1,'map2) polysame_domain_for_all2 =
     { f : 'a. 'a key -> ('a, 'map1) value -> ('a, 'map2) value -> bool; } [@@unboxed]
@@ -341,15 +375,27 @@ module type BASE_MAP = sig
   val disjoint : 'a t -> 'a t -> bool
   (** [disjoint m1 m2] is [true] iff [m1] and [m2] have disjoint domains *)
 
-  (** Conversion functions *)
+  (** {3 Conversion functions} *)
 
   val to_seq : 'a t -> 'a key_value_pair Seq.t
+  (** [to_seq m] iterates the whole map, in increasing order of [Key.to_int] *)
+
   val to_rev_seq : 'a t -> 'a key_value_pair Seq.t
+  (** [to_rev_seq m] iterates the whole map, in decreasing order of [Key.to_int] *)
+
   val add_seq : 'a key_value_pair Seq.t -> 'a t -> 'a t
+  (** [add_seq s m] adds all bindings of the sequence [s] to [m] in order. *)
+
   val of_seq : 'a key_value_pair Seq.t -> 'a t
+  (** [of_seq s] creates a new map from the bindings of [s].
+      If a key is bound multiple times in [s], the latest binding is kept *)
 
   val of_list : 'a key_value_pair list -> 'a t
+  (** [of_list l] creates a new map from the bindings of [l].
+      If a key is bound multiple times in [l], the latest binding is kept *)
+
   val to_list : 'a t -> 'a key_value_pair list
+  (** [to_list m] returns the bindings of [m] as a list, in increasing order of [Key.to_int] *)
 end
 
 (** {2 Heterogeneous maps and sets} *)
@@ -372,12 +418,12 @@ module type HETEROGENEOUS_MAP = sig
 
   include BASE_MAP
 
+  (** Operation with maps/set of different types *)
   module WithForeign(Map2:BASE_MAP with type 'a key = 'a key):sig
     type ('map1,'map2) polyinter_foreign = { f: 'a. 'a key -> ('a,'map1) value -> ('a,'map2) Map2.value -> ('a,'map1) value } [@@unboxed]
 
     val nonidempotent_inter : ('a,'b) polyinter_foreign -> 'a t -> 'b Map2.t -> 'a t
     (** Like {!BASE_MAP.idempotent_inter}. Tries to preserve physical equality on the first argument when possible. *)
-
 
     type ('map2,'map1) polyfilter_map_foreign =
       { f : 'a. 'a key -> ('a, 'map2) Map2.value -> ('a, 'map1) value option; } [@@unboxed]
@@ -426,131 +472,264 @@ module type HETEROGENEOUS_SET = sig
      and type (_,_) value = unit
 
   type t = unit BaseMap.t
+  (** The type of our set *)
 
   type 'a key = 'a elt
   (** Alias for elements, for compatibility with other PatriciaTrees *)
 
   type any_elt = Any : 'a elt -> any_elt
+  (** Existential wrapper for keys *)
+
+  (** {3 Basic functions} *)
 
   val empty: t
+  (** The empty set *)
+
   val is_empty: t -> bool
+  (** [is_empty st] is [true] if [st] contains no elements, [false] otherwise *)
+
   val mem: 'a elt -> t -> bool
+  (** [mem elt set] is [true] if [elt] is contained in [set], O(log(n)) complexity. *)
+
   val add: 'a elt -> t -> t
+  (** [add elt set] adds element [elt] to the [set].
+      Preserves physical equality if [elt] was already present.
+      O(log(n)) complexity. *)
+
   val singleton: 'a elt -> t
+  (** [singleton elt] returns a set containing a single element: [elt] *)
+
   val cardinal: t -> int
+  (** the size of the set (number of elements), O(n) complexity. *)
+
   val is_singleton: t -> any_elt option
+  (** [is_singleton set] is [Some (Any elt)] if [set] is [singleton elt] and [None] otherwise. *)
+
   val remove: 'a elt -> t -> t
+  (** [remove elt set] returns a set containing all elements of [set] except [elt].
+      Returns a value physically equal to [set] if [elt] is not present. *)
+
+  val min_elt: t -> any_elt
+  (** The minimal element if non empty.
+      @raises Not_found *)
+
+  val max_elt: t -> any_elt
+  (** The maximal element if non empty.
+      @raises Not_found *)
+
+  val pop_minimum: t -> (any_elt * t) option
+  (** [pop_minimum s] is [Some (elt, s')] where [elt = min_elt s] and [s' = remove elt s]
+      if [s] is non empty. *)
+
+  val pop_maximum: t -> (any_elt * t) option
+  (** [pop_maximum s] is [Some (elt, s')] where [elt = max_elt s] and [s' = remove elt s]
+      if [s] is non empty. *)
+
+  (** {3 Functions on pairs of sets} *)
+
   val union: t -> t -> t
+  (** [union a b] is the set union of [a] and [b], i.e. the set containing all
+      elements that are either in [a] or [b]. *)
+
   val inter: t -> t -> t
+  (** [inter a b] is the set intersection of [a] and [b], i.e. the set containing all
+      elements that are in both [a] or [b]. *)
+
   val disjoint: t -> t -> bool
+  (** [disjoint a b] is [true] if [a] and [b] have no elements in common. *)
 
   val equal : t -> t -> bool
+  (** [equal a b] is [true] if [a] and [b] contain the same elements. *)
+
   val subset : t -> t -> bool
+  (** [subset a b] is [true] if all elements of [a] are also in [b]. *)
+
   val split: 'a elt -> t -> t * bool * t
+  (** [split elt set] returns [s_lt, present, s_gt] where
+      [s_lt] contains all elements of [set] smaller than [elt], [s_gt]
+      all those greater than [elt], and [present] is [true] if [elt] is in [set]. *)
+
+  (** {3 Iterators} *)
 
   type polyiter = { f: 'a. 'a elt -> unit; } [@@unboxed]
   val iter: polyiter -> t -> unit
+  (** [iter f set] calls [f.f] on all elements of [set], in order of [Key.to_int]. *)
 
   type polypredicate = { f: 'a. 'a elt -> bool; } [@@unboxed]
   val filter: polypredicate -> t -> t
+  (** [filter f set] is the subset of [set] that only contains the elements that
+      satisfy [f.f]. [f.f] is called in order of [Key.to_int]. *)
+
   val for_all: polypredicate -> t -> bool
+  (** [for_all f set] is [true] if [f.f] is [true] on all elements of [set].
+      Short-circuits on first [false]. [f.f] is called in order of [Key.to_int]. *)
 
   type 'acc polyfold = { f: 'a. 'a elt -> 'acc -> 'acc } [@@unboxed]
   val fold: 'acc polyfold -> t -> 'acc -> 'acc
-
-  val min_elt: t -> any_elt
-  val max_elt: t -> any_elt
-  val pop_minimum: t -> (any_elt * t) option
-  val pop_maximum: t -> (any_elt * t) option
+  (** [fold f set acc] returns [f.f elt_n (... (f.f elt_1 acc) ...)], where
+      [elt_1, ..., elt_n] are the elements of [set], in increasing order of
+      [Key.to_int] *)
 
   type polypretty = { f: 'a. Format.formatter -> 'a elt -> unit; } [@@unboxed]
   val pretty :
     ?pp_sep:(Format.formatter -> unit -> unit) -> polypretty -> Format.formatter -> t -> unit
-  (** [pp_sep] defaults to [Format.pp_print_cut] *)
+  (** Pretty prints the set, [pp_sep] is called once between each element,
+      it defaults to [Format.pp_print_cut] *)
 
-  (** Conversion functions *)
+  (** {3 Conversion functions} *)
 
   val to_seq : t -> any_elt Seq.t
+  (** [to_seq st] iterates the whole set, in increasing order of [Key.to_int] *)
+
   val to_rev_seq : t -> any_elt Seq.t
+  (** [to_rev_seq st] iterates the whole set, in decreasing order of [Key.to_int] *)
+
   val add_seq : any_elt Seq.t -> t -> t
+  (** [add_seq s st] adds all elements of the sequence [s] to [st] in order. *)
+
   val of_seq : any_elt Seq.t -> t
+    (** [of_seq s] creates a new set from the elements of [s]. *)
 
   val of_list : any_elt list -> t
+  (** [of_list l] creates a new set from the elements of [l]. *)
+
   val to_list : t -> any_elt list
+  (** [to_list s] returns the elements of [s] as a list, in increasing order of [Key.to_int] *)
 end
 
 
 (** {2 Homogeneous maps and sets}                             *)
 (** Same as above, but simple interfaces for non-generic keys *)
 
-(** Signature for sets implemented using Patricia trees. *)
+(** Signature for sets implemented using Patricia trees.
+    Most of this interface should be shared with {{: https://ocaml.org/api/Set.S.html}[Stdlib.Set.S]}. *)
 module type SET = sig
   type elt
+  (** The type of elements of the set *)
 
   (** Underlying basemap, for cross map/set operations *)
   module BaseMap : HETEROGENEOUS_MAP
     with type _ key = elt
      and type (_,_) value = unit
 
-  (** {2 Function shared with {!Stdlib.Set.S}}                         *)
-  (** This part of the interface should be a subset of {!Stdlib.Set.S} *)
+  (** {3 Basic functions}                         *)
 
   type key = elt
+  (** Alias for the type of elements, for cross-compatibility with maps *)
+
   type t = unit BaseMap.t
+  (** The set type *)
 
   val empty: t
+  (** The empty set *)
+
   val is_empty: t -> bool
+  (** [is_empty st] is [true] if [st] contains no elements, [false] otherwise *)
+
   val mem: elt -> t -> bool
+  (** [mem elt set] is [true] if [elt] is contained in [set], O(log(n)) complexity. *)
+
   val add: elt -> t -> t
+  (** [add elt set] adds element [elt] to the [set].
+      Preserves physical equality if [elt] was already present.
+      O(log(n)) complexity. *)
+
   val singleton: elt -> t
+  (** [singleton elt] returns a set containing a single element: [elt] *)
+
   val cardinal: t -> int
+  (** the size of the set (number of elements), O(n) complexity. *)
+
   val is_singleton: t -> elt option
+  (** [is_singleton set] is [Some (Any elt)] if [set] is [singleton elt] and [None] otherwise. *)
+
   val remove: elt -> t -> t
-  val union: t -> t -> t
-  val inter: t -> t -> t
-  val disjoint: t -> t -> bool
-  val split: elt -> t -> t * bool * t
-  val iter: (elt -> unit) -> t -> unit
-  val fold: (elt -> 'b -> 'b) -> t -> 'b -> 'b
-  val filter: (elt -> bool) -> t -> t
-  val for_all: (elt -> bool) -> t -> bool
+  (** [remove elt set] returns a set containing all elements of [set] except [elt].
+      Returns a value physically equal to [set] if [elt] is not present. *)
+
   val min_elt: t -> elt
-  (** Returns the minimal element. O(log n) complexity
-      @raises Not_found if it is absent *)
+  (** The minimal element if non empty.
+      @raises Not_found *)
 
   val max_elt: t -> elt
-  (** Returns the minimal element. O(log n) complexity
-      @raises Not_found if it is absent *)
-
-  val equal : t -> t -> bool
-  val subset : t -> t -> bool
-
-  (** {2 Extra functions}                                 *)
-  (** The following functions are not in {!Stdlib.Set.S}. *)
+  (** The maximal element if non empty.
+      @raises Not_found *)
 
   val pop_minimum: t -> (elt * t) option
-  (** [pop_minimum m] returns [None] if [is_empty m], or [Some(key,m')] where
-      [key = min_elt m] and [m' = remove m key]. O(log(n)) complexity. *)
+  (** [pop_minimum s] is [Some (elt, s')] where [elt = min_elt s] and [s' = remove elt s]
+      if [s] is non empty. *)
 
   val pop_maximum: t -> (elt * t) option
-  (** [pop_maximum m] returns [None] if [is_empty m], or [Some(key,m')] where
-      [key = max_elt m] and [m' = remove m key]. O(log(n)) complexity. *)
+  (** [pop_maximum s] is [Some (elt, s')] where [elt = max_elt s] and [s' = remove elt s]
+      if [s] is non empty. *)
+
+  (** {3 Iterators} *)
+
+  val iter: (elt -> unit) -> t -> unit
+  (** [iter f set] calls [f] on all elements of [set], in order of [Key.to_int]. *)
+
+  val filter: (elt -> bool) -> t -> t
+  (** [filter f set] is the subset of [set] that only contains the elements that
+      satisfy [f]. [f] is called in order of [Key.to_int]. *)
+
+  val for_all: (elt -> bool) -> t -> bool
+  (** [for_all f set] is [true] if [f] is [true] on all elements of [set].
+      Short-circuits on first [false]. [f] is called in order of [Key.to_int]. *)
+
+  val fold: (elt -> 'acc -> 'acc) -> t -> 'acc -> 'acc
+  (** [fold f set acc] returns [f elt_n (... (f elt_1 acc) ...)], where
+      [elt_1, ..., elt_n] are the elements of [set], in increasing order of
+      [Key.to_int] *)
+
+  val split: elt -> t -> t * bool * t
+  (** [split elt set] returns [s_lt, present, s_gt] where
+      [s_lt] contains all elements of [set] smaller than [elt], [s_gt]
+      all those greater than [elt], and [present] is [true] if [elt] is in [set]. *)
 
   val pretty :
     ?pp_sep:(Format.formatter -> unit -> unit) ->
-    (Format.formatter -> elt -> unit) ->
-    Format.formatter -> t -> unit
-  (** [pp_sep] defaults to [Format.pp_print_cut] *)
+    (Format.formatter -> elt -> unit) -> Format.formatter -> t -> unit
+  (** Pretty prints the set, [pp_sep] is called once between each element,
+      it defaults to [Format.pp_print_cut] *)
 
-  (** Conversion functions *)
+  (** {3 Functions on pairs of sets} *)
+
+  val union: t -> t -> t
+  (** [union a b] is the set union of [a] and [b], i.e. the set containing all
+      elements that are either in [a] or [b]. *)
+
+  val inter: t -> t -> t
+  (** [inter a b] is the set intersection of [a] and [b], i.e. the set containing all
+      elements that are in both [a] or [b]. *)
+
+  val disjoint: t -> t -> bool
+  (** [disjoint a b] is [true] if [a] and [b] have no elements in common. *)
+
+  val equal : t -> t -> bool
+  (** [equal a b] is [true] if [a] and [b] contain the same elements. *)
+
+  val subset : t -> t -> bool
+  (** [subset a b] is [true] if all elements of [a] are also in [b]. *)
+
+  (** {3 Conversion functions} *)
 
   val to_seq : t -> elt Seq.t
+  (** [to_seq st] iterates the whole set, in increasing order of [Key.to_int] *)
+
   val to_rev_seq : t -> elt Seq.t
+  (** [to_rev_seq st] iterates the whole set, in decreasing order of [Key.to_int] *)
+
   val add_seq : elt Seq.t -> t -> t
+  (** [add_seq s st] adds all elements of the sequence [s] to [st] in order. *)
+
   val of_seq : elt Seq.t -> t
+    (** [of_seq s] creates a new set from the elements of [s]. *)
 
   val of_list : elt list -> t
+  (** [of_list l] creates a new set from the elements of [l]. *)
+
   val to_list : t -> elt list
+  (** [to_list s] returns the elements of [s] as a list, in increasing order of [Key.to_int] *)
 end
 
 (** The typechecker struggles with forall quantification on values if they
@@ -561,7 +740,8 @@ end
     {{: https://discuss.ocaml.org/t/weird-behaviors-with-first-order-polymorphism/13783} the OCaml discourse post}. *)
 type (_, 'b) snd = Snd of 'b [@@unboxed]
 
-(** The signature for maps with a single type for keys and values. *)
+(** The signature for maps with a single type for keys and values.
+    Most of this interface should be shared with {{: https://ocaml.org/api/Map.S.html}[Stdlib.Set.S]}. *)
 module type MAP = sig
   type key
   (** The type of keys. *)
@@ -574,6 +754,8 @@ module type MAP = sig
    with type 'a t = 'a t
     and type _ key = key
     and type ('a,'b) value = ('a,'b) snd
+
+  (** {3 Basice functions} *)
 
   val empty : 'a t
   (** The empty map. *)
@@ -609,7 +791,8 @@ module type MAP = sig
   (** [mem key map] returns [true] iff [key] is bound in [map], O(log(n)) complexity. *)
 
   val remove : key -> 'a t -> 'a t
-  (** Returns a map with the element removed, O(log(n)) complexity. *)
+  (** Returns a map with the element removed, O(log(n)) complexity.
+      Returns a physically equal map if the element is absent. *)
 
   val pop_minimum : 'a t -> (key * 'a * 'a t) option
   (** [pop_minimum m] returns [None] if [is_empty m], or [Some(key,value,m')] where
@@ -620,22 +803,27 @@ module type MAP = sig
       [(key,value) = max_binding m] and [m' = remove m key]. O(log(n)) complexity. *)
 
   val insert : key -> ('a option -> 'a) -> 'a t -> 'a t
-  (** [insert key f map] Modifies or insert an element of the map; f
-      takes None if the value was not previously bound, and Some old
-      where old is the previously bound value otherwise. The function
+  (** [insert key f map] modifies or insert an element of the map; [f]
+      takes [None] if the value was not previously bound, and [Some old]
+      where [old] is the previously bound value otherwise. The function
       preserves physical equality when possible. O(log(n))
-      complexity. *)
+      complexity.
+      Preserves physical equality if the new value is physically equal to the old. *)
 
   val update : key -> ('a option -> 'a option) -> 'a t -> 'a t
-  (** [update key f map] Modifies, insert, or remove an element from
-      the map; f takes None if the value was not previously bound, and
-      Some old where old is the previously bound value otherwise. The
-      function preserves physical equality when possible.It returns
-      None if the element should be removed O(log(n)) complexity. *)
+  (** [update key f map] modifies, insert, or remove an element from
+      the map; [f] takes [None] if the value was not previously bound, and
+      [Some old] where [old] is the previously bound value otherwise. The
+      function preserves physical equality when possible. It returns
+      None if the element should be removed O(log(n)) complexity.
+      Preserves physical equality if the new value is physically equal to the old. *)
 
   val add : key -> 'a -> 'a t -> 'a t
   (** Unconditionally adds a value in the map (independently from
-      whether the old value existed). O(log(n)) complexity. *)
+      whether the old value existed). O(log(n)) complexity.
+      Preserves physical equality if the new value is physically equal to the old. *)
+
+  (** {3 Iterators} *)
 
   val split : key -> 'a t -> 'a t * 'a option * 'a t
   (** [split key map] splits the map into:
@@ -706,22 +894,24 @@ module type MAP = sig
       complexity.
       [f] is called in increasing order of keys. *)
 
+
+  (** {3 Operations on pairs of maps} *)
   (** The following functions combine two maps. It is key for the
-        performance, when we have large maps who share common subtrees,
-        not to visit the nodes in these subtrees. Hence, we have
-        specialized versions of these functions that assume properties
-        of the function parameter (reflexive relation, idempotent
-        operation, etc.)
+      performance, when we have large maps who share common subtrees,
+      not to visit the nodes in these subtrees. Hence, we have
+      specialized versions of these functions that assume properties
+      of the function parameter (reflexive relation, idempotent
+      operation, etc.)
 
-        When we cannot enjoy these properties, our functions explicitly
-        say so (with a nonreflexive or nonidempotent prefix). The names
-        are a bit long, but having these names avoids using an
-        ineffective code by default, by forcing to know and choose
-        between the fast and slow version.
+      When we cannot enjoy these properties, our functions explicitly
+      say so (with a nonreflexive or nonidempotent prefix). The names
+      are a bit long, but having these names avoids using an
+      ineffective code by default, by forcing to know and choose
+      between the fast and slow version.
 
-        It is also important to not visit a subtree when there merging
-        this subtree with Empty; hence we provide union and inter
-        operations. *)
+      It is also important to not visit a subtree when there merging
+      this subtree with Empty; hence we provide union and inter
+      operations. *)
 
   val reflexive_same_domain_for_all2 : (key -> 'a -> 'a -> bool) -> 'a t -> 'a t ->  bool
   (** [reflexive_same_domain_for_all2 f map1 map2] returns true if
@@ -837,17 +1027,30 @@ module type MAP = sig
     ?pp_sep:(Format.formatter -> unit -> unit) ->
     (Format.formatter -> key -> 'a -> unit) ->
     Format.formatter -> 'a t -> unit
-  (** [pp_sep] defaults to [Format.pp_print_cut] *)
+  (** Pretty prints all bindings of the map.
+      [pp_sep] is called once between each binding pair and defaults to [Format.pp_print_cut]. *)
 
-  (** Conversion functions *)
+  (** {3 Conversion functions} *)
 
   val to_seq : 'a t -> (key * 'a) Seq.t
+  (** [to_seq m] iterates the whole map, in increasing order of [Key.to_int] *)
+
   val to_rev_seq : 'a t -> (key * 'a) Seq.t
+  (** [to_rev_seq m] iterates the whole map, in decreasing order of [Key.to_int] *)
+
   val add_seq : (key * 'a) Seq.t -> 'a t -> 'a t
+  (** [add_seq s m] adds all bindings of the sequence [s] to [m] in order. *)
+
   val of_seq : (key * 'a) Seq.t -> 'a t
+  (** [of_seq s] creates a new map from the bindings of [s].
+      If a key is bound multiple times in [s], the latest binding is kept *)
 
   val of_list : (key * 'a) list -> 'a t
+  (** [of_list l] creates a new map from the bindings of [l].
+      If a key is bound multiple times in [l], the latest binding is kept *)
+
   val to_list : 'a t -> (key * 'a) list
+  (** [to_list m] returns the bindings of [m] as a list, in increasing order of [Key.to_int] *)
 end
 
 
