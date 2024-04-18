@@ -8,20 +8,21 @@ authors: [
   "Matthieu Lemerre <matthieu.lemerre@cea.fr>"
   "Dorian Lesbre <dorian.lesbre@cea.fr>"
 ]
-license: "LGPL-2.1"
+license: "LGPL-2.1-only"
 homepage: "https://codex.top/patricia-tree/"
 doc: "https://codex.top/patricia-tree/"
 bug-reports:
   "https://github.com/codex-semantics-library/patricia-tree/issues"
 depends: [
   "ocaml" {>= "4.14"}
-  "qcheck-core" {>= "0.21.2"}
   "zarith" {>= "1.13"}
-  "dune" {>= "2.0"}
-  "ppx_inline_test" {>= "v0.16.0"}
+  "dune" {>= "2.7" & >= "2.0"}
+  "qcheck-core" {>= "0.21.2" & with-test}
+  "ppx_inline_test" {>= "v0.16.0" & with-test}
+  "odoc" {with-doc}
 ]
 build: [
-  ["dune" "subst"] {pinned}
+  ["dune" "subst"] {dev}
   [
     "dune"
     "build"

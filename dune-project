@@ -1,4 +1,4 @@
-(lang dune 2.0)
+(lang dune 2.7)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;  This file is part of the Codex semantics library                      ;;
@@ -31,7 +31,7 @@
  "Matthieu Lemerre <matthieu.lemerre@cea.fr>"
  "Dorian Lesbre <dorian.lesbre@cea.fr>")
 
-(license "LGPL-2.1")
+(license "LGPL-2.1-only")
 
 (bug_reports
  "https://github.com/codex-semantics-library/patricia-tree/issues")
@@ -52,11 +52,15 @@
  (depends
   (ocaml
    (>= 4.14))
-  (qcheck-core
-   (>= "0.21.2"))
   (zarith
    (>= "1.13"))
   (dune
    (>= "2.0"))
+  (qcheck-core
+   (and
+    (>= "0.21.2")
+    :with-test))
   (ppx_inline_test
-   (>= "v0.16.0"))))
+   (and
+    (>= "v0.16.0")
+    :with-test))))
