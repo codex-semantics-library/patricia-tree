@@ -74,45 +74,56 @@ dune build @doc
 
 {1 Quick overview}
 
+{2 Functors}
+
 This library contains a single module, {!PatriciaTree}.
-The main functor used to build our maps and sets are the following:
-{[
-(** Homogeneous maps and sets *)
+The functors used to build maps and sets are the following:
+{ul
+{li For homogeneous (non-generic) maps and sets: {!PatriciaTree.MakeMap} and
+    {!PatriciaTree.MakeSet}. These are similar to the standard library's maps and sets.
+    {[
+      module MakeMap(Key: KEY) : MAP with type key = Key.t
+      module MakeSet(Key: KEY) : SET with type elt = Key.t
+    ]}}
+{li For Heterogeneous (generic) maps and sets: {!PatriciaTree.MakeHeterogeneousMap}
+    and {!PatriciaTree.MakeHeterogeneousSet}.
+    {[
+      module MakeHeterogeneousMap(Key: HETEROGENEOUS_KEY)(Value: VALUE) : HETEROGENEOUS_MAP
+        with type 'a key = 'a Key.t
+         and type ('k,'m) value = ('k,'m) Value.t
+      module MakeHeterogeneousSet(Key: HETEROGENEOUS_KEY) : HETEROGENEOUS_SET
+        with type 'a elt = 'a Key.t
+    ]}}
+}
 
-module MakeMap(Key: KEY) : MAP with type key = Key.t
-module MakeSet(Key: KEY) : SET with type elt = Key.t
 
-(** Heterogeneous maps and sets *)
-
-module MakeHeterogeneousSet(Key: HETEROGENEOUS_KEY) : HETEROGENEOUS_SET
-  with type 'a elt = 'a Key.t
-module MakeHeterogeneousMap(Key: HETEROGENEOUS_KEY)(Value: VALUE) : HETEROGENEOUS_MAP
-  with type 'a key = 'a Key.t
-   and type ('k,'m) value = ('k,'m) Value.t
-]}
+{2 Interfaces}
 
 Here is a brief overview of the various module types of our library:
-- {!PatriciaTree.BASE_MAP}: the underlying module type of all our trees (maps end sets). It
+{ul
+{li {!PatriciaTree.BASE_MAP}: the underlying module type of all our trees (maps end sets). It
   represents a ['b map] binding ['a key] to [('a,'b) value], as well as all
   functions needed to manipulate them.
 
   It can be accessed from any of the more specific maps types, thus providing a
   unified representation, useful for cross map operations. However, for practical
   purposes, it is often best to use the more specific interfaces:
-  - {!PatriciaTree.HETEROGENEOUS_MAP} for heterogeneous maps (this is just [BASE_MAP] with a
-    [WithForeign] functor).
-  - {!PatriciaTree.MAP} for homogeneous maps, this interface is close to {{: https://ocaml.org/api/Map.S.html}[Stdlib.Map.S]}.
-  - {!PatriciaTree.HETEROGENEOUS_SET} for heterogeneous sets (sets of ['a elt]). These are just
+  {ul
+  {li {!PatriciaTree.HETEROGENEOUS_MAP} for heterogeneous maps (this is just [BASE_MAP] with a
+    [WithForeign] functor).}
+  {li {!PatriciaTree.MAP} for homogeneous maps, this interface is close to {{: https://ocaml.org/api/Map.S.html}[Stdlib.Map.S]}.}
+  {li {!PatriciaTree.HETEROGENEOUS_SET} for heterogeneous sets (sets of ['a elt]). These are just
     maps to [unit], but with a custom node representation to avoid storing [unit] in
-    nodes.
-  - {!PatriciaTree.SET} for homogeneous sets, this interface is close to {{: https://ocaml.org/api/Set.S.html}[Stdlib.Set.S]}.
-- The parameter of our functor are either {!PatriciaTree.KEY} or {!PatriciaTree.HETEROGENEOUS_KEY}.
+    nodes.}
+  {li {!PatriciaTree.SET} for homogeneous sets, this interface is close to {{: https://ocaml.org/api/Set.S.html}[Stdlib.Set.S]}.}
+  }}
+{li The parameter of our functor are either {!PatriciaTree.KEY} or {!PatriciaTree.HETEROGENEOUS_KEY}.
   These just consist of a type, a (polymorphic) equality function, and an
   injective [to_int] coercion.
 
   The heterogeneous map functor also has a {!PatriciaTree.VALUE} parameter to specify the
-  [('a, 'b) value] type
-- The internal representations of our tree can be customized to use different
+  [('a, 'b) value] type.}
+{li The internal representations of our tree can be customized to use different
   internal {!PatriciaTree.NODE}. Each node come with its own private constructors and destructors,
   as well as a cast to a uniform {!type:PatriciaTree.NODE.view} type used for pattern matching.
 
@@ -122,7 +133,8 @@ Here is a brief overview of the various module types of our library:
   doesn't store the [unit] value) and {!PatriciaTree.WeakSetNode}.
 
   Use the functors {!PatriciaTree.MakeCustomHeterogeneous} and {!PatriciaTree.MakeCustom} to build
-  maps using these nodes, or any other custom nodes.
+  maps using these nodes, or any other custom nodes.}
+}
 
 {1 Examples}
 

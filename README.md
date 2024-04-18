@@ -18,6 +18,8 @@ The documentation for this library can be found online at
 - [Installation](#installation)
 - [Features](#features)
 - [Quick overview](#quick-overview)
+  - [Functors](#functors)
+  - [Interfaces](#interfaces)
 - [Examples](#examples)
   - [Homogeneous map](#homogeneous-map)
   - [Heterogeneous map](#heterogeneous-map)
@@ -86,10 +88,10 @@ dune build @doc
 
 ## Quick overview
 
-<!-- TODO: links to documentation -->
+### Functors
 
 This library contains a single module, `PatriciaTree`.
-The main functor used to build our maps and sets are the following:
+The main functors used to build our maps and sets are the following:
 ```ocaml
 (** {2 Homogeneous maps and sets} *)
 
@@ -104,6 +106,8 @@ module MakeHeterogeneousMap(Key: HETEROGENEOUS_KEY)(Value: VALUE) : HETEROGENEOU
   with type 'a key = 'a Key.t
    and type ('k,'m) value = ('k,'m) Value.t
 ```
+
+### Interfaces
 
 Here is a brief overview of the various module types of our library:
 - `BASE_MAP`: the underlying module type of all our trees (maps end sets). It
