@@ -59,7 +59,7 @@ jobs:
 
       - id: vars
         shell: bash
-        run: echo "##[set-output name=ref;]$(echo ${GITHUB_REF#refs/heads/})"
+        run: echo "ref=$(echo ${GITHUB_REF#refs/*/})" >> ${GITHUB_OUTPUT}
 
       - uses: actions/upload-artifact@v4
         with:
