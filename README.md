@@ -282,7 +282,7 @@ These are smaller and closer to OCaml's built-in Map and Set, however:
 - Our library allows using any type `key` that comes with an injective `to_int`
   function, instead of requiring `key = int`.
 - We support generic (heterogeneous) types for keys/elements.
-- We support operation between sets and maps of different types.
+- We support operations between sets and maps of different types.
 - We use a big-endian representation, allowing easy access to min/max elements of
   maps and trees.
 - Our interface and implementation tries to maximize the sharing between different
@@ -298,8 +298,11 @@ Additionally, there is a dependent map library: [dmap](https://gitlab.inria.fr/b
 It allows creating type safe dependent maps similar to our heterogeneous maps.
 However, its maps aren't Patricia trees. They are binary trees build using a
 (polymorphic) comparison function, similarly to the maps of the standard library.
-Another difference is that the type of values in the map is independent from the type of the keys,
-(allowing keys to be associated with different values in different maps).
+
+Another difference is that the type of values in the map is independent of the type of the keys,
+allowing keys to be associated with different values in different maps. i.e.
+we map `'a key` to any `('a, 'b) value` type, whereas dmap only maps `'a key`
+to `'a`.
 
 `dmap` also works with OCaml `>= 4.12`, whereas we require OCaml `>= 4.14`.
 

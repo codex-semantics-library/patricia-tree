@@ -22,7 +22,7 @@ Step-by-step guide to creating and publishing a new release.
    ```bash
    git push origin vX.Y.Z
    ```
-   Check that github-action succeeds (build, tests and documentation).
+   Check that [github-action](https://github.com/codex-semantics-library/patricia-tree/actions) succeeds (build, tests and documentation).
    It should create a new folder `vX.Y.Z` on the `gh-pages` branch.
 
 5. On the `gh-pages` branch, edit `index.html` to add a link to the new version
