@@ -741,7 +741,7 @@ end
 type (_, 'b) snd = Snd of 'b [@@unboxed]
 
 (** The signature for maps with a single type for keys and values.
-    Most of this interface should be shared with {{: https://ocaml.org/api/Map.S.html}[Stdlib.Set.S]}. *)
+    Most of this interface should be shared with {{: https://ocaml.org/api/Map.S.html}[Stdlib.Map.S]}. *)
 module type MAP = sig
   type key
   (** The type of keys. *)
