@@ -19,7 +19,8 @@ depends: [
   "dune" {>= "2.7"}
   "qcheck-core" {>= "0.21.2" & with-test}
   "ppx_inline_test" {>= "v0.16.0" & with-test}
-  "odoc" {with-doc}
+  "odoc" {>= "2.4.0" & with-doc}
+  "sherlodoc" {with-doc}
 ]
 build: [
   ["dune" "subst"] {dev}

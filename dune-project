@@ -62,4 +62,9 @@
   (ppx_inline_test
    (and
     (>= "v0.16.0")
-    :with-test))))
+    :with-test))
+  (odoc
+   (and
+    (>= "2.4.0")
+    :with-doc))
+  (sherlodoc :with-doc)))
