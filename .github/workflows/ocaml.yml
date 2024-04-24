@@ -54,7 +54,7 @@ jobs:
 
       - name: Build documentation
         run: |
-          opam install odoc
+          opam install . --deps-only --with-doc
           opam exec -- dune build @doc
 
       - id: vars
