@@ -507,6 +507,7 @@ module NodeWithId(Key:sig type 'a t end)(Value:VALUE):NODE_WITH_ID
   let is_empty x = x == NEmpty
   let leaf key value = incr count; NLeaf {key;value;id=(!count)}
   let branch ~prefix ~branching_bit ~tree0 ~tree1 =
+    incr count;
     match tree0,tree1 with
     | NEmpty, x -> x
     | x, NEmpty -> x
