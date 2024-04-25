@@ -13,6 +13,10 @@ It is a space-efficient prefix trie over the big-endian representation of the ke
 The documentation for this library can be found online at
 [codex.top/patricia-tree/](https://codex.top/patricia-tree/).
 
+This library was written by [Matthieu Lemerre](https://www.researchgate.net/profile/Matthieu-Lemerre),
+with some contributions by [Dorian Lesbre](https://www.normalesup.org/~dlesbre/),
+as part of the [Codex semantics library](https://codex.top/), developed at [CEA List](https://list.cea.fr/en/).
+
 **Table of Contents:**
 <!-- TOC -->
 - [Installation](#installation)

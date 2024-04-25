@@ -13,6 +13,11 @@ It is a space-efficient prefix trie over the big-endian representation of the ke
 The source code of this library is available {{: https://github.com/codex-semantics-library/patricia-tree}on Github}
 under an {{: https://choosealicense.com/licenses/lgpl-2.1/}LGPL-2.1} license.
 
+This library was written by {{: https://www.researchgate.net/profile/Matthieu-Lemerre}Matthieu Lemerre},
+with some contributions by {{: https://www.normalesup.org/~dlesbre/}Dorian Lesbre},
+as part of the {{: Codex semantics library}https://codex.top/}, developed at
+{{: https://list.cea.fr/en/} CEA List}.
+
 {1 Installation}
 
 This library can be installed with {{: https://opam.ocaml.org/}opam}:
