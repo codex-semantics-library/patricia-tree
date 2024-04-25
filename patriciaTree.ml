@@ -53,6 +53,12 @@ module type NODE_WITH_ID = sig
   val get_id: 'a t -> int
 end
 
+module type HASH_CONSED_NODE = sig
+  include NODE_WITH_ID
+  val fast_equal : 'a t -> 'a t -> bool
+  val fast_compare : 'a t -> 'a t -> int
+end
+
 module type BASE_MAP = sig
   include NODE
 
@@ -501,7 +507,7 @@ module NodeWithId(Key:sig type 'a t end)(Value:VALUE):NODE_WITH_ID
     | NBranch{id;_} -> id
     | NLeaf{id;_} -> id
 
-  let count = ref 0;;
+  let count = ref 0
 
   let empty = NEmpty
   let is_empty x = x == NEmpty
@@ -586,6 +592,163 @@ module WeakSetNode(Key:sig type 'a t end)(* :NODE *) = struct
     | TEmpty -> Empty
     | TBranch{prefix;branching_bit;tree0;tree1} -> Branch{prefix;branching_bit;tree0;tree1}
 
+end
+
+let sdbm x y = y + (x lsl 16) + (x lsl 6) - x
+(** Combine two numbers into a new hash *)
+
+module HashconsedNode(Key:HETEROGENEOUS_KEY)(Value:VALUE): HASH_CONSED_NODE
+  with type 'key key = 'key Key.t
+   and type ('key,'map) value = ('key,'map) Value.t
+= struct
+
+  type 'a key = 'a Key.t
+  type ('key,'map) value = ('key,'map) Value.t
+
+  type 'map view =
+    | Empty: 'map view
+    | Branch: { prefix:intkey; branching_bit:mask; tree0:'map t; tree1:'map t } -> 'map view
+    | Leaf: { key:'key key; value:('key,'map) value } -> 'map view
+  and 'map t =
+    | NEmpty: 'map t
+    | NBranch: { prefix:intkey; branching_bit:mask; tree0:'map t; tree1:'map t; id:int } -> 'map t
+    | NLeaf: { key:'key key; value:('key,'map) value; id:int } -> 'map t
+
+  let view = function
+    | NEmpty -> Empty
+    | NBranch{prefix;branching_bit;tree0;tree1;_} -> Branch{prefix;branching_bit;tree0;tree1}
+    | NLeaf{key;value;_} -> Leaf{key;value}
+
+  let get_id = function
+    | NEmpty -> 0
+    | NBranch{ id; _ } -> id
+    | NLeaf{ id; _ } -> id
+
+  let count = ref 1 (** Start at 1 as we increment in post *)
+
+  module HashArg = struct
+    type 'a map = 'a t
+    type t = Exi : 'a map -> t [@@unboxed]
+    let equal (Exi a) (Exi b) = match a, b with
+      | NEmpty, NEmpty -> true
+      | NLeaf{key=key1;value=value1;_}, NLeaf{key=key2;value=value2;_} ->
+        begin match Key.polyeq key1 key2 with
+        | Eq -> value1 == Obj.magic value2
+        | Diff -> false
+        end
+      | NBranch{prefix=prefixa;branching_bit=branching_bita;tree0=tree0a;tree1=tree1a;_},
+        NBranch{prefix=prefixb;branching_bit=branching_bitb;tree0=tree0b;tree1=tree1b;_} ->
+        prefixa == prefixb && branching_bita == branching_bitb &&
+        get_id tree0a = get_id tree0b && get_id tree1a = get_id tree1b
+      | _ -> false
+
+    let hash (Exi a) = match a with
+      | NEmpty -> 0
+      | NLeaf{key; _} -> (Key.to_int key lsl 1) lor 1 (* All leaf hashes are odd *)
+      | NBranch{prefix; branching_bit; tree0; tree1; _} -> (* All branch hashes are even *)
+        (sdbm (prefix lor branching_bit) @@ sdbm (get_id tree0) (get_id tree1)) lsl 1
+  end
+
+  module WeakHash = Weak.Make(HashArg)
+
+  let weakh = WeakHash.create 120
+
+  let empty = NEmpty
+  let is_empty x = x == NEmpty
+
+  let try_find tentative =
+    let Exi x = WeakHash.merge weakh (Exi tentative) in
+    let x = Obj.magic x in
+    if x == tentative then incr count;
+    x
+
+  let leaf key value = try_find (NLeaf{key;value;id= !count})
+
+  let branch ~prefix ~branching_bit ~tree0 ~tree1 =
+    match tree0,tree1 with
+    | NEmpty, x -> x
+    | x, NEmpty -> x
+    | _ -> try_find (NBranch{prefix;branching_bit;tree0;tree1;id=(!count)})
+
+  let fast_equal x y = Int.equal (get_id x) (get_id y)
+  let fast_compare x y = Int.compare (get_id x) (get_id y)
+end
+
+module HashconsedSetNode(Key:HETEROGENEOUS_KEY): HASH_CONSED_NODE
+  with type 'key key = 'key Key.t
+   and type ('key,'map) value = unit
+= struct
+
+  type 'a key = 'a Key.t
+  type ('key,'map) value = unit
+
+  type 'map view =
+    | Empty: 'map view
+    | Branch: { prefix:intkey; branching_bit:mask; tree0:'map t; tree1:'map t } -> 'map view
+    | Leaf: { key:'key key; value:unit } -> 'map view
+  and 'map t =
+    | NEmpty: 'map t
+    | NBranch: { prefix:intkey; branching_bit:mask; tree0:'map t; tree1:'map t; id:int } -> 'map t
+    | NLeaf: { key:'key key; id:int } -> 'map t
+
+  let view = function
+    | NEmpty -> Empty
+    | NBranch{prefix;branching_bit;tree0;tree1;_} -> Branch{prefix;branching_bit;tree0;tree1}
+    | NLeaf{ key; _ } -> Leaf{ key; value=() }
+
+  let get_id = function
+    | NEmpty -> 0
+    | NBranch{ id; _ } -> id
+    | NLeaf{ id; _ } -> id
+
+  let count = ref 1 (** Start at 1 as we increment in post *)
+
+  module HashArg = struct
+    type 'a map = 'a t
+    type t = Exi : 'a map -> t [@@unboxed]
+    let equal (Exi a) (Exi b) = match a, b with
+      | NEmpty, NEmpty -> true
+      | NLeaf{key=key1;_}, NLeaf{key=key2;_} ->
+        begin match Key.polyeq key1 key2 with
+        | Eq -> true
+        | Diff -> false
+        end
+      | NBranch{prefix=prefixa;branching_bit=branching_bita;tree0=tree0a;tree1=tree1a;_},
+        NBranch{prefix=prefixb;branching_bit=branching_bitb;tree0=tree0b;tree1=tree1b;_} ->
+        prefixa == prefixb && branching_bita == branching_bitb &&
+        get_id tree0a = get_id tree0b && get_id tree1a = get_id tree1b
+      | _ -> false
+
+    let hash (Exi a) = match a with
+      | NEmpty -> 0
+      | NLeaf{key; _} -> ((Key.to_int key) lsl 1) lor 1 (* All leaf hashes are odd *)
+      | NBranch{prefix; branching_bit; tree0; tree1; _} -> (* All branch hashes are even *)
+        (sdbm (prefix lor branching_bit) @@ sdbm (get_id tree0) (get_id tree1)) lsl 1
+  end
+
+  module WeakHash = Weak.Make(HashArg)
+
+  let weakh = WeakHash.create 120
+
+  let empty = NEmpty
+  let is_empty x = x == NEmpty
+
+  let try_find tentative =
+    let Exi x = WeakHash.merge weakh (Exi tentative) in
+    let x = Obj.magic x in
+    if x == tentative then incr count;
+    x
+
+  let leaf key () = try_find (NLeaf{ key; id = !count })
+
+  let branch ~prefix ~branching_bit ~tree0 ~tree1 =
+    match tree0,tree1 with
+    | NEmpty, x -> x
+    | x, NEmpty -> x
+    | _ -> try_find (NBranch{prefix;branching_bit;tree0;tree1;id=(!count)})
+
+  let fast_equal x y = Int.equal (get_id x) (get_id y)
+  let fast_compare x y = Int.compare (get_id x) (get_id y)
 end
 
 module MakeCustomHeterogeneous
@@ -1375,6 +1538,8 @@ module MakeCustomHeterogeneous
 end
 
 
+
+
 (* TODO: We should make it a functor, so that we can simplify the
    interface for set independently from how it is constructed. *)
 module MakeHeterogeneousSet(Key:HETEROGENEOUS_KEY) : HETEROGENEOUS_SET
@@ -1448,8 +1613,6 @@ end
 
 module MakeHeterogeneousMap(Key:HETEROGENEOUS_KEY)(Value:VALUE) =
   MakeCustomHeterogeneous(Key)(Value)(SimpleNode(Key)(Value))
-
-
 
 module HomogeneousValue = struct
   type ('a,'map) t = 'map

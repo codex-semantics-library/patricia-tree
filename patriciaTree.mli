@@ -136,10 +136,26 @@ module type NODE = sig
   (** Convert the map to a view. Should be constant time. *)
 end
 
-(** Associate a unique number to each node. *)
+(** Associate a unique number to each node, so they can be used as keys in sets or maps. *)
 module type NODE_WITH_ID = sig
   include NODE
   val get_id: 'a t -> int
+  (** Unique number for each node *)
+end
+
+(** Hash-consed nodes also associates a unique number to each node,
+    Unlike {!NODE_WITH_ID}, they also check before instanciating the node wether
+    a similar node already exists. This results in slightly slower constructors
+    (they perform an extra hash-table lookup), but allows for constant time
+    equality and comparison. *)
+module type HASH_CONSED_NODE = sig
+  include NODE_WITH_ID
+
+  val fast_equal : 'a t -> 'a t -> bool
+  (** Constant time equality. *)
+
+  val fast_compare : 'a t -> 'a t -> int
+  (** Constant time comparison using the node ids. *)
 end
 
 (** {1 Map signatures} *)
@@ -1180,6 +1196,22 @@ module WeakNode(Key : sig type 'k t end)(Value : VALUE):NODE
 
 (** Both a {!WeakNode} and a {!SetNode}, useful to implement Weak sets.  *)
 module WeakSetNode(Key : sig type 'k t end):NODE
+  with type 'a key = 'a Key.t
+   and type ('key,'map) value = unit
+
+(** Gives a unique number to each node like {!NodeWithId},
+    but also performs hash-consing. So two maps with the same bindings will
+    always be physically equal.
+
+    This makes constructors a bit slower, but comparison much faster.
+    It can also speed up quite a few operations on map pairs, as these use
+    physical equality test to skip uneccessary work. *)
+module HashconsedNode(Key : HETEROGENEOUS_KEY)(Value : VALUE) : HASH_CONSED_NODE
+  with type 'a key = 'a Key.t
+   and type ('key,'map) value = ('key,'map) Value.t
+
+(** Both a {!HashconsedNode} and a {!SetNode}. *)
+module HashconsedSetNode(Key : HETEROGENEOUS_KEY) : HASH_CONSED_NODE
   with type 'a key = 'a Key.t
    and type ('key,'map) value = unit
 
