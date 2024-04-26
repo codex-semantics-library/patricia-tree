@@ -154,103 +154,98 @@ end = struct
   let to_int x = x
 end
 
-(* module TestImpl = struct
+(* A model. *)
+module IntMap = struct
+  module M = Map.Make(Int)
+  include M
+  let subset_domain_for_all_2 m1 m2 f =
+    let exception False in
+    try
+      let res = M.merge (fun key v1 v2 -> match v1,v2 with
+          | None, None -> assert false
+          | Some _, None -> raise False
+          | None, Some _ -> None
+          | Some v1, Some v2 ->
+            if f key v1 v2 then None else raise False) m1 m2 in
+      assert (M.is_empty res);
+      true
+    with False -> false
 
-end *)
+  let same_domain_for_all_2 m1 m2 f =
+    let exception False in
+    try
+      let res = M.merge (fun key v1 v2 -> match v1,v2 with
+          | None, None -> assert false
+          | Some _, None -> raise False
+          | None, Some _ -> raise False
+          | Some v1, Some v2 ->
+            if f key v1 v2 then None else raise False) m1 m2 in
+      assert (M.is_empty res);
+      true
+    with False -> false
 
-let%test_module _ = (module struct
+  let inter m1 m2 f =
+    M.merge (fun key a b ->
+        match a,b with
+        | None, _ | _, None -> None
+        | Some a, Some b -> Some (f key a b)) m1 m2
 
-  (* A model. *)
-  module IntMap = struct
-    module M = Map.Make(Int)
-    include M
-    let subset_domain_for_all_2 m1 m2 f =
-      let exception False in
-      try
-        let res = M.merge (fun key v1 v2 -> match v1,v2 with
-            | None, None -> assert false
-            | Some _, None -> raise False
-            | None, Some _ -> None
-            | Some v1, Some v2 ->
-              if f key v1 v2 then None else raise False) m1 m2 in
-        assert (M.is_empty res);
-        true
-      with False -> false
+  let update_multiple_from_foreign m1 m2 f =
+    M.merge (fun key a b ->
+        match a, b with
+        | a, None -> a
+        | a, Some b -> f key a b) m1 m2
 
-    let same_domain_for_all_2 m1 m2 f =
-      let exception False in
-      try
-        let res = M.merge (fun key v1 v2 -> match v1,v2 with
-            | None, None -> assert false
-            | Some _, None -> raise False
-            | None, Some _ -> raise False
-            | Some v1, Some v2 ->
-              if f key v1 v2 then None else raise False) m1 m2 in
-        assert (M.is_empty res);
-        true
-      with False -> false
+  let update_multiple_from_inter_with_foreign m1 m2 f =
+    M.fold (fun key value acc ->
+        match M.find key acc with
+        | exception Not_found -> acc
+        | v -> begin match f key v value with
+            | None -> M.remove key acc
+            | Some v' -> M.add key v' acc
+          end) m2 m1
 
-    let inter m1 m2 f =
-      M.merge (fun key a b ->
-          match a,b with
-          | None, _ | _, None -> None
-          | Some a, Some b -> Some (f key a b)) m1 m2
+  let inter_filter m1 m2 f =
+    M.merge (fun key a b ->
+        match a,b with
+        | None, _ | _, None -> None
+        | Some a, Some b -> (f key a b)) m1 m2
 
-    let update_multiple_from_foreign m1 m2 f =
-      M.merge (fun key a b ->
-          match a, b with
-          | a, None -> a
-          | a, Some b -> f key a b) m1 m2
+  let pop_minimum m =
+    match M.min_binding m with
+    | exception Not_found -> None
+    | (key,value) -> Some(key,value,M.remove key m)
 
-    let update_multiple_from_inter_with_foreign m1 m2 f =
-      M.fold (fun key value acc ->
-          match M.find key acc with
-          | exception Not_found -> acc
-          | v -> begin match f key v value with
-              | None -> M.remove key acc
-              | Some v' -> M.add key v' acc
-            end) m2 m1
+  let pop_maximum m =
+    match M.max_binding m with
+    | exception Not_found -> None
+    | (key,value) -> Some(key,value,M.remove key m)
+end
 
-    let inter_filter m1 m2 f =
-      M.merge (fun key a b ->
-          match a,b with
-          | None, _ | _, None -> None
-          | Some a, Some b -> (f key a b)) m1 m2
-
-    let pop_minimum m =
-      match M.min_binding m with
-      | exception Not_found -> None
-      | (key,value) -> Some(key,value,M.remove key m)
-
-    let pop_maximum m =
-      match M.max_binding m with
-      | exception Not_found -> None
-      | (key,value) -> Some(key,value,M.remove key m)
-  end
-
-  (* An implementation. *)
-  module IntValue : sig
-    type ('a, 'b) t = int
-    val pretty : Format.formatter -> ('a, 'b) t -> unit
-  end = struct
-    type ('a,'b) t = int
-    let pretty fmt x = Format.pp_print_int fmt x
-  end
+(* An implementation. *)
+module IntValue : sig
+  type ('a, 'b) t = int
+  val pretty : Format.formatter -> ('a, 'b) t -> unit
+end = struct
+  type ('a,'b) t = int
+  let pretty fmt x = Format.pp_print_int fmt x
+end
 
 
-
-  (* module MyMap = Make(SimpleNode(IntKey)(IntValue))(IntKey)(IntValue);; *)
-  module MyMap = MakeMap(HIntKey)
+module TestImpl(MyMap : MAP_WITH_VALUE with type key = int)(Conv : sig
+  val to_int : int MyMap.value -> int
+  val of_int : int -> int MyMap.value
+end) = struct
 
   (* Add a list of pair of ints to a map. *)
   let rec extend_map mymap alist =
     match alist with
     | [] -> mymap
     | (a,b)::rest ->
-      extend_map (MyMap.add a b mymap) rest
+      extend_map (MyMap.add a (Conv.of_int b) mymap) rest
 
   let intmap_of_mymap m =
-    MyMap.fold (fun key value acc -> IntMap.add key value acc) m IntMap.empty
+    MyMap.fold (fun key value acc -> IntMap.add key (Conv.to_int value) acc) m IntMap.empty
 
   let two_maps_from_three_lists (alist1,alist2,alist3) =
     let first = extend_map MyMap.empty alist1 in
@@ -294,7 +289,7 @@ let%test_module _ = (module struct
           | None, Some _ | Some _, None -> false
           | None, None -> true
           | Some(key1,val1,m'), Some(key2,val2,model') ->
-            key1 = key2 && val1 = val2 && IntMap.equal (=) (intmap_of_mymap m') model')
+            key1 = key2 && Conv.to_int val1 = val2 && IntMap.equal (=) (intmap_of_mymap m') model')
   let () = QCheck.Test.check_exn test_pop_minimum
 
   let test_pop_maximum = QCheck.Test.make ~count:1000 ~name:"pop_maximum"
@@ -305,7 +300,7 @@ let%test_module _ = (module struct
           | None, Some _ | Some _, None -> false
           | None, None -> true
           | Some(key1,val1,m'), Some(key2,val2,model') ->
-            key1 = key2 && val1 = val2 && IntMap.equal (=) (intmap_of_mymap m') model')
+            key1 = key2 && Conv.to_int val1 = val2 && IntMap.equal (=) (intmap_of_mymap m') model')
   let () = QCheck.Test.check_exn test_pop_maximum
 
   (** Create a function to check calls are made in increasing order *)
@@ -342,8 +337,12 @@ let%test_module _ = (module struct
           let chk_calls1 = check_increases () in
           let chk_calls2 = check_increases () in
           let f k x = if (x mod 3 == 0) then None else Some (x - k + 1) in
-          let res1 = intmap_of_mymap @@ MyMap.filter_map (fun k v -> chk_calls1 k; f k v) m1 in
-          let res2 = intmap_of_mymap @@ MyMap.filter_map_no_share (fun k v -> chk_calls2 k; f k v) m1 in
+          let res1 = intmap_of_mymap @@ MyMap.filter_map (
+              fun k v -> chk_calls1 k;
+              Option.map Conv.of_int (f k (Conv.to_int v))) m1 in
+          let res2 = intmap_of_mymap @@ MyMap.filter_map_no_share (
+              fun k v -> chk_calls2 k;
+              Option.map Conv.of_int (f k (Conv.to_int v))) m1 in
           let modelres = IntMap.filter_map f model1 in
           IntMap.equal (=) res1 modelres &&
           IntMap.equal (=) res2 modelres)
@@ -375,7 +374,8 @@ let%test_module _ = (module struct
           let f key (a:int) b = if key mod 2 == 0 then min a b else max a b in
           let chk_calls = check_increases_and_neq () in
           let myres = intmap_of_mymap @@ MyMap.idempotent_union
-            (fun k a b -> chk_calls k a b; f k a b) m1 m2 in
+            (fun k a b -> chk_calls k (Conv.to_int a) (Conv.to_int b);
+             Conv.of_int (f k (Conv.to_int a) (Conv.to_int b))) m1 m2 in
           let modelres = IntMap.union (fun key a b -> Some (f key a b)) model1 model2 in
           (* dump_test model1 model2 myres modelres;           *)
           IntMap.equal (=) modelres myres)
@@ -388,7 +388,8 @@ let%test_module _ = (module struct
           let f key (a:int) b = if key mod 2 == 0 then min a b else max a b in
           let chk_calls = check_increases_and_neq () in
           let myres = intmap_of_mymap @@ MyMap.idempotent_inter
-            (fun k a b -> chk_calls k a b; f k a b) m1 m2 in
+            (fun k a b -> chk_calls k (Conv.to_int a) (Conv.to_int b);
+            Conv.of_int (f k (Conv.to_int a) (Conv.to_int b))) m1 m2 in
           let modelres = IntMap.inter model1 model2 f in
           (* dump_test model1 model2 myres modelres;           *)
           IntMap.equal (=) modelres myres)
@@ -402,7 +403,8 @@ let%test_module _ = (module struct
           let f key (a:int) b = sdbm3 key a b in
           let chk_calls = check_increases () in
           let myres = intmap_of_mymap @@ MyMap.nonidempotent_inter_no_share
-            (fun k a b -> chk_calls k; f k a b) m1 m2 in
+            (fun k a b -> chk_calls k;
+             Conv.of_int (f k (Conv.to_int a) (Conv.to_int b))) m1 m2 in
           let modelres = IntMap.inter model1 model2 f in
           (* dump_test model1 model2 myres modelres; *)
           IntMap.equal (=) modelres myres)
@@ -415,7 +417,8 @@ let%test_module _ = (module struct
           let orig_f = sdbm3 in
           let chk_calls = check_increases () in
           let f : int -> int -> int -> int = fun key (a:int) b -> chk_calls key; orig_f key a b in
-          let myres = intmap_of_mymap @@ Foreign.nonidempotent_inter {f=fun k v (Snd v2) -> f k v v2 } m1 m2 in
+          let myres = intmap_of_mymap @@ Foreign.nonidempotent_inter {f=
+            fun k v (Snd v2) -> Conv.of_int (f k (Conv.to_int v) (Conv.to_int v2)) } m1 m2 in
           let modelres = IntMap.inter model1 model2 orig_f in
           (* dump_test model1 model2 myres modelres; *)
           IntMap.equal (=) modelres myres)
@@ -433,7 +436,8 @@ let%test_module _ = (module struct
           in
           let chk_calls = check_increases () in
           let f = fun key a b -> chk_calls key; orig_f key a b in
-          let myres = intmap_of_mymap @@ Foreign.update_multiple_from_foreign m2 {f=fun k v (Snd v') -> f k v v' } m1 in
+          let myres = intmap_of_mymap @@ Foreign.update_multiple_from_foreign m2 {f=
+            fun k v (Snd v') -> Option.map Conv.of_int (f k (Option.map Conv.to_int v) (Conv.to_int v')) } m1 in
           let modelres = IntMap.update_multiple_from_foreign model1 model2 orig_f in
           (* dump_test model1 model2 myres modelres; *)
           IntMap.equal (=) modelres myres)
@@ -448,7 +452,8 @@ let%test_module _ = (module struct
           in
           let chk_calls = check_increases () in
           let f key (a:int) b = chk_calls key; orig_f key a b in
-          let myres = intmap_of_mymap @@ Foreign.update_multiple_from_inter_with_foreign m2 {f=fun k v (Snd v') -> f k v v'} m1 in
+          let myres = intmap_of_mymap @@ Foreign.update_multiple_from_inter_with_foreign m2 {f=
+            fun k v (Snd v') -> Option.map Conv.of_int (f k (Conv.to_int v) (Conv.to_int v')) } m1 in
           let modelres = IntMap.update_multiple_from_inter_with_foreign model1 model2 orig_f in
           (* dump_test model1 model2 myres modelres; *)
           IntMap.equal (=) modelres myres)
@@ -464,7 +469,8 @@ let%test_module _ = (module struct
           in
           let chk_calls = check_increases_and_neq () in
           let myres = intmap_of_mymap @@ MyMap.idempotent_inter_filter
-            (fun k a b -> chk_calls k a b; f k a b) m1 m2 in
+            (fun k a b -> chk_calls k (Conv.to_int a) (Conv.to_int b);
+            Option.map Conv.of_int @@ f k (Conv.to_int a) (Conv.to_int b)) m1 m2 in
           let modelres = IntMap.inter_filter model1 model2 f in
           (* dump_test model1 model2 myres modelres;           *)
           IntMap.equal (=) modelres myres)
@@ -480,7 +486,9 @@ let%test_module _ = (module struct
             | Some a, Some b -> if ((a - b - key) == 0) then None else Some(a-b-key)
             | None, None -> assert false
           in
-          let myres = intmap_of_mymap @@ MyMap.slow_merge f m1 m2 in
+          let myres = intmap_of_mymap @@ MyMap.slow_merge (fun key a b ->
+            Option.map Conv.of_int @@ f key (Option.map Conv.to_int a) (Option.map Conv.to_int b)
+           ) m1 m2 in
           let modelres = IntMap.merge f model1 model2 in
           (* dump_test model1 model2 myres modelres; *)
           (* Printf.printf "res is %b\n%!" @@ IntMap.equal (=) modelres myres; *)
@@ -496,8 +504,20 @@ let%test_module _ = (module struct
       (* Printf.printf "res is %b\n%!" @@ IntMap.equal (=) modelres myres; *)
       modelres == myres)
   let () = QCheck.Test.check_exn test_disjoint
-end)
+end
 
+module MyMap = MakeMap(HIntKey)
+module MyHashedMap = MakeHashconsedMap(HIntKey)(Int)
+
+let%test_module "TestMap" = (module TestImpl(MyMap)(struct
+  let to_int x = x
+  let of_int x = x
+end))
+
+let%test_module "TestHashconsedMap" = (module TestImpl(MyMap)(struct
+  let to_int x = x
+  let of_int x = x
+end))
 
 let%test_module "TestWeak" = (module struct
 
