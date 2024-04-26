@@ -62,6 +62,8 @@ jobs:
         run: echo "ref=$(echo ${GITHUB_REF#refs/*/})" >> ${GITHUB_OUTPUT}
 
       - uses: actions/upload-artifact@v4
+        if: github.event_name == 'push' &&
+          ( github.ref == 'refs/heads/main' || startsWith(github.ref,'refs/tags') )
         with:
           name: doc-${{ steps.vars.outputs.ref }}
           path: _build/default/_doc/_html/patricia-tree/
