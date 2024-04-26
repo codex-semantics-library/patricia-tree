@@ -752,7 +752,38 @@ module HashconsedSetNode(Key:HETEROGENEOUS_KEY): HASH_CONSED_NODE
   let cast x = x
 end
 
-module MakeCustomHeterogeneous
+(** {1 Keys and values} *)
+
+module HomogeneousValue = struct
+  type ('a,'map) t = 'map
+end
+
+module WrappedHomogeneousValue = struct
+  type ('a, 'map) t = ('a, 'map) snd
+end
+
+module HeterogeneousKeyFromKey(Key:KEY):(HETEROGENEOUS_KEY with type 'a t = Key.t)  = struct
+  type _ t = Key.t
+
+  (** The type-safe way to do it would be to define this type, to
+      guarantee that 'a is always bound to the same type, and Eq is
+      safe. But this requires a lot of conversion code, and identity
+      functions that may not be well detected. [polyeq] is unsafe in
+      that it allows arbitrary conversion of t1 by t2 in t1 t, but
+      this unsafety is not exported, and I don't think we can do
+      something wrong using it. *)
+  (* type 'a t = K: Key.t -> unit t [@@unboxed] *)
+  let polyeq: type a b. a t -> b t -> (a,b) cmp =
+    fun a b -> match a,b with
+      | a, b when (Key.to_int a) == (Key.to_int b) -> Obj.magic Eq
+      | _ -> Diff
+  let to_int = Key.to_int
+end
+
+
+(** {1 Functors} *)
+
+module MakeCustomHeterogeneousMap
     (Key:HETEROGENEOUS_KEY)
     (Value:VALUE)
     (NODE:NODE with type 'a key = 'a Key.t and type ('key,'map) value = ('key,'map) Value.t) :
@@ -1538,15 +1569,11 @@ module MakeCustomHeterogeneous
   let to_list m = List.of_seq (to_seq m)
 end
 
-
-
-
-(* TODO: We should make it a functor, so that we can simplify the
-   interface for set independently from how it is constructed. *)
-module MakeHeterogeneousSet(Key:HETEROGENEOUS_KEY) : HETEROGENEOUS_SET
-  with type 'a elt = 'a Key.t = struct
-  module NODE = SetNode(Key)
-  module BaseMap = MakeCustomHeterogeneous(Key)(struct type ('a,'b) t = unit end)(NODE)
+module MakeCustomHeterogeneousSet
+    (Key:HETEROGENEOUS_KEY)
+    (Node:NODE with type 'a key = 'a Key.t and type ('a, 'b) value = unit)
+: HETEROGENEOUS_SET with type 'a elt = 'a Key.t and type 'a BaseMap.t = 'a Node.t = struct
+  module BaseMap = MakeCustomHeterogeneousMap(Key)(struct type ('a,'b) t = unit end)(Node)
 
   (* No need to differentiate the values. *)
   include BaseMap
@@ -1613,33 +1640,10 @@ module MakeHeterogeneousSet(Key:HETEROGENEOUS_KEY) : HETEROGENEOUS_SET
 end
 
 module MakeHeterogeneousMap(Key:HETEROGENEOUS_KEY)(Value:VALUE) =
-  MakeCustomHeterogeneous(Key)(Value)(SimpleNode(Key)(Value))
+  MakeCustomHeterogeneousMap(Key)(Value)(SimpleNode(Key)(Value))
 
-module HomogeneousValue = struct
-  type ('a,'map) t = 'map
-end
-
-module WrappedHomogeneousValue = struct
-  type ('a, 'map) t = ('a, 'map) snd
-end
-
-module HeterogeneousKeyFromKey(Key:KEY):(HETEROGENEOUS_KEY with type 'a t = Key.t)  = struct
-  type 'a t = Key.t
-
-  (** The type-safe way to do it would be to define this type, to
-      guarantee that 'a is always bound to the same type, and Eq is
-      safe. But this requires a lot of conversion code, and identity
-      functions that may not be well detected. [polyeq] is unsafe in
-      that it allows arbitrary conversion of t1 by t2 in t1 t, but
-      this unsafety is not exported, and I don't think we can do
-      something wrong using it. *)
-  (* type 'a t = K: Key.t -> unit t [@@unboxed] *)
-  let polyeq: type a b. a t -> b t -> (a,b) cmp =
-    fun a b -> match a,b with
-      | a, b when (Key.to_int a) == (Key.to_int b) -> Obj.magic Eq
-      | _ -> Diff
-  let to_int = Key.to_int
-end
+module MakeHeterogeneousSet(Key:HETEROGENEOUS_KEY) =
+  MakeCustomHeterogeneousSet(Key)(SetNode(Key))
 
 module MakeCustom
     (Key:KEY)
@@ -1648,7 +1652,7 @@ module MakeCustom
 
   module NewKey(* :Key *) = HeterogeneousKeyFromKey(Key)
 
-  module BaseMap = MakeCustomHeterogeneous(NewKey)(WrappedHomogeneousValue)(NODE)
+  module BaseMap = MakeCustomHeterogeneousMap(NewKey)(WrappedHomogeneousValue)(NODE)
   include BaseMap
   type key = Key.t
 
@@ -1781,4 +1785,21 @@ module MakeSet(Key: KEY) : SET with type elt = Key.t = struct
   let of_seq s = add_seq s empty
   let of_list l = of_seq (List.to_seq l)
   let to_list s = List.of_seq (to_seq s)
+end
+
+module MakeHashconsedHeterogeneousMap(Key:HETEROGENEOUS_KEY)(Value:sig type 'a t end) = struct
+  module Node = HashconsedNode(Key)(Value)
+  include MakeCustomHeterogeneousMap(Key)(struct type ('a, _) t = 'a Value.t end)(Node)
+
+  let equal = Node.fast_equal
+  let compare = Node.fast_compare
+  let cast = Node.cast
+end
+
+module MakeHashconsedHeterogeneousSet(Key:HETEROGENEOUS_KEY) = struct
+  module Node = HashconsedSetNode(Key)
+  include MakeCustomHeterogeneousSet(Key)(Node)
+
+  let equal = Node.fast_equal
+  let compare = Node.fast_compare
 end

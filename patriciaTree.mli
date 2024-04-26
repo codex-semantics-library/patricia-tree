@@ -1130,11 +1130,18 @@ module WrappedHomogeneousValue:VALUE with type ('a,'map) t = ('a,'map) snd
 (** {1 Functors} *)
 
 (** {2 Homogeneous maps and sets} *)
+(** These are homogeneous maps and set, their keys/elements are a single
+    non-generic type, just like the standard library's [Map] and [Set] modules. *)
 
 module MakeMap(Key:KEY):MAP with type key = Key.t
 module MakeSet(Key:KEY):SET with type elt = Key.t
 
 (** {2 Heterogeneous maps and sets} *)
+(** Heterogeneous maps are ['map map], which store bindings of ['key key]
+    to [('key, 'map) value], where ['key key] is a GADT, as we must be able
+    to compare keys of different types together.
+
+    Similarly, heterogeneous sets store sets of ['key key]. *)
 
 module MakeHeterogeneousSet(Key:HETEROGENEOUS_KEY):HETEROGENEOUS_SET with type 'a elt = 'a Key.t
 module MakeHeterogeneousMap(Key:HETEROGENEOUS_KEY)(Value:VALUE):HETEROGENEOUS_MAP
@@ -1144,11 +1151,12 @@ module MakeHeterogeneousMap(Key:HETEROGENEOUS_KEY)(Value:VALUE):HETEROGENEOUS_MA
 
 (** {2 Maps with custom representation of Nodes} *)
 (** We can also customize the representation and creation of nodes, to
-   gain space or time.
+    gain space or time.
 
-   Possibitities include having weak key and/or values, hash-consing,
-   giving unique number to nodes or keeping them in sync with the
-   disk, lazy evaluation and/or caching, etc. *)
+    Possibitities include having weak key and/or values, hash-consing,
+    giving unique number to nodes or keeping them in sync with the
+    disk, lazy evaluation and/or caching, adding size information for
+    constant time [cardinal] functions, etc. *)
 
 (** Create a Homogeneous Map with a custom {!NODE}. *)
 module MakeCustom
@@ -1159,7 +1167,7 @@ module MakeCustom
      and type 'm t = 'm NODE.t
 
 (** Create an Heterogeneous map with a custom {!NODE}. *)
-module MakeCustomHeterogeneous
+module MakeCustomHeterogeneousMap
     (Key:HETEROGENEOUS_KEY)
     (Value:VALUE)
     (NODE:NODE with type 'a key = 'a Key.t and type ('key,'map) value = ('key,'map) Value.t)
@@ -1167,6 +1175,67 @@ module MakeCustomHeterogeneous
     with type 'a key = 'a Key.t
      and type ('k,'m) value = ('k,'m) Value.t
      and type 'm t = 'm NODE.t
+
+(** Create an Heterogeneous set with a custom {!NODE}. *)
+module MakeCustomHeterogeneousSet
+    (Key:HETEROGENEOUS_KEY)
+    (NODE:NODE with type 'a key = 'a Key.t and type ('key,'map) value = unit)
+  :HETEROGENEOUS_SET
+    with type 'a elt = 'a Key.t
+     and type 'a BaseMap.t = 'a NODE.t
+
+(** {2 Hash-consed maps and sets} *)
+(** Hash-consed maps and sets uniquely number each of their nodes.
+    Upon creation, they check whether a similar node has been created before,
+    if so they return it, else they return a new node with a new number.
+
+    This places a slight overhead on the constructors (Hashtable lookup),
+    but allows for constant time [equal] and [compare] operations.
+    Furthermore, it guarantees that two maps/sets with the same bindings/elements
+    will always be physically equal, even if they don't come from a common ancestor.
+    This further improves the functions that benefit from sharing like
+    {!BASE_MAP.idempotent_union} and {!BASE_MAP.idempotent_inter}.
+
+    Note however, that hashconsed maps must have a fixed value type: the
+    [('key,'map) value] can only depend on ['key]. This avoids hash-consing
+    together different map types, and potential conflict if two separate types
+    have equal representations. *)
+
+(* module MakeHashconsedMap(Key: KEY) : MAP with type key = Key.t
+module MakeHashconsedSet(Key: KEY) : SET with type elt = Key.t *)
+
+module MakeHashconsedHeterogeneousSet(Key:HETEROGENEOUS_KEY):sig
+    include HETEROGENEOUS_SET with type 'a elt = 'a Key.t
+
+    val equal : t -> t -> bool
+    (** Constant time equality *)
+
+    val compare : t -> t -> int
+    (** Constant time comparison, the order is given by the nodes id, so nodes
+        created earlier will be smaller. In particular, subterms will always be
+        smaller than their superterms. *)
+end
+module MakeHashconsedHeterogeneousMap(Key:HETEROGENEOUS_KEY)(Value:sig type 'a t end): sig
+    include HETEROGENEOUS_MAP
+       with type 'a key = 'a Key.t
+        and type ('k,'m) value = 'k Value.t
+
+    val equal : 'a t -> 'a t -> bool
+    (** Constant time equality *)
+
+    val compare : 'a t -> 'a t -> int
+    (** Constant time comparison, the order is given by the nodes id, so nodes
+        created earlier will be smaller. In particular, subterms will always be
+        smaller than their superterms. *)
+
+    val cast : 'a t -> 'b t
+    (** This is a no-op, since hash-consed maps have a single imposed value type,
+        (the type [('key, 'map) value] doesn't depend on ['map]).
+        This means the ['map] parameter in ['map t] is phantom and unused. However,
+        since the type is opaque, this might not always be obvious to the typechecker
+
+        This cast is provided to solve any issues that might crop up with it. *)
+end
 
 
 (** {1 Some implementations of NODE} *)

@@ -52,7 +52,7 @@ let%test_module "TestHeterogeneous" = (module struct
   end
 
 
-  module Map = MakeCustomHeterogeneous(MyKey)(MyValue)(SimpleNode(MyKey)(MyValue))
+  module Map = MakeCustomHeterogeneousMap(MyKey)(MyValue)(SimpleNode(MyKey)(MyValue))
   open Map
 
   let _m1 = singleton (MyKey.Int 7) (MyValue.AString "seven")
@@ -109,7 +109,7 @@ let%test_module "TestHeterogeneous" = (module struct
       | _ -> NBranch{prefix;branching_bit;tree0;tree1}
   end
 
-  module Map2 = MakeCustomHeterogeneous(MyKey)(MyValue)(SimpleNode(MyKey)(MyValue))
+  module Map2 = MakeCustomHeterogeneousMap(MyKey)(MyValue)(SimpleNode(MyKey)(MyValue))
   open Map2
 
   let _m1 = singleton (MyKey.Int 7) (MyValue.AString "seven")
