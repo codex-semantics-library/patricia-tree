@@ -235,6 +235,8 @@ end
 module TestImpl(MyMap : MAP_WITH_VALUE with type key = int)(Conv : sig
   val to_int : int MyMap.value -> int
   val of_int : int -> int MyMap.value
+  val test_id : bool
+  (* val get_id : 'a MyMap.t -> int option *)
 end) = struct
 
   (* Add a list of pair of ints to a map. *)
@@ -256,7 +258,7 @@ end) = struct
   let gen = QCheck.(triple
                       (small_list (pair small_nat small_nat))
                       (small_list (pair small_nat small_nat))
-                      (small_list (pair small_nat small_nat)));;
+                      (small_list (pair small_nat small_nat)))
 
   let model_from_gen x =
     let (m1,m2) = two_maps_from_three_lists x in
@@ -504,6 +506,20 @@ end) = struct
       (* Printf.printf "res is %b\n%!" @@ IntMap.equal (=) modelres myres; *)
       modelres == myres)
   let () = QCheck.Test.check_exn test_disjoint
+
+  let test_id_unique = QCheck.Test.make ~count:1000 ~name:"unique_hashcons_id"
+  gen (fun (one,two,three) ->
+      (* Remove duplicates *)
+      let two = List.filter (fun (x, _) -> not (List.mem_assoc x one)) two in
+      let three = List.filter (fun (x, _) -> not (List.mem_assoc x one || List.mem_assoc x two)) three in
+      let m1 = extend_map (extend_map (extend_map MyMap.empty one) two) three in
+      m1 == extend_map (extend_map (extend_map MyMap.empty three) one) two &&
+      m1 == extend_map (extend_map (extend_map MyMap.empty two) three) one &&
+      m1 == extend_map (extend_map (extend_map MyMap.empty three) two) one &&
+      m1 == extend_map (extend_map (extend_map MyMap.empty one) three) two &&
+      m1 == extend_map m1 one
+      )
+  let () = if Conv.test_id then QCheck.Test.check_exn test_id_unique
 end
 
 module MyMap = MakeMap(HIntKey)
@@ -512,11 +528,13 @@ module MyHashedMap = MakeHashconsedMap(HIntKey)(Int)
 let%test_module "TestMap" = (module TestImpl(MyMap)(struct
   let to_int x = x
   let of_int x = x
+  let test_id = false
 end))
 
-let%test_module "TestHashconsedMap" = (module TestImpl(MyMap)(struct
+let%test_module "TestHashconsedMap" = (module TestImpl(MyHashedMap)(struct
   let to_int x = x
   let of_int x = x
+  let test_id = true
 end))
 
 let%test_module "TestWeak" = (module struct
