@@ -89,6 +89,10 @@ dune build @doc
   be extended to store size information in nodes if needed.
 - Exposes a common interface (`view`) to allow users to write their own pattern
   matching on the tree structure without depending on the `NODE` being used.
+- hash-consed versions of heterogeneous/homogeneous maps/sets are
+  available. These provide constant time equality and comparison, and ensure
+  maps/set with the same constants are always physically equal. It comes at the cost
+  of more memory usage a slightly slower constructors.
 
 ## Quick overview
 
@@ -99,7 +103,7 @@ The main functors used to build our maps and sets are the following:
 ```ocaml
 (** {2 Homogeneous maps and sets} *)
 
-module MakeMap(Key: KEY) : MAP with type key = Key.t
+module MakeMap(Key: KEY) : MAP with type key = Key.t and type 'a value = 'a
 module MakeSet(Key: KEY) : SET with type elt = Key.t
 
 (** {2 Heterogeneous maps and sets} *)
@@ -110,6 +114,18 @@ module MakeHeterogeneousMap(Key: HETEROGENEOUS_KEY)(Value: VALUE) : HETEROGENEOU
   with type 'a key = 'a Key.t
    and type ('k,'m) value = ('k,'m) Value.t
 ```
+
+There are also [hash-consed](https://en.wikipedia.org/wiki/Hash_consing) versions
+of these four functors: `MakeHashconsedMap`, `MakeHashconsedSet`,
+`MakeHashconsedHeterogeneousMap` and `MakeHashconsedHeterogeneousSet`.
+These uniquely number their nodes, and ensure nodes with the same contents are
+always physically equal. With this unique numbering:
+- `equal` and `compare` become constant time operations;
+- functions that benefit from sharing will see improved performance;
+- constructors are slightly slower, as they now require a hash-table lookup;
+- memory usage is increased: node store their tags inside themselves, and
+  a global hash-table of all built nodes must be maintained;
+- hash-consed maps must have a fixed value.
 
 ### Interfaces
 
@@ -122,7 +138,10 @@ Here is a brief overview of the various module types of our library:
   purposes, it is often best to use the more specific interfaces:
   - `HETEROGENEOUS_MAP` for heterogeneous maps (this is just `BASE_MAP` with a
     `WithForeign` functor).
-  - `MAP` for homogeneous maps, this interface is close to [`Stdlib.Map.S`](https://ocaml.org/api/Map.S.html).
+  - `MAP` for homogeneous maps, this interface is close to [`Stdlib.Map.S`](https://ocaml.org/api/Map.S.html). One difference is that it uses a type `'a value` instead of just `'a`.
+    This allows using the same interface for standard maps (in the `MakeMap` functor, `'a value = 'a`)
+    and maps with restricted value types (in `MakeHashconsedMap`, `'a value` is set to
+    a non-generic user-supplied type).
   - `HETEROGENEOUS_SET` for heterogeneous sets (sets of `'a elt`). These are just
     maps to unit, but with a custom node representation to avoid storing unit in
     nodes.
