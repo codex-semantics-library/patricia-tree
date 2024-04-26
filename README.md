@@ -156,10 +156,15 @@ Here is a brief overview of the various module types of our library:
   internal `NODE`. Each node come with its own private constructors and destructors,
   as well as a cast to a uniform `view` type used for pattern matching.
 
-  A number of implementations are provided `SimpleNode` (exactly the `view` type),
-  `WeakNode` (node which only store weak pointer to its elements), `NodeWithId`
-  (node which contain a unique identifier), `SetNode` (node optimized for set,
-  doesn't store the `unit` value) and `WeakSetNode`.
+  A number of implementations are provided:
+  - `SimpleNode`: exactly the `NODE.view` type;
+  - `WeakNode`: only store weak pointer to its elements;
+  - `NodeWithId`: node which contains a unique identifier;
+  - `SetNode`: optimized for sets, doesn't store the [unit] value;
+  - `WeakSetNode`: both a `WeakNode` and as `SetNode`
+  - `HashconsedNode`: performs hash-consing (it also stores a unique identifier, but checks when
+    building a new node whether a node with similar content already exists);
+  - `HashconsedSetNode`: both a `HashconsedNode` and a `SetNode`.
 
   Use the functors `MakeCustomMap` and `MakeCustomSet` (or their heterogeneous
   versions `MakeCustomHeterogeneousMap` and `MakeCustomHeterogeneousSet`) to build

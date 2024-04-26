@@ -152,10 +152,15 @@ Here is a brief overview of the various module types of our library:
   internal {!PatriciaTree.NODE}. Each node come with its own private constructors and destructors,
   as well as a cast to a uniform {!type:PatriciaTree.NODE.view} type used for pattern matching.
 
-  A number of implementations are provided {!PatriciaTree.SimpleNode} (exactly the {!type:PatriciaTree.NODE.view} type),
-  {!PatriciaTree.WeakNode} (node which only store weak pointer to its elements), {!PatriciaTree.NodeWithId}
-  (node which contain a unique identifier), {!PatriciaTree.SetNode} (node optimized for set,
-  doesn't store the [unit] value) and {!PatriciaTree.WeakSetNode}.
+  A number of implementations are provided:
+  - {!PatriciaTree.SimpleNode}: exactly the {!type:PatriciaTree.NODE.view} type;
+  - {!PatriciaTree.WeakNode}: only store weak pointer to its elements;
+  - {!PatriciaTree.NodeWithId}: node which contains a unique identifier;
+  - {!PatriciaTree.SetNode}: optimized for sets, doesn't store the [unit] value;
+  - {!PatriciaTree.WeakSetNode}: both a [WeakNode] and as [SetNode]
+  - {!PatriciaTree.HashconsedNode}: performs hash-consing (it also stores a unique identifier, but checks when
+    building a new node whether a node with similar content already exists);
+  - {!PatriciaTree.HashconsedSetNode}: both a [HashconsedNode] and a [SetNode].
 
   Use the functors {!PatriciaTree.MakeCustomMap} and {!PatriciaTree.MakeCustomSet}
   (or their heterogeneous versions {!PatriciaTree.MakeCustomHeterogeneousMap} and

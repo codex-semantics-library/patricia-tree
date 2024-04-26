@@ -147,7 +147,9 @@ end
     Unlike {!NODE_WITH_ID}, they also check before instanciating the node wether
     a similar node already exists. This results in slightly slower constructors
     (they perform an extra hash-table lookup), but allows for constant time
-    equality and comparison. *)
+    equality and comparison.
+
+    @since v0.10.0 *)
 module type HASH_CONSED_NODE = sig
   include NODE_WITH_ID
 
@@ -777,7 +779,9 @@ module type MAP = sig
   (** Type for values, this is a divergence from Stdlib's [Map],
       but resolve itself when using annotation [MAP with type 'a value = 'a].
       On the other hand, it allows defining maps with fixed values, which is useful
-      for hash-consing. *)
+      for hash-consing.
+
+      @since v0.10.0 *)
 
   (** Underlying basemap, for cross map/set operations *)
   module BaseMap : HETEROGENEOUS_MAP
@@ -1176,7 +1180,8 @@ module MakeCustomMap
      and type 'a value = 'a Value.t
 
 
-(** Create a homogeneous set with a custom {!NODE}. *)
+(** Create a homogeneous set with a custom {!NODE}.
+    @since v0.10.0 *)
 module MakeCustomSet
     (Key: KEY)
     (Node:NODE with type 'a key = Key.t and type ('key,'map) value = unit)
@@ -1194,7 +1199,8 @@ module MakeCustomHeterogeneousMap
      and type ('k,'m) value = ('k,'m) Value.t
      and type 'm t = 'm NODE.t
 
-(** Create an heterogeneous set with a custom {!NODE}. *)
+(** Create an heterogeneous set with a custom {!NODE}.
+    @since v0.10.0 *)
 module MakeCustomHeterogeneousSet
     (Key:HETEROGENEOUS_KEY)
     (NODE:NODE with type 'a key = 'a Key.t and type ('key,'map) value = unit)
@@ -1224,7 +1230,9 @@ module MakeCustomHeterogeneousSet
     Each node is given a unique identifier. Node with the same contents
     will always be physically equal and have the same identifier.
     This allows for constant time [equal] and [compare], at the cost of
-    slightly slower constructors. *)
+    slightly slower constructors.
+
+    @since v0.10.0 *)
 module MakeHashconsedMap(Key: KEY)(Value : sig type t end) : sig
   include MAP with type key = Key.t and type _ value = Value.t
 
@@ -1253,7 +1261,9 @@ end
     Each node is given a unique identifier. Node with the same contents
     will always be physically equal and have the same identifier.
     This allows for constant time [equal] and [compare], at the cost of
-    slightly slower constructors. *)
+    slightly slower constructors.
+
+    @since v0.10.0 *)
 module MakeHashconsedSet(Key: KEY) : sig
   include SET with type elt = Key.t
 
@@ -1274,7 +1284,9 @@ end
     Each node is given a unique identifier. Node with the same contents
     will always be physically equal and have the same identifier.
     This allows for constant time [equal] and [compare], at the cost of
-    slightly slower constructors. *)
+    slightly slower constructors.
+
+    @since v0.10.0 *)
 module MakeHashconsedHeterogeneousSet(Key:HETEROGENEOUS_KEY):sig
   include HETEROGENEOUS_SET with type 'a elt = 'a Key.t
 
@@ -1295,7 +1307,9 @@ end
     Each node is given a unique identifier. Node with the same contents
     will always be physically equal and have the same identifier.
     This allows for constant time [equal] and [compare], at the cost of
-    slightly slower constructors. *)
+    slightly slower constructors.
+
+    @since v0.10.0 *)
 module MakeHashconsedHeterogeneousMap(Key:HETEROGENEOUS_KEY)(Value:sig type 'a t end): sig
   include HETEROGENEOUS_MAP
       with type 'a key = 'a Key.t
@@ -1368,12 +1382,15 @@ module WeakSetNode(Key : sig type 'k t end):NODE
     It can also speed up quite a few operations on map pairs, as these use
     physical equality test to skip uneccessary work.
 
-    One limitation of hashconsing is that values*)
+    One limitation of hashconsing is that values are restricted to a single type
+    ([('key,'map) value] doesn't depend on ['map]).
+    @since v0.10.0 *)
 module HashconsedNode(Key : HETEROGENEOUS_KEY)(Value : sig type 'a t end) : HASH_CONSED_NODE
   with type 'a key = 'a Key.t
    and type ('key,_) value = 'key Value.t
 
-(** Both a {!HashconsedNode} and a {!SetNode}. *)
+(** Both a {!HashconsedNode} and a {!SetNode}.
+    @since v0.10.0 *)
 module HashconsedSetNode(Key : HETEROGENEOUS_KEY) : HASH_CONSED_NODE
   with type 'a key = 'a Key.t
    and type ('key,'map) value = unit

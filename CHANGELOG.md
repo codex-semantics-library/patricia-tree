@@ -1,4 +1,4 @@
-# Unreleased
+# v0.10.0 - Unreleased
 
 - Renamed `MakeCustom` to `MakeCustomMap`, added new functor `MakeCustomSet`.
 - Renamed `MakeCustomHeterogeneous` to `MakeCustomHeterogeneousMap`, added new functor
