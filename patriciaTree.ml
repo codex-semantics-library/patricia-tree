@@ -368,38 +368,10 @@ end
 
 (** {1 Utility functions} *)
 
-(** Optimized computation, but does not work for values too high. *)
-(* let _highest_bit v =
-  (* compute highest bit.
-     First, set all bits with weight less than
-     the highest set bit *)
-  let v1 = v lsr 1 in
-  let v2 = v lsr 2 in
-  let v = v lor v1 in
-  let v = v lor v2 in
-  let v1 = v lsr 3 in
-  let v2 = v lsr 6 in
-  let v = v lor v1 in
-  let v = v lor v2 in
-  let v1 = v lsr 9 in
-  let v2 = v lsr 18 in
-  let v = v lor v1 in
-  let v = v lor v2 in
-  (* then get highest bit *)
-  (succ v) lsr 1
-
-let lowest_bit x =
-  x land (-x) *)
-
-(* let rec _highest_bit x =
-  let m = lowest_bit x in
-  if x = m then
-    m
-  else
-    _highest_bit (x - m) *)
-
-let highest_bit x =
-  1 lsl (Z.log2 @@ Z.of_int x)
+(** Fast highest bit computation in c, using GCC's __builtin_clz
+    which compile to efficient instruction (bsr) when possible. *)
+external highest_bit: int -> (int[@untagged]) =
+  "caml_int_builtin_highest_bit_byte" "caml_int_builtin_highest_bit" [@@noalloc]
 
 (** Note: in the original version, okasaki give the masks as arguments
     to optimize the computation of highest_bit. *)

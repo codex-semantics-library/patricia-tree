@@ -23,7 +23,10 @@
  (name PatriciaTree)
  (public_name patricia-tree)
  (libraries zarith)
- (modules PatriciaTree))
+ (modules PatriciaTree)
+ (foreign_stubs
+  (language c)
+  (names int_builtins)))
 
 (documentation
  (package patricia-tree))
