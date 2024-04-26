@@ -142,7 +142,7 @@ Here is a brief overview of the various module types of our library:
   (node which contain a unique identifier), `SetNode` (node optimized for set,
   doesn't store the `unit` value) and `WeakSetNode`.
 
-  Use the functors `MakeCustomHeterogeneous` and `MakeCustom` to build
+  Use the functors `MakeCustomHeterogeneousMap`, `MakeCustomHeterogeneousSet` and `MakeCustom` to build
   maps using these nodes, or any other custom nodes.
 
 ## Examples
