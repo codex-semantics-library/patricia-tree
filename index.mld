@@ -2,7 +2,7 @@
 
 This library contains a single module: {!PatriciaTree}.
 
-This is version [0.9.0] of the library. It is known to work with OCaml versions
+This is version [0.10.0] of the library. It is known to work with OCaml versions
 ranging from [4.14] to [5.2].
 
 This is an {{: https://ocaml.org/}OCaml} library that implements sets and maps as
@@ -43,8 +43,8 @@ dune build @doc
 {li Similar to OCaml's [Map] and [Set], using the same function names when possible
   and the same convention for order of arguments. This should allow switching to
   and from Patricia Tree with minimal effort.}
-{li The functor parameters ({!PatriciaTree.KEY} module) requires an injective [to_int : t -> int]
-  function instead of a [compare] function. {!PatriciaTree.KEY.to_int} should be fast,
+{li The functor parameters ({{!PatriciaTree.KEY}[KEY]} module) requires an injective [to_int : t -> int]
+  function instead of a [compare] function. {{!PatriciaTree.KEY.to_int}[KEY.to_int]} should be fast,
   injective, and only return positive integers.
   This works well with {{: https://en.wikipedia.org/wiki/Hash_consing}hash-consed} types.}
 {li The Patricia Tree representation is stable, contrary to maps, inserting nodes
@@ -71,11 +71,11 @@ dune build @doc
 {li Allows easy and fast operations across different types of maps and set (e.g.
   an intersection between a map and a set), since all sets and maps, no matter their key type,
   are really positive integer sets or maps.}
-{li Multiple choices for internal representation ({!PatriciaTree.NODE}), which allows for efficient
+{li Multiple choices for internal representation ({{!PatriciaTree.NODE}[NODE]}), which allows for efficient
   storage (no need to store a value for sets), or using weak nodes only (values removed from the tree if no other pointer to it exists). This system can also
   be extended to store size information in nodes if needed.}
 {li Exposes a common interface ({!type:PatriciaTree.NODE.view}) to allow users to write their own pattern
-  matching on the tree structure without depending on the {!PatriciaTree.NODE} being used.}
+  matching on the tree structure without depending on the {{!PatriciaTree.NODE}[NODE]} being used.}
 {li Additionally, hashconsed versions of heterogeneous/homogeneous maps/sets are
   available. These provide constant time equality and comparison, and ensure
   maps/set with the same constants are always physically equal. It comes at the cost
@@ -88,14 +88,14 @@ dune build @doc
 This library contains a single module, {!PatriciaTree}.
 The functors used to build maps and sets are the following:
 {ul
-{li For homogeneous (non-generic) maps and sets: {!PatriciaTree.MakeMap} and
-    {!PatriciaTree.MakeSet}. These are similar to the standard library's maps and sets.
+{li For homogeneous (non-generic) maps and sets: {{!PatriciaTree.MakeMap}[MakeMap]} and
+    {{!PatriciaTree.MakeSet}[MakeSet]}. These are similar to the standard library's maps and sets.
     {[
       module MakeMap(Key: KEY) : MAP with type key = Key.t and type 'a value = 'a
       module MakeSet(Key: KEY) : SET with type elt = Key.t
     ]}}
-{li For Heterogeneous (generic) maps and sets: {!PatriciaTree.MakeHeterogeneousMap}
-    and {!PatriciaTree.MakeHeterogeneousSet}.
+{li For Heterogeneous (generic) maps and sets: {{!PatriciaTree.MakeHeterogeneousMap}[MakeHeterogeneousMap]}
+    and {{!PatriciaTree.MakeHeterogeneousSet}[MakeHeterogeneousSet]}.
     {[
       module MakeHeterogeneousMap(Key: HETEROGENEOUS_KEY)(Value: VALUE) : HETEROGENEOUS_MAP
         with type 'a key = 'a Key.t
@@ -105,8 +105,8 @@ The functors used to build maps and sets are the following:
     ]}}
 {li
   There are also {{: https://en.wikipedia.org/wiki/Hash_consing}hash-consed} versions
-  of these four functors: {!PatriciaTree.MakeHashconsedMap}, {!PatriciaTree.MakeHashconsedSet},
-  {!PatriciaTree.MakeHashconsedHeterogeneousMap} and {!PatriciaTree.MakeHashconsedHeterogeneousSet}.
+  of these four functors: {{!PatriciaTree.MakeHashconsedMap}[MakeHashconsedMap]}, {{!PatriciaTree.MakeHashconsedSet}[MakeHashconsedSet]},
+  {{!PatriciaTree.MakeHashconsedHeterogeneousMap}[MakeHashconsedHeterogeneousMap]} and {{!PatriciaTree.MakeHashconsedHeterogeneousSet}[MakeHashconsedHeterogeneousSet]}.
   These uniquely number their nodes, and ensure {b nodes with the same contents are
   always physically equal}. With this unique numbering:
   - [equal] and [compare] become constant time operations;
@@ -121,7 +121,7 @@ The functors used to build maps and sets are the following:
 
 Here is a brief overview of the various module types of our library:
 {ul
-{li {!PatriciaTree.BASE_MAP}: the underlying module type of all our trees (maps end sets). It
+{li {{!PatriciaTree.BASE_MAP}[BASE_MAP]}: the underlying module type of all our trees (maps end sets). It
   represents a ['b map] binding ['a key] to [('a,'b) value], as well as all
   functions needed to manipulate them.
 
@@ -129,42 +129,42 @@ Here is a brief overview of the various module types of our library:
   unified representation, useful for cross map operations. However, for practical
   purposes, it is often best to use the more specific interfaces:
   {ul
-  {li {!PatriciaTree.HETEROGENEOUS_MAP} for heterogeneous maps (this is just [BASE_MAP] with a
+  {li {{!PatriciaTree.HETEROGENEOUS_MAP}[HETEROGENEOUS_MAP]} for heterogeneous maps (this is just {{!PatriciaTree.BASE_MAP}[BASE_MAP]} with a
     [WithForeign] functor).}
-  {li {!PatriciaTree.MAP} for homogeneous maps, this interface is close to {{: https://ocaml.org/api/Map.S.html}[Stdlib.Map.S]}.
+  {li {{!PatriciaTree.MAP}[MAP]} for homogeneous maps, this interface is close to {{: https://ocaml.org/api/Map.S.html}[Stdlib.Map.S]}.
     One difference is that it uses a type ['a value] instead of just ['a].
-    This allows using the same interface for standard maps (in the {!PatriciaTree.MakeMap} functor,
-    ['a value = 'a]) and maps with restricted value types (in {!PatriciaTree.MakeHashconsedMap},
+    This allows using the same interface for standard maps (in the {{!PatriciaTree.MakeMap}[MakeMap]} functor,
+    ['a value = 'a]) and maps with restricted value types (in {{!PatriciaTree.MakeHashconsedMap}[MakeHashconsedMap]},
     ['a value] is set to a non-generic user-supplied type).
   }
-  {li {!PatriciaTree.HETEROGENEOUS_SET} for heterogeneous sets (sets of ['a elt]). These are just
+  {li {{!PatriciaTree.HETEROGENEOUS_SET}[HETEROGENEOUS_SET]} for heterogeneous sets (sets of ['a elt]). These are just
     maps to [unit], but with a custom node representation to avoid storing [unit] in
     nodes.}
-  {li {!PatriciaTree.SET} for homogeneous sets, this interface is close to {{: https://ocaml.org/api/Set.S.html}[Stdlib.Set.S]}.}
+  {li {{!PatriciaTree.SET}[SET]} for homogeneous sets, this interface is close to {{: https://ocaml.org/api/Set.S.html}[Stdlib.Set.S]}.}
   }}
-{li The parameter of our functor are either {!PatriciaTree.KEY} or {!PatriciaTree.HETEROGENEOUS_KEY}.
+{li The parameter of our functor are either {{!PatriciaTree.KEY}[KEY]} or {{!PatriciaTree.HETEROGENEOUS_KEY}[HETEROGENEOUS_KEY]}.
   These just consist of a type, a (polymorphic) equality function, and an
   injective [to_int] coercion.
 
-  The heterogeneous map functor also has a {!PatriciaTree.VALUE} parameter to specify the
+  The heterogeneous map functor also has a {{!PatriciaTree.VALUE}[VALUE]} parameter to specify the
   [('a, 'b) value] type.}
 {li The internal representations of our tree can be customized to use different
-  internal {!PatriciaTree.NODE}. Each node come with its own private constructors and destructors,
-  as well as a cast to a uniform {!type:PatriciaTree.NODE.view} type used for pattern matching.
+  internal {{!PatriciaTree.NODE}[NODE]}. Each node come with its own private constructors and destructors,
+  as well as a cast to a uniform {{!type:PatriciaTree.NODE.view}[NODE.view]} type used for pattern matching.
 
   A number of implementations are provided:
-  - {!PatriciaTree.SimpleNode}: exactly the {!type:PatriciaTree.NODE.view} type;
-  - {!PatriciaTree.WeakNode}: only store weak pointer to its elements;
-  - {!PatriciaTree.NodeWithId}: node which contains a unique identifier;
-  - {!PatriciaTree.SetNode}: optimized for sets, doesn't store the [unit] value;
-  - {!PatriciaTree.WeakSetNode}: both a [WeakNode] and as [SetNode]
-  - {!PatriciaTree.HashconsedNode}: performs hash-consing (it also stores a unique identifier, but checks when
+  - {{!PatriciaTree.SimpleNode}[SimpleNode]}: exactly the {{!type:PatriciaTree.NODE.view}[NODE.view]} type;
+  - {{!PatriciaTree.WeakNode}[WeakNode]}: only store weak pointer to its elements;
+  - {{!PatriciaTree.NodeWithId}[NodeWithId]}: node which contains a unique identifier;
+  - {{!PatriciaTree.SetNode}[SetNode]}: optimized for sets, doesn't store the [unit] value;
+  - {{!PatriciaTree.WeakSetNode}[WeakSetNode]}: both a {{!PatriciaTree.WeakNode}[WeakNode]} and a {{!PatriciaTree.SetNode}[SetNode]}
+  - {{!PatriciaTree.HashconsedNode}[HashconsedNode]}: performs hash-consing (it also stores a unique identifier, but checks when
     building a new node whether a node with similar content already exists);
-  - {!PatriciaTree.HashconsedSetNode}: both a [HashconsedNode] and a [SetNode].
+  - {{!PatriciaTree.HashconsedSetNode}[HashconsedSetNode]}: both a {{!PatriciaTree.HashconsedNode}[HashconsedNode]} and a {{!PatriciaTree.SetNode}[SetNode]}.
 
-  Use the functors {!PatriciaTree.MakeCustomMap} and {!PatriciaTree.MakeCustomSet}
-  (or their heterogeneous versions {!PatriciaTree.MakeCustomHeterogeneousMap} and
-  {!PatriciaTree.MakeCustomHeterogeneousSet}) to build
+  Use the functors {{!PatriciaTree.MakeCustomMap}[MakeCustomMap]} and {{!PatriciaTree.MakeCustomSet}[MakeCustomSet]}
+  (or their heterogeneous versions {{!PatriciaTree.MakeCustomHeterogeneousMap}[MakeCustomHeterogeneousMap]} and
+  {{!PatriciaTree.MakeCustomHeterogeneousSet}[MakeCustomHeterogeneousSet]}) to build
   maps using these nodes, or any other custom nodes.}
 }
 
@@ -317,8 +317,8 @@ These are smaller and closer to OCaml's built-in [Map] and [Set], however:
 - Our interface and implementation tries to maximize the sharing between different
   versions of the tree, and to benefit from this memory sharing. Theirs do not.
 - These libraries work with older version of OCaml ([>= 4.05] I believe), whereas
-  ours requires OCaml [>= 4.14] (for the new interface of [Ephemeron] used in
-  {!PatriciaTree.WeakNode}).
+  ours requires OCaml [>= 4.14] (for the new interface of {{: https://v2.ocaml.org/api/Ephemeron.html}[Ephemeron]} used in
+  {{!PatriciaTree.WeakNode}[WeakNode]}).
 - Our keys are limited to positive integers.
 
 {2 dmap}
