@@ -501,7 +501,7 @@ let%test_module "TestWeak" = (module struct
   end
 
   module NODE = WeakNode(struct type 'a t = MyKey.t end)(WrappedHomogeneousValue)
-  module Map = MakeCustom(MyKey)(NODE)
+  module Map = MakeCustomMap(MyKey)(NODE)
   open Map
 
   let _m1 = singleton (MyKey.Block 7) "seven"

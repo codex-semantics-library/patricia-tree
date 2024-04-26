@@ -1158,15 +1158,23 @@ module MakeHeterogeneousMap(Key:HETEROGENEOUS_KEY)(Value:VALUE):HETEROGENEOUS_MA
     disk, lazy evaluation and/or caching, adding size information for
     constant time [cardinal] functions, etc. *)
 
-(** Create a Homogeneous Map with a custom {!NODE}. *)
-module MakeCustom
+(** Create a homogeneous map with a custom {!NODE}. *)
+module MakeCustomMap
     (Key:KEY)
     (NODE:NODE with type 'a key = Key.t and type ('key,'map) value = ('key,'map) snd)
   :MAP
     with type key = Key.t
      and type 'm t = 'm NODE.t
 
-(** Create an Heterogeneous map with a custom {!NODE}. *)
+(** Create a homogeneous set with a custom {!NODE}. *)
+module MakeCustomSet
+    (Key: KEY)
+    (Node:NODE with type 'a key = Key.t and type ('key,'map) value = unit)
+  : SET
+    with type elt = Key.t
+     and type 'a BaseMap.t = 'a Node.t
+
+(** Create an heterogeneous map with a custom {!NODE}. *)
 module MakeCustomHeterogeneousMap
     (Key:HETEROGENEOUS_KEY)
     (Value:VALUE)
@@ -1176,7 +1184,7 @@ module MakeCustomHeterogeneousMap
      and type ('k,'m) value = ('k,'m) Value.t
      and type 'm t = 'm NODE.t
 
-(** Create an Heterogeneous set with a custom {!NODE}. *)
+(** Create an heterogeneous set with a custom {!NODE}. *)
 module MakeCustomHeterogeneousSet
     (Key:HETEROGENEOUS_KEY)
     (NODE:NODE with type 'a key = 'a Key.t and type ('key,'map) value = unit)

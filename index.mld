@@ -137,8 +137,9 @@ Here is a brief overview of the various module types of our library:
   (node which contain a unique identifier), {!PatriciaTree.SetNode} (node optimized for set,
   doesn't store the [unit] value) and {!PatriciaTree.WeakSetNode}.
 
-  Use the functors {!PatriciaTree.MakeCustomHeterogeneousMap},
-  {!PatriciaTree.MakeCustomHeterogeneousSet} and {!PatriciaTree.MakeCustom} to build
+  Use the functors {!PatriciaTree.MakeCustomMap} and {!PatriciaTree.MakeCustomSet}
+  (or their heterogeneous versions {!PatriciaTree.MakeCustomHeterogeneousMap} and
+  {!PatriciaTree.MakeCustomHeterogeneousSet}) to build
   maps using these nodes, or any other custom nodes.}
 }
 

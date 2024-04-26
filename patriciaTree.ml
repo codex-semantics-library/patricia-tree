@@ -1645,7 +1645,7 @@ module MakeHeterogeneousMap(Key:HETEROGENEOUS_KEY)(Value:VALUE) =
 module MakeHeterogeneousSet(Key:HETEROGENEOUS_KEY) =
   MakeCustomHeterogeneousSet(Key)(SetNode(Key))
 
-module MakeCustom
+module MakeCustomMap
     (Key:KEY)
     (NODE:NODE with type 'a key = Key.t and type ('key,'map) value = ('key,'map) snd)
 = struct
@@ -1750,13 +1750,16 @@ end
 
 module MakeMap(Key: KEY) = struct
   module NKey = struct type 'a t = Key.t end
-  module NODE = SimpleNode(NKey)(WrappedHomogeneousValue)
-  include MakeCustom(Key)(NODE)
+  module Node = SimpleNode(NKey)(WrappedHomogeneousValue)
+  include MakeCustomMap(Key)(Node)
 end
 
-module MakeSet(Key: KEY) : SET with type elt = Key.t = struct
+module MakeCustomSet
+    (Key: KEY)
+    (Node:NODE with type 'a key = Key.t and type ('key,'map) value = unit)
+: SET with type elt = Key.t and type 'a BaseMap.t = 'a Node.t = struct
   module HKey = HeterogeneousKeyFromKey(Key)
-  module S = MakeHeterogeneousSet(HKey)
+  module S = MakeCustomHeterogeneousSet(HKey)(Node)
   include S
   type key = Key.t
   type elt = key
@@ -1786,6 +1789,8 @@ module MakeSet(Key: KEY) : SET with type elt = Key.t = struct
   let of_list l = of_seq (List.to_seq l)
   let to_list s = List.of_seq (to_seq s)
 end
+
+module MakeSet(Key: KEY) = MakeCustomSet(Key)(SetNode(HeterogeneousKeyFromKey(Key)))
 
 module MakeHashconsedHeterogeneousMap(Key:HETEROGENEOUS_KEY)(Value:sig type 'a t end) = struct
   module Node = HashconsedNode(Key)(Value)

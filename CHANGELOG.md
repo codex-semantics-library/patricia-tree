@@ -1,5 +1,6 @@
 # Unreleased
 
+- Renamed `MakeCustom` to `MakeCustomMap`, added new functor `MakeCustomSet`.
 - Renamed `MakeCustomHeterogeneous` to `MakeCustomHeterogeneousMap`, added new functor
   `MakeCustomHeterogeneousSet`.
 - Fixed a bug where `NodeWithId` wasn't incrementing ids properly
