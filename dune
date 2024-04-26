@@ -22,7 +22,6 @@
 (library
  (name PatriciaTree)
  (public_name patricia-tree)
- (libraries zarith)
  (modules PatriciaTree)
  (foreign_stubs
   (language c)
@@ -39,5 +38,5 @@
   (libraries qcheck-core))
  (preprocess
   (pps ppx_inline_test))
- (libraries PatriciaTree zarith qcheck-core)
+ (libraries PatriciaTree qcheck-core)
  (modules PatriciaTreeTest))
