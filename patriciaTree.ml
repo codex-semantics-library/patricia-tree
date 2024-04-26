@@ -281,78 +281,77 @@ type (_, 'b) snd = Snd of 'b [@@unboxed]
 module type MAP = sig
   type key
   type 'a t
+  type 'a value
 
   module BaseMap : HETEROGENEOUS_MAP
    with type 'a t = 'a t
     and type _ key = key
-    and type ('a,'b) value = ('a,'b) snd
+    and type ('a,'b) value = ('a,'b value) snd
 
   val empty : 'a t
   val is_empty : 'a t -> bool
-  val min_binding : 'a t -> (key * 'a)
-  val max_binding : 'a t -> (key * 'a)
-  val singleton : key -> 'a -> 'a t
+  val min_binding : 'a t -> (key * 'a value)
+  val max_binding : 'a t -> (key * 'a value)
+  val singleton : key -> 'a value -> 'a t
   val cardinal : 'a t -> int
-  val is_singleton : 'a t -> (key * 'a) option
-  val find : key -> 'a t -> 'a
-  val find_opt : key -> 'a t -> 'a option
+  val is_singleton : 'a t -> (key * 'a value) option
+  val find : key -> 'a t -> 'a value
+  val find_opt : key -> 'a t -> 'a value option
   val mem : key -> 'a t -> bool
   val remove : key -> 'a t -> 'a t
-  val pop_minimum : 'a t -> (key * 'a * 'a t) option
-  val pop_maximum : 'a t -> (key * 'a * 'a t) option
-  val insert : key -> ('a option -> 'a) -> 'a t -> 'a t
-  val update : key -> ('a option -> 'a option) -> 'a t -> 'a t
-  val add : key -> 'a -> 'a t -> 'a t
-  val split : key -> 'a t -> 'a t * 'a option * 'a t
-  val iter : (key -> 'a -> unit) -> 'a t -> unit
-  val fold : (key -> 'a -> 'acc -> 'acc) ->  'a t -> 'acc -> 'acc
-  val filter : (key -> 'a -> bool) -> 'a t -> 'a t
-  val for_all : (key -> 'a -> bool) -> 'a t -> bool
-  val map : ('a -> 'a) -> 'a t -> 'a t
-  val map_no_share : ('a -> 'b) -> 'a t -> 'b t
-  val mapi : (key -> 'a -> 'a) -> 'a t -> 'a t
-  val mapi_no_share : (key -> 'a -> 'b) -> 'a t -> 'b t
-  val filter_map : (key -> 'a -> 'a option) -> 'a t -> 'a t
-  val filter_map_no_share : (key -> 'a -> 'b option) -> 'a t -> 'b t
-  val reflexive_same_domain_for_all2 : (key -> 'a -> 'a -> bool) -> 'a t -> 'a t ->  bool
-  val nonreflexive_same_domain_for_all2 : (key -> 'a -> 'b -> bool) -> 'a t -> 'b t -> bool
-  val reflexive_subset_domain_for_all2 : (key -> 'a -> 'a -> bool) -> 'a t -> 'a t -> bool
-  val idempotent_union : (key -> 'a -> 'a -> 'a) -> 'a t -> 'a t -> 'a t
-  val idempotent_inter : (key -> 'a -> 'a -> 'a) -> 'a t -> 'a t -> 'a t
-  val nonidempotent_inter_no_share : (key -> 'a -> 'b -> 'c) -> 'a t -> 'b t -> 'c t
-  val idempotent_inter_filter : (key -> 'a -> 'a -> 'a option) -> 'a t -> 'a t -> 'a t
-  val slow_merge : (key -> 'a option -> 'b option -> 'c option) -> 'a t -> 'b t -> 'c t
+  val pop_minimum : 'a t -> (key * 'a value * 'a t) option
+  val pop_maximum : 'a t -> (key * 'a value * 'a t) option
+  val insert : key -> ('a value option -> 'a value) -> 'a t -> 'a t
+  val update : key -> ('a value option -> 'a value option) -> 'a t -> 'a t
+  val add : key -> 'a value -> 'a t -> 'a t
+  val split : key -> 'a t -> 'a t * 'a value option * 'a t
+  val iter : (key -> 'a value -> unit) -> 'a t -> unit
+  val fold : (key -> 'a value -> 'acc -> 'acc) ->  'a t -> 'acc -> 'acc
+  val filter : (key -> 'a value -> bool) -> 'a t -> 'a t
+  val for_all : (key -> 'a value -> bool) -> 'a t -> bool
+  val map : ('a value -> 'a value) -> 'a t -> 'a t
+  val map_no_share : ('a value -> 'b value) -> 'a t -> 'b t
+  val mapi : (key -> 'a value -> 'a value) -> 'a t -> 'a t
+  val mapi_no_share : (key -> 'a value -> 'b value) -> 'a t -> 'b t
+  val filter_map : (key -> 'a value -> 'a value option) -> 'a t -> 'a t
+  val filter_map_no_share : (key -> 'a value -> 'b value option) -> 'a t -> 'b t
+  val reflexive_same_domain_for_all2 : (key -> 'a value -> 'a value -> bool) -> 'a t -> 'a t ->  bool
+  val nonreflexive_same_domain_for_all2 : (key -> 'a value -> 'b value -> bool) -> 'a t -> 'b t -> bool
+  val reflexive_subset_domain_for_all2 : (key -> 'a value -> 'a value -> bool) -> 'a t -> 'a t -> bool
+  val idempotent_union : (key -> 'a value -> 'a value -> 'a value) -> 'a t -> 'a t -> 'a t
+  val idempotent_inter : (key -> 'a value -> 'a value -> 'a value) -> 'a t -> 'a t -> 'a t
+  val nonidempotent_inter_no_share : (key -> 'a value -> 'b value -> 'c value) -> 'a t -> 'b t -> 'c t
+  val idempotent_inter_filter : (key -> 'a value -> 'a value -> 'a value option) -> 'a t -> 'a t -> 'a t
+  val slow_merge : (key -> 'a value option -> 'b value option -> 'c value option) -> 'a t -> 'b t -> 'c t
   val disjoint : 'a t -> 'a t -> bool
 
   module WithForeign(Map2 : BASE_MAP with type _ key = key):sig
-    type ('b,'c) polyfilter_map_foreign = { f: 'a. key -> ('a,'b) Map2.value -> 'c option } [@@unboxed]
+    type ('b,'c) polyfilter_map_foreign = { f: 'a. key -> ('a,'b) Map2.value -> 'c value option } [@@unboxed]
     val filter_map_no_share : ('b, 'c) polyfilter_map_foreign -> 'b Map2.t ->  'c t
 
     type ('value,'map2) polyinter_foreign =
-      { f: 'a. 'a Map2.key -> 'value -> ('a, 'map2) Map2.value -> 'value  } [@@unboxed]
+      { f: 'a. 'a Map2.key -> 'value value -> ('a, 'map2) Map2.value -> 'value value } [@@unboxed]
     val nonidempotent_inter : ('a, 'b) polyinter_foreign -> 'a t -> 'b Map2.t -> 'a t
 
-    type ('map1,'map2) polyupdate_multiple = { f: 'a. key -> 'map1 option -> ('a,'map2) Map2.value -> 'map1 option } [@@unboxed]
+    type ('map1,'map2) polyupdate_multiple = { f: 'a. key -> 'map1 value option -> ('a,'map2) Map2.value -> 'map1 value option } [@@unboxed]
     val update_multiple_from_foreign : 'b Map2.t -> ('a,'b) polyupdate_multiple -> 'a t -> 'a t
 
-    type ('map1,'map2) polyupdate_multiple_inter = { f: 'a. key -> 'map1 -> ('a,'map2) Map2.value -> 'map1 option } [@@unboxed]
-    val update_multiple_from_inter_with_foreign : 'b Map2.t -> ('a,'b) polyupdate_multiple_inter -> 'a t -> 'a t
+    type ('map1,'map2) polyupdate_multiple_inter = { f: 'a. key -> 'map1 value -> ('a,'map2) Map2.value -> 'map1 value option } [@@unboxed]
+    val update_multiple_from_inter_with_foreign: 'b Map2.t -> ('a,'b) polyupdate_multiple_inter -> 'a t -> 'a t
   end
 
   val pretty :
     ?pp_sep:(Format.formatter -> unit -> unit) ->
-    (Format.formatter -> key -> 'a -> unit) ->
+    (Format.formatter -> key -> 'a value -> unit) ->
     Format.formatter -> 'a t -> unit
 
-  val to_seq : 'a t -> (key * 'a) Seq.t
-  val to_rev_seq : 'a t -> (key * 'a) Seq.t
-  val add_seq : (key * 'a) Seq.t -> 'a t -> 'a t
-  val of_seq : (key * 'a) Seq.t -> 'a t
-
-  val of_list : (key * 'a) list -> 'a t
-  val to_list : 'a t -> (key * 'a) list
+  val to_seq : 'a t -> (key * 'a value) Seq.t
+  val to_rev_seq : 'a t -> (key * 'a value) Seq.t
+  val add_seq : (key * 'a value) Seq.t -> 'a t -> 'a t
+  val of_seq : (key * 'a value) Seq.t -> 'a t
+  val of_list : (key * 'a value) list -> 'a t
+  val to_list : 'a t -> (key * 'a value) list
 end
-
 
 (** {2 Keys and Value} *)
 
@@ -1647,14 +1646,17 @@ module MakeHeterogeneousSet(Key:HETEROGENEOUS_KEY) =
 
 module MakeCustomMap
     (Key:KEY)
-    (NODE:NODE with type 'a key = Key.t and type ('key,'map) value = ('key,'map) snd)
+    (Value:sig type 'a t end)
+    (NODE:NODE with type 'a key = Key.t and type ('key,'map) value = ('key,'map Value.t) snd)
 = struct
 
   module NewKey(* :Key *) = HeterogeneousKeyFromKey(Key)
 
-  module BaseMap = MakeCustomHeterogeneousMap(NewKey)(WrappedHomogeneousValue)(NODE)
+  module BaseMap = MakeCustomHeterogeneousMap
+    (NewKey)(struct type ('key,'map) t = ('key,'map Value.t) snd end)(NODE)
   include BaseMap
   type key = Key.t
+  type 'a value = 'a Value.t
 
   let snd_opt = function
     | None -> None
@@ -1720,21 +1722,21 @@ module MakeCustomMap
 
   module WithForeign(Map2 : BASE_MAP with type _ key = key) = struct
     module BaseForeign = BaseMap.WithForeign(Map2)
-    type ('b,'c) polyfilter_map_foreign = { f: 'a. key -> ('a,'b) Map2.value -> 'c option } [@@unboxed]
+    type ('b,'c) polyfilter_map_foreign = { f: 'a. key -> ('a,'b) Map2.value -> 'c value option } [@@unboxed]
     let filter_map_no_share f m2 =
       BaseForeign.filter_map_no_share { f=fun k v-> snd_opt (f.f k v)} m2
 
 
   type ('value,'map2) polyinter_foreign =
-    { f: 'a. 'a Map2.key -> 'value -> ('a, 'map2) Map2.value -> 'value  } [@@unboxed]
+    { f: 'a. 'a Map2.key -> 'value value -> ('a, 'map2) Map2.value -> 'value value } [@@unboxed]
   let nonidempotent_inter f m1 m2 =
     BaseForeign.nonidempotent_inter {f = fun k (Snd v) v2 -> Snd (f.f k v v2)} m1 m2
 
-  type ('map1,'map2) polyupdate_multiple = { f: 'a. key -> 'map1 option -> ('a,'map2) Map2.value -> 'map1 option } [@@unboxed]
+  type ('map1,'map2) polyupdate_multiple = { f: 'a. key -> 'map1 value option -> ('a,'map2) Map2.value -> 'map1 value option } [@@unboxed]
   let update_multiple_from_foreign m2 f m =
     BaseForeign.update_multiple_from_foreign m2 {f = fun k v1 v2 -> snd_opt (f.f k (opt_snd v1) v2)} m
 
-  type ('map1,'map2) polyupdate_multiple_inter = { f: 'a. key -> 'map1 -> ('a,'map2) Map2.value -> 'map1 option } [@@unboxed]
+  type ('map1,'map2) polyupdate_multiple_inter = { f: 'a. key -> 'map1 value -> ('a,'map2) Map2.value -> 'map1 value option } [@@unboxed]
   let update_multiple_from_inter_with_foreign m2 f m =
     BaseForeign.update_multiple_from_inter_with_foreign m2 {f = fun k (Snd v1) v2 -> snd_opt (f.f k v1 v2)} m
   end
@@ -1751,7 +1753,7 @@ end
 module MakeMap(Key: KEY) = struct
   module NKey = struct type 'a t = Key.t end
   module Node = SimpleNode(NKey)(WrappedHomogeneousValue)
-  include MakeCustomMap(Key)(Node)
+  include MakeCustomMap(Key)(struct type 'a t = 'a end)(Node)
 end
 
 module MakeCustomSet
@@ -1817,4 +1819,14 @@ module MakeHashconsedSet(Key : KEY) = struct
   let equal = Node.fast_equal
   let compare = Node.fast_compare
   let get_id = Node.get_id
+end
+
+module MakeHashconsedMap(Key: KEY)(Value: sig type t end) = struct
+  module Node = HashconsedNode(HeterogeneousKeyFromKey(Key))(struct type 'a t = ('a, Value.t) snd end)
+  include MakeCustomMap(Key)(struct type _ t = Value.t end)(Node)
+
+  let equal = Node.fast_equal
+  let compare = Node.fast_compare
+  let get_id = Node.get_id
+  let cast = Node.cast
 end
