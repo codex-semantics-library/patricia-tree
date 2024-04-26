@@ -44,7 +44,15 @@ document.querySelector(".search-bar").addEventListener("focus", (ev) => {
       let f = (entry) => {
         let search_result = document.createElement("a");
         search_result.classList.add("search-entry");
-        search_result.href = base_url + entry.url;
+        // MANUAL EDIT: change the URL to match our scheme:
+        // ie. no package level in URL, instead replace it with a version level
+        // See https://github.com/art-w/sherlodoc/issues/41 for a discussion on this
+        search_result.href =
+          // removing leading "../" that would take us back to the package level
+          // The url is instead relative to the library toplevel
+          base_url.replace(/^\.\.\//, "") +
+          // Removing package-name from full URL (given relative to the package level)
+          entry.url.replace(/^patricia\-tree\//, "");
         search_result.innerHTML = entry.html;
         search_results.appendChild(search_result);
       };
