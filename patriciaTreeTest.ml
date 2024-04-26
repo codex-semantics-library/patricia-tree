@@ -246,6 +246,12 @@ end) = struct
     | (a,b)::rest ->
       extend_map (MyMap.add a (Conv.of_int b) mymap) rest
 
+  let rec remove_map mymap alist =
+    match alist with
+    | [] -> mymap
+    | (a,_)::rest ->
+      remove_map (MyMap.remove a mymap) rest
+
   let intmap_of_mymap m =
     MyMap.fold (fun key value acc -> IntMap.add key (Conv.to_int value) acc) m IntMap.empty
 
@@ -512,12 +518,15 @@ end) = struct
       (* Remove duplicates *)
       let two = List.filter (fun (x, _) -> not (List.mem_assoc x one)) two in
       let three = List.filter (fun (x, _) -> not (List.mem_assoc x one || List.mem_assoc x two)) three in
-      let m1 = extend_map (extend_map (extend_map MyMap.empty one) two) three in
+      let m = extend_map MyMap.empty one in
+      let m1 = extend_map (extend_map m two) three in
       m1 == extend_map (extend_map (extend_map MyMap.empty three) one) two &&
       m1 == extend_map (extend_map (extend_map MyMap.empty two) three) one &&
       m1 == extend_map (extend_map (extend_map MyMap.empty three) two) one &&
       m1 == extend_map (extend_map (extend_map MyMap.empty one) three) two &&
-      m1 == extend_map m1 one
+      m1 == extend_map m1 one &&
+      m == remove_map (extend_map m two) two &&
+      MyMap.empty == remove_map m one
       )
   let () = if Conv.test_id then QCheck.Test.check_exn test_id_unique
 end
