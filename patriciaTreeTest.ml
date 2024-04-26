@@ -146,6 +146,18 @@ end)
 
 (* let _m6 = inter (fun a b -> a) _m1 _m2;; *)
 
+module HIntKey : sig
+  type t = int
+  val to_int : t -> int
+end = struct
+  type t = int
+  let to_int x = x
+end
+
+(* module TestImpl = struct
+
+end *)
+
 let%test_module _ = (module struct
 
   (* A model. *)
@@ -225,13 +237,7 @@ let%test_module _ = (module struct
     let pretty fmt x = Format.pp_print_int fmt x
   end
 
-  module HIntKey : sig
-    type t = int
-    val to_int : t -> int
-  end = struct
-    type t = int
-    let to_int x = x
-  end
+
 
   (* module MyMap = Make(SimpleNode(IntKey)(IntValue))(IntKey)(IntValue);; *)
   module MyMap = MakeMap(HIntKey)

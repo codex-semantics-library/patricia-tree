@@ -138,9 +138,9 @@ Here is a brief overview of the various module types of our library:
   purposes, it is often best to use the more specific interfaces:
   - `HETEROGENEOUS_MAP` for heterogeneous maps (this is just `BASE_MAP` with a
     `WithForeign` functor).
-  - `MAP` for homogeneous maps, this interface is close to [`Stdlib.Map.S`](https://ocaml.org/api/Map.S.html). One difference is that it uses a type `'a value` instead of just `'a`.
-    This allows using the same interface for standard maps (in the `MakeMap` functor, `'a value = 'a`)
-    and maps with restricted value types (in `MakeHashconsedMap`, `'a value` is set to
+  - `MAP` for homogeneous maps, this interface is close to [`Stdlib.Map.S`](https://ocaml.org/api/Map.S.html).
+  - `MAP_WITH_VALUE`: variant of `MAP` that uses a type `'a value` instead of just `'a`.
+    Used to restrict the values a map can have (such as in `MakeHashconsedMap`, `'a value` is set to
     a non-generic user-supplied type).
   - `HETEROGENEOUS_SET` for heterogeneous sets (sets of `'a elt`). These are just
     maps to unit, but with a custom node representation to avoid storing unit in

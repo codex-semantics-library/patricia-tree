@@ -766,9 +766,11 @@ end
     {{: https://discuss.ocaml.org/t/weird-behaviors-with-first-order-polymorphism/13783} the OCaml discourse post}. *)
 type (_, 'b) snd = Snd of 'b [@@unboxed]
 
-(** The signature for maps with a single type for keys and values.
-    Most of this interface should be shared with {{: https://ocaml.org/api/Map.S.html}[Stdlib.Map.S]}. *)
-module type MAP = sig
+(** The signature for maps with a single type for keys and values,
+    a ['a map] binds [key] to ['a value].
+    This is slightly more generic than {!MAP}, which just binds to ['a].
+    It is used for maps that need to restrict their value type, namely hash-consed maps. *)
+module type MAP_WITH_VALUE = sig
   type key
   (** The type of keys. *)
 
@@ -1087,6 +1089,10 @@ module type MAP = sig
   (** [to_list m] returns the bindings of [m] as a list, in increasing order of [Key.to_int] *)
 end
 
+(** The signature for maps with a single type for keys and values,
+    a ['a map] binds [key] to ['a].
+    Most of this interface should be shared with {{: https://ocaml.org/api/Map.S.html}[Stdlib.Map.S]}. *)
+module type MAP = MAP_WITH_VALUE with type 'a value = 'a
 
 (** {1 Keys} *)
 (** Keys are the functor arguments used to build the maps. *)
@@ -1143,7 +1149,7 @@ module WrappedHomogeneousValue:VALUE with type ('a,'map) t = ('a,'map) snd
 (** These are homogeneous maps and set, their keys/elements are a single
     non-generic type, just like the standard library's [Map] and [Set] modules. *)
 
-module MakeMap(Key:KEY):MAP with type key = Key.t and type 'a value = 'a
+module MakeMap(Key:KEY):MAP with type key = Key.t
 module MakeSet(Key:KEY):SET with type elt = Key.t
 
 (** {2 Heterogeneous maps and sets} *)
@@ -1174,7 +1180,7 @@ module MakeCustomMap
     (Key:KEY)
     (Value:sig type 'a t end)
     (Node:NODE with type 'a key = Key.t and type ('key,'map) value = ('key,'map Value.t) snd)
-  :MAP
+  : MAP_WITH_VALUE
     with type key = Key.t
      and type 'm t = 'm Node.t
      and type 'a value = 'a Value.t
@@ -1234,7 +1240,7 @@ module MakeCustomHeterogeneousSet
 
     @since v0.10.0 *)
 module MakeHashconsedMap(Key: KEY)(Value : sig type t end) : sig
-  include MAP with type key = Key.t and type _ value = Value.t
+  include MAP_WITH_VALUE with type key = Key.t and type _ value = Value.t
 
   val get_id : 'a t -> int
   (** Unique identifier for each node *)

@@ -131,10 +131,10 @@ Here is a brief overview of the various module types of our library:
   {ul
   {li {{!PatriciaTree.HETEROGENEOUS_MAP}[HETEROGENEOUS_MAP]} for heterogeneous maps (this is just {{!PatriciaTree.BASE_MAP}[BASE_MAP]} with a
     [WithForeign] functor).}
-  {li {{!PatriciaTree.MAP}[MAP]} for homogeneous maps, this interface is close to {{: https://ocaml.org/api/Map.S.html}[Stdlib.Map.S]}.
-    One difference is that it uses a type ['a value] instead of just ['a].
-    This allows using the same interface for standard maps (in the {{!PatriciaTree.MakeMap}[MakeMap]} functor,
-    ['a value = 'a]) and maps with restricted value types (in {{!PatriciaTree.MakeHashconsedMap}[MakeHashconsedMap]},
+  {li {{!PatriciaTree.MAP}[MAP]} for homogeneous maps, this interface is close to {{: https://ocaml.org/api/Map.S.html}[Stdlib.Map.S]}.}
+  {li {{!PatriciaTree.MAP_WITH_VALUE}[MAP_WITH_VALUE]}: variant of {{!PatriciaTree.MAP}[MAP]}
+    that uses a type ['a value] instead of just ['a].
+    Used to restrict the values a map can have (such as in {{!PatriciaTree.MakeHashconsedMap}[MakeHashconsedMap]},
     ['a value] is set to a non-generic user-supplied type).
   }
   {li {{!PatriciaTree.HETEROGENEOUS_SET}[HETEROGENEOUS_SET]} for heterogeneous sets (sets of ['a elt]). These are just

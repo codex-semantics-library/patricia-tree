@@ -278,7 +278,7 @@ end
 type (_, 'b) snd = Snd of 'b [@@unboxed]
 
 (** The signature for maps with a single type for keys and values. *)
-module type MAP = sig
+module type MAP_WITH_VALUE = sig
   type key
   type 'a t
   type 'a value
@@ -352,6 +352,8 @@ module type MAP = sig
   val of_list : (key * 'a value) list -> 'a t
   val to_list : 'a t -> (key * 'a value) list
 end
+
+module type MAP = MAP_WITH_VALUE with type 'a value = 'a
 
 (** {2 Keys and Value} *)
 
