@@ -156,6 +156,14 @@ module type HASH_CONSED_NODE = sig
 
   val fast_compare : 'a t -> 'a t -> int
   (** Constant time comparison using the node ids. *)
+
+  val cast : 'a t -> 'b t
+  (** This is a no-op, since hash-consed maps have a single imposed value type,
+      (the type [('key, 'map) value] doesn't depend on ['map]).
+      This means the ['map] parameter in ['map t] is phantom and unused. However,
+      since the type is opaque, this might not always be obvious to the typechecker
+
+      This cast is provided to solve any issues that might crop up with it. *)
 end
 
 (** {1 Map signatures} *)
@@ -1205,10 +1213,12 @@ module WeakSetNode(Key : sig type 'k t end):NODE
 
     This makes constructors a bit slower, but comparison much faster.
     It can also speed up quite a few operations on map pairs, as these use
-    physical equality test to skip uneccessary work. *)
-module HashconsedNode(Key : HETEROGENEOUS_KEY)(Value : VALUE) : HASH_CONSED_NODE
+    physical equality test to skip uneccessary work.
+
+    One limitation of hashconsing is that values*)
+module HashconsedNode(Key : HETEROGENEOUS_KEY)(Value : sig type 'a t end) : HASH_CONSED_NODE
   with type 'a key = 'a Key.t
-   and type ('key,'map) value = ('key,'map) Value.t
+   and type ('key,_) value = 'key Value.t
 
 (** Both a {!HashconsedNode} and a {!SetNode}. *)
 module HashconsedSetNode(Key : HETEROGENEOUS_KEY) : HASH_CONSED_NODE

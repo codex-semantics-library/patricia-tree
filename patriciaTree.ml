@@ -57,6 +57,7 @@ module type HASH_CONSED_NODE = sig
   include NODE_WITH_ID
   val fast_equal : 'a t -> 'a t -> bool
   val fast_compare : 'a t -> 'a t -> int
+  val cast : 'a t -> 'b t
 end
 
 module type BASE_MAP = sig
@@ -597,22 +598,23 @@ end
 let sdbm x y = y + (x lsl 16) + (x lsl 6) - x
 (** Combine two numbers into a new hash *)
 
-module HashconsedNode(Key:HETEROGENEOUS_KEY)(Value:VALUE): HASH_CONSED_NODE
+module HashconsedNode(Key:HETEROGENEOUS_KEY)(Value:sig type 'a t end): HASH_CONSED_NODE
   with type 'key key = 'key Key.t
-   and type ('key,'map) value = ('key,'map) Value.t
+   and type ('key, _) value = 'key Value.t
 = struct
 
   type 'a key = 'a Key.t
-  type ('key,'map) value = ('key,'map) Value.t
+  type ('key,_) value = 'key Value.t
 
+  type map =
+    | NEmpty: map
+    | NBranch: { prefix:intkey; branching_bit:mask; tree0:map; tree1:map; id:int } -> map
+    | NLeaf: { key:'key key; value:'key Value.t; id:int } -> map
   type 'map view =
     | Empty: 'map view
     | Branch: { prefix:intkey; branching_bit:mask; tree0:'map t; tree1:'map t } -> 'map view
     | Leaf: { key:'key key; value:('key,'map) value } -> 'map view
-  and 'map t =
-    | NEmpty: 'map t
-    | NBranch: { prefix:intkey; branching_bit:mask; tree0:'map t; tree1:'map t; id:int } -> 'map t
-    | NLeaf: { key:'key key; value:('key,'map) value; id:int } -> 'map t
+  and _ t = map
 
   let view = function
     | NEmpty -> Empty
@@ -627,22 +629,21 @@ module HashconsedNode(Key:HETEROGENEOUS_KEY)(Value:VALUE): HASH_CONSED_NODE
   let count = ref 1 (** Start at 1 as we increment in post *)
 
   module HashArg = struct
-    type 'a map = 'a t
-    type t = Exi : 'a map -> t [@@unboxed]
-    let equal (Exi a) (Exi b) = match a, b with
+    type t = map
+    let equal a b = match a, b with
       | NEmpty, NEmpty -> true
       | NLeaf{key=key1;value=value1;_}, NLeaf{key=key2;value=value2;_} ->
         begin match Key.polyeq key1 key2 with
-        | Eq -> value1 == Obj.magic value2
+        | Eq -> value1 == value2
         | Diff -> false
         end
       | NBranch{prefix=prefixa;branching_bit=branching_bita;tree0=tree0a;tree1=tree1a;_},
         NBranch{prefix=prefixb;branching_bit=branching_bitb;tree0=tree0b;tree1=tree1b;_} ->
         prefixa == prefixb && branching_bita == branching_bitb &&
-        get_id tree0a = get_id tree0b && get_id tree1a = get_id tree1b
+        tree0a == tree0b && tree1a == tree1b
       | _ -> false
 
-    let hash (Exi a) = match a with
+    let hash = function
       | NEmpty -> 0
       | NLeaf{key; _} -> (Key.to_int key lsl 1) lor 1 (* All leaf hashes are odd *)
       | NBranch{prefix; branching_bit; tree0; tree1; _} -> (* All branch hashes are even *)
@@ -657,8 +658,7 @@ module HashconsedNode(Key:HETEROGENEOUS_KEY)(Value:VALUE): HASH_CONSED_NODE
   let is_empty x = x == NEmpty
 
   let try_find tentative =
-    let Exi x = WeakHash.merge weakh (Exi tentative) in
-    let x = Obj.magic x in
+    let x = WeakHash.merge weakh tentative in
     if x == tentative then incr count;
     x
 
@@ -672,6 +672,7 @@ module HashconsedNode(Key:HETEROGENEOUS_KEY)(Value:VALUE): HASH_CONSED_NODE
 
   let fast_equal x y = Int.equal (get_id x) (get_id y)
   let fast_compare x y = Int.compare (get_id x) (get_id y)
+  let cast x = x
 end
 
 module HashconsedSetNode(Key:HETEROGENEOUS_KEY): HASH_CONSED_NODE
@@ -682,14 +683,15 @@ module HashconsedSetNode(Key:HETEROGENEOUS_KEY): HASH_CONSED_NODE
   type 'a key = 'a Key.t
   type ('key,'map) value = unit
 
+  type map =
+    | NEmpty: map
+    | NBranch: { prefix:intkey; branching_bit:mask; tree0:map; tree1:map; id:int } -> map
+    | NLeaf: { key:'key key; id:int } -> map
   type 'map view =
     | Empty: 'map view
     | Branch: { prefix:intkey; branching_bit:mask; tree0:'map t; tree1:'map t } -> 'map view
     | Leaf: { key:'key key; value:unit } -> 'map view
-  and 'map t =
-    | NEmpty: 'map t
-    | NBranch: { prefix:intkey; branching_bit:mask; tree0:'map t; tree1:'map t; id:int } -> 'map t
-    | NLeaf: { key:'key key; id:int } -> 'map t
+  and _ t = map
 
   let view = function
     | NEmpty -> Empty
@@ -704,9 +706,8 @@ module HashconsedSetNode(Key:HETEROGENEOUS_KEY): HASH_CONSED_NODE
   let count = ref 1 (** Start at 1 as we increment in post *)
 
   module HashArg = struct
-    type 'a map = 'a t
-    type t = Exi : 'a map -> t [@@unboxed]
-    let equal (Exi a) (Exi b) = match a, b with
+    type t = map
+    let equal a b = match a, b with
       | NEmpty, NEmpty -> true
       | NLeaf{key=key1;_}, NLeaf{key=key2;_} ->
         begin match Key.polyeq key1 key2 with
@@ -719,7 +720,7 @@ module HashconsedSetNode(Key:HETEROGENEOUS_KEY): HASH_CONSED_NODE
         get_id tree0a = get_id tree0b && get_id tree1a = get_id tree1b
       | _ -> false
 
-    let hash (Exi a) = match a with
+    let hash a = match a with
       | NEmpty -> 0
       | NLeaf{key; _} -> ((Key.to_int key) lsl 1) lor 1 (* All leaf hashes are odd *)
       | NBranch{prefix; branching_bit; tree0; tree1; _} -> (* All branch hashes are even *)
@@ -734,8 +735,7 @@ module HashconsedSetNode(Key:HETEROGENEOUS_KEY): HASH_CONSED_NODE
   let is_empty x = x == NEmpty
 
   let try_find tentative =
-    let Exi x = WeakHash.merge weakh (Exi tentative) in
-    let x = Obj.magic x in
+    let x = WeakHash.merge weakh tentative in
     if x == tentative then incr count;
     x
 
@@ -749,6 +749,7 @@ module HashconsedSetNode(Key:HETEROGENEOUS_KEY): HASH_CONSED_NODE
 
   let fast_equal x y = Int.equal (get_id x) (get_id y)
   let fast_compare x y = Int.compare (get_id x) (get_id y)
+  let cast x = x
 end
 
 module MakeCustomHeterogeneous
