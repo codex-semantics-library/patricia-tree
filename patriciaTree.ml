@@ -1798,6 +1798,7 @@ module MakeHashconsedHeterogeneousMap(Key:HETEROGENEOUS_KEY)(Value:sig type 'a t
 
   let equal = Node.fast_equal
   let compare = Node.fast_compare
+  let get_id = Node.get_id
   let cast = Node.cast
 end
 
@@ -1807,4 +1808,13 @@ module MakeHashconsedHeterogeneousSet(Key:HETEROGENEOUS_KEY) = struct
 
   let equal = Node.fast_equal
   let compare = Node.fast_compare
+  let get_id = Node.get_id
+end
+
+module MakeHashconsedSet(Key : KEY) = struct
+  module Node = HashconsedSetNode(HeterogeneousKeyFromKey(Key))
+  include MakeCustomSet(Key)(Node)
+  let equal = Node.fast_equal
+  let compare = Node.fast_compare
+  let get_id = Node.get_id
 end

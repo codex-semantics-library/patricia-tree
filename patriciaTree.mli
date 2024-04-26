@@ -1209,11 +1209,19 @@ module MakeCustomHeterogeneousSet
     together different map types, and potential conflict if two separate types
     have equal representations. *)
 
-(* module MakeHashconsedMap(Key: KEY) : MAP with type key = Key.t
-module MakeHashconsedSet(Key: KEY) : SET with type elt = Key.t *)
+(* module MakeHashconsedMap(Key: KEY) : MAP with type key = Key.t *)
 
-module MakeHashconsedHeterogeneousSet(Key:HETEROGENEOUS_KEY):sig
-    include HETEROGENEOUS_SET with type 'a elt = 'a Key.t
+(** Hash-consed version of {!SET}.
+
+    Each node is given a unique identifier. Node with the same contents
+    will always be physically equal and have the same identifier.
+    This allows for constant time [equal] and [compare], at the cost of
+    slightly slower constructors. *)
+module MakeHashconsedSet(Key: KEY) : sig
+    include SET with type elt = Key.t
+
+    val get_id : t -> int
+    (** Unique identifier for each node *)
 
     val equal : t -> t -> bool
     (** Constant time equality *)
@@ -1223,10 +1231,41 @@ module MakeHashconsedHeterogeneousSet(Key:HETEROGENEOUS_KEY):sig
         created earlier will be smaller. In particular, subterms will always be
         smaller than their superterms. *)
 end
+
+(** Hash-consed version of {!HETEROGENEOUS_SET}.
+
+    Each node is given a unique identifier. Node with the same contents
+    will always be physically equal and have the same identifier.
+    This allows for constant time [equal] and [compare], at the cost of
+    slightly slower constructors. *)
+module MakeHashconsedHeterogeneousSet(Key:HETEROGENEOUS_KEY):sig
+    include HETEROGENEOUS_SET with type 'a elt = 'a Key.t
+
+    val get_id : t -> int
+    (** Unique identifier for each node *)
+
+    val equal : t -> t -> bool
+    (** Constant time equality *)
+
+    val compare : t -> t -> int
+    (** Constant time comparison, the order is given by the nodes id, so nodes
+        created earlier will be smaller. In particular, subterms will always be
+        smaller than their superterms. *)
+end
+
+(** Hash-consed version of {!HETEROGENEOUS_MAP}.
+
+    Each node is given a unique identifier. Node with the same contents
+    will always be physically equal and have the same identifier.
+    This allows for constant time [equal] and [compare], at the cost of
+    slightly slower constructors. *)
 module MakeHashconsedHeterogeneousMap(Key:HETEROGENEOUS_KEY)(Value:sig type 'a t end): sig
     include HETEROGENEOUS_MAP
        with type 'a key = 'a Key.t
         and type ('k,'m) value = 'k Value.t
+
+    val get_id : 'a t -> int
+    (** Unique identifier for each node *)
 
     val equal : 'a t -> 'a t -> bool
     (** Constant time equality *)
