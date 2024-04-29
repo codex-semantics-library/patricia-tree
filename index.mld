@@ -40,7 +40,8 @@ dune build @doc
 {1 Features}
 
 {ul
-{li Similar to OCaml's [Map] and [Set], using the same function names when possible
+{li Similar to OCaml's {{: https://ocaml.org/api/Map.S.html}[Map]} and {{: https://ocaml.org/api/Set.S.html}[Set]},
+  using the same function names when possible
   and the same convention for order of arguments. This should allow switching to
   and from Patricia Tree with minimal effort.}
 {li The functor parameters ({!PatriciaTree.KEY} module) requires an injective [to_int : t -> int]

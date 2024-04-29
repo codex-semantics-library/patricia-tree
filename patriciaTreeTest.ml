@@ -146,12 +146,8 @@ end)
 
 (* let _m6 = inter (fun a b -> a) _m1 _m2;; *)
 let unsigned_compare x y =
-  if x >= 0 && y >= 0
-  then compare x y
-  else if x >= 0
-    then (* pos < neg *) -1
-    else if y >= 0 then 1
-    else compare x y
+  if unsigned_lt x y then -1
+  else if x = y then 0 else 1
 
 let%test_module _ = (module struct
 
