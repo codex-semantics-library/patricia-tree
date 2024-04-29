@@ -31,8 +31,9 @@
       each key to be mapped to a unique integer identifier.
 
     - The implementation uses Patricia Tree, as described in Oksasaki
-      and Gill's 1998 paper "Fast mergeable integer maps", i.e. it is a
-      space-efficient prefix trie over the big-endian representation of
+      and Gill's 1998 paper
+      {{: https://www.semanticscholar.org/paper/Fast-Mergeable-Integer-Maps-Okasaki-Gill/23003be706e5f586f23dd7fa5b2a410cc91b659d}{i Fast mergeable integer maps}},
+      i.e. it is a space-efficient prefix trie over the big-endian representation of
       the key's integer identifier.
 
       The main benefit of Patricia Tree is that their representation
@@ -48,9 +49,12 @@
      notably (key,value) pairs or different types to be in the same map,
      or to choose the memory representation of the nodes of the tree.
 
-   - Some operations like [pop_unsigned_minimum] and [pop_unsigned_maximum] make our Set
+   - Some operations like {{!BASE_MAP.pop_unsigned_minimum}[pop_unsigned_minimum]} and
+     {{!BASE_MAP.pop_unsigned_maximum}[pop_unsigned_maximum]} make our Set
      suitable as priority queue (but remember that each element in the
-     queue must map to a distinct integer). *)
+     queue must map to a distinct integer, and that using the {{!unsigned_lt}unsigned order}
+     means elements with negative priority are seen as greater than elements with
+     positive ones). *)
 
 (** Note on complexity: in the following, n represents the size of the
     map when there is one (and [|map1|] is the number of elements in
@@ -89,6 +93,16 @@ val unsigned_lt : int -> int -> bool
     ]}
 
     @since 0.10.0 *)
+
+(**/**)
+
+val highest_bit : int -> (int[@untagged])
+(** [highest_bit x] is an integer with a single bit set: the highest set bit of [x].
+    exported for test purposes only.
+
+    @since 0.10.0 *)
+
+(**/**)
 
 (** {1 Nodes} *)
 

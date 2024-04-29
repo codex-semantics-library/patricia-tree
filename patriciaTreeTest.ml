@@ -21,6 +21,24 @@
 
 open PatriciaTree
 
+let check_highest_bit x res  =
+  (* Printf.printf "CHECK_HIGHEST_BIT: %x %x\n%!" x res; *)
+  if (x = 0)
+  then (res = 0)
+  else begin
+    x != 0 &&
+    (* The result is a single bit set. *)
+    res land (res-1) == 0 &&
+    (* The bit x is set. *)
+    x land res = res &&
+    (* It is the highest bit. *)
+    x land (lnot res) land (lnot (res - 1)) = 0
+  end
+
+let () = QCheck.Test.check_exn @@
+  QCheck.Test.make ~count:1000 ~name:"highest_bit" QCheck.int (fun x ->
+  check_highest_bit x (highest_bit x))
+
 let%test_module "TestHeterogeneous" = (module struct
 
   module MyKey = struct
@@ -258,12 +276,12 @@ let%test_module _ = (module struct
     let third = extend_map first alist3 in
     (second,third)
 
-  let nat_gen = QCheck.int
+  let number_gen = QCheck.int
 
   let gen = QCheck.(triple
-                      (small_list (pair nat_gen nat_gen))
-                      (small_list (pair nat_gen nat_gen))
-                      (small_list (pair nat_gen nat_gen)));;
+                      (small_list (pair number_gen number_gen))
+                      (small_list (pair number_gen number_gen))
+                      (small_list (pair number_gen number_gen)))
 
   let model_from_gen x =
     let (m1,m2) = two_maps_from_three_lists x in
@@ -289,7 +307,7 @@ let%test_module _ = (module struct
   module Foreign = MyMap.WithForeign(MyMap.BaseMap)
 
   let test_pop_minimum = QCheck.Test.make ~count:1000 ~name:"pop_unsigned_minimum"
-      QCheck.(small_list (pair nat_gen nat_gen)) (fun x ->
+      QCheck.(small_list (pair number_gen number_gen)) (fun x ->
           let m = extend_map MyMap.empty x in
           let model = intmap_of_mymap m in
           match MyMap.pop_unsigned_minimum m, IntMap.pop_unsigned_minimum model with
@@ -300,7 +318,7 @@ let%test_module _ = (module struct
   let () = QCheck.Test.check_exn test_pop_minimum
 
   let test_pop_maximum = QCheck.Test.make ~count:1000 ~name:"pop_unsigned_maximum"
-      QCheck.(small_list (pair nat_gen nat_gen)) (fun x ->
+      QCheck.(small_list (pair number_gen number_gen)) (fun x ->
           let m = extend_map MyMap.empty x in
           let model = intmap_of_mymap m in
           match MyMap.pop_unsigned_maximum m, IntMap.pop_unsigned_maximum model with
@@ -338,7 +356,7 @@ let%test_module _ = (module struct
     in f
 
  let test_map_filter = QCheck.Test.make ~count:1000 ~name:"map_filter"
-      QCheck.(small_list (pair nat_gen nat_gen)) (fun x ->
+      QCheck.(small_list (pair number_gen number_gen)) (fun x ->
           let m1 = extend_map MyMap.empty x in
           let model1 = intmap_of_mymap m1 in
           let chk_calls1 = check_increases () in
