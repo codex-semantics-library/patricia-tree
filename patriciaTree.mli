@@ -405,7 +405,7 @@ module type BASE_MAP = sig
   type ('map1, 'map2, 'map3) polymerge = {
     f : 'a. 'a key -> ('a, 'map1) value option -> ('a, 'map2) value option -> ('a, 'map3) value  option; } [@@unboxed]
   val slow_merge : ('map1, 'map2, 'map3) polymerge -> 'map1 t -> 'map2 t -> 'map3 t
-  (** This is the same as {!Stdlib.Map.S.merge} *)
+  (** This is the same as {{: https://ocaml.org/manual/5.1/api/Map.S.html#VALmerge}Stdlib.Map.S.merge} *)
 
   val disjoint : 'a t -> 'a t -> bool
   (** [disjoint m1 m2] is [true] iff [m1] and [m2] have disjoint domains *)
@@ -1115,7 +1115,12 @@ module type KEY = sig
       object. Correctness of the operations requires that different
       values in a tree correspond to different integers.
 
-      Must be injective, return only positive values, and ideally fast *)
+      Must be injective, and ideally fast.
+
+      Note that since Patricia Trees use {{!unsigned_lt}unsigned order}, negative
+      keys are seen as bigger than positive keys.
+      Be wary of this when using negative keys combined with functions like
+      {{!BASE_MAP.max_binding}[max_binding]} and {{!BASE_MAP.pop_maximum}[pop_maximum]}. *)
   val to_int: t -> int
 end
 
@@ -1136,7 +1141,12 @@ module type HETEROGENEOUS_KEY = sig
       object. Correctness of the operations requires that different
       values in a tree correspond to different integers.
 
-      Must be injective, return only positive values, and ideally fast *)
+      Must be injective, and ideally fast.
+
+      Note that since Patricia Trees use {{!unsigned_lt}unsigned order}, negative
+      keys are seen as bigger than positive keys.
+      Be wary of this when using negative keys combined with functions like
+      {{!BASE_MAP.max_binding}[max_binding]} and {{!BASE_MAP.pop_maximum}[pop_maximum]}. *)
 
   val polyeq : 'a t -> 'b t -> ('a, 'b) cmp
   (** Polymorphic equality function used to compare our keys.
