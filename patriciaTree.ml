@@ -373,9 +373,17 @@ end
 external highest_bit: int -> (int[@untagged]) =
   "caml_int_builtin_highest_bit_byte" "caml_int_builtin_highest_bit" [@@noalloc]
 
+let unsigned_lt x y = x - min_int < y - min_int
+  (* if x >= 0 && y >= 0
+  then x < y
+  else if x >= 0
+    then (* pos < neg *) true
+    else if y >= 0 then false
+    else x < y *)
+
 (** Note: in the original version, okasaki give the masks as arguments
     to optimize the computation of highest_bit. *)
-let branching_bit a b = highest_bit (a lxor b);;
+let branching_bit a b = highest_bit (a lxor b)
 
 let mask i m = i land (lnot (2*m-1))
 
@@ -640,12 +648,12 @@ module MakeCustomHeterogeneous
           match Key.polyeq key split_key with
           | Eq -> NODE.empty, Some value, NODE.empty
           | Diff ->
-            if Key.to_int key < split_key_int then
+            if unsigned_lt (Key.to_int key) split_key_int then
               m, None, NODE.empty else NODE.empty, None, m
         end
       | Branch{prefix;branching_bit;tree0;tree1} ->
           if not (match_prefix split_key_int prefix branching_bit) then
-            if prefix < split_key_int
+            if unsigned_lt prefix split_key_int
             then m, None, NODE.empty
             else NODE.empty, None, m
           else if (branching_bit land split_key_int == 0) then
@@ -762,7 +770,7 @@ module MakeCustomHeterogeneous
       in (res,restree)
     | Empty ->
       (* Can only happen in weak sets and maps. *)
-      raise Disappeared ;;
+      raise Disappeared
   let pop_minimum m = match NODE.view m with
     | Empty -> None
     | _ -> Some(pop_min_nonempty m)
@@ -944,7 +952,7 @@ module MakeCustomHeterogeneous
         (reflexive_subset_domain_for_all2 f ta0 tb0) &&
         (reflexive_subset_domain_for_all2 f ta1 tb1)
         (* Case where ta have to be included in one of tb0 or tb1. *)
-      else if ma < mb && match_prefix pa pb mb
+      else if unsigned_lt ma mb && match_prefix pa pb mb
       then if mb land pa == 0
         then reflexive_subset_domain_for_all2 f ta tb0
         else reflexive_subset_domain_for_all2 f ta tb1
@@ -962,11 +970,11 @@ module MakeCustomHeterogeneous
         if ma == mb && pa == pb
         (* Same prefix: check both subtrees *)
         then disjoint ta0 tb0 && disjoint ta1 tb1
-        else if ma > mb && match_prefix pb pa ma (* tb included in ta0 or ta1 *)
+        else if unsigned_lt mb ma && match_prefix pb pa ma (* tb included in ta0 or ta1 *)
         then if ma land pb == 0
           then disjoint ta0 tb
           else disjoint ta1 tb
-        else if ma < mb && match_prefix pa pb mb (* ta included in tb0 or tb1 *)
+        else if unsigned_lt ma mb && match_prefix pa pb mb (* ta included in tb0 or tb1 *)
         then if mb land pa == 0
           then disjoint ta tb0
           else disjoint ta tb1
@@ -991,11 +999,11 @@ module MakeCustomHeterogeneous
           let tree0 = idempotent_union f ta0 tb0 in
           let tree1 = idempotent_union f ta1 tb1 in
           branch ~prefix:pa ~branching_bit:ma ~tree0 ~tree1
-        else if ma > mb && match_prefix pb pa ma
+        else if unsigned_lt mb ma && match_prefix pb pa ma
         then if ma land pb == 0
           then branch ~prefix:pa ~branching_bit:ma ~tree0:(idempotent_union f ta0 tb) ~tree1:ta1
           else branch ~prefix:pa ~branching_bit:ma ~tree0:ta0 ~tree1:(idempotent_union f ta1 tb)
-        else if ma < mb && match_prefix pa pb mb
+        else if unsigned_lt ma mb && match_prefix pa pb mb
         then if mb land pa == 0
           then branch ~prefix:pb ~branching_bit:mb ~tree0:(idempotent_union f ta tb0) ~tree1:tb1
           else branch ~prefix:pb ~branching_bit:mb ~tree0:tb0 ~tree1:(idempotent_union f ta tb1)
@@ -1028,11 +1036,11 @@ module MakeCustomHeterogeneous
           let tree0 = idempotent_inter f ta0 tb0 in
           let tree1 = idempotent_inter f ta1 tb1 in
           branch ~prefix:pa ~branching_bit:ma ~tree0 ~tree1
-        else if ma > mb && match_prefix pb pa ma
+        else if unsigned_lt mb ma && match_prefix pb pa ma
         then if ma land pb == 0
           then idempotent_inter f ta0 tb
           else idempotent_inter f ta1 tb
-        else if ma < mb && match_prefix pa pb mb
+        else if unsigned_lt ma mb && match_prefix pa pb mb
         then if mb land pa == 0
           then idempotent_inter f ta tb0
           else idempotent_inter f ta tb1
@@ -1058,11 +1066,11 @@ module MakeCustomHeterogeneous
         let tree0 = nonidempotent_inter_no_share f ta0 tb0 in
         let tree1 = nonidempotent_inter_no_share f ta1 tb1 in
         branch ~prefix:pa ~branching_bit:ma ~tree0 ~tree1
-      else if ma > mb && match_prefix pb pa ma
+      else if unsigned_lt mb ma && match_prefix pb pa ma
       then if ma land pb == 0
         then nonidempotent_inter_no_share f ta0 tb
         else nonidempotent_inter_no_share f ta1 tb
-      else if ma < mb && match_prefix pa pb mb
+      else if unsigned_lt ma mb && match_prefix pa pb mb
       then if mb land pa == 0
         then nonidempotent_inter_no_share f ta tb0
         else nonidempotent_inter_no_share f ta tb1
@@ -1097,11 +1105,11 @@ module MakeCustomHeterogeneous
           let tree0 = idempotent_inter_filter f ta0 tb0 in
           let tree1 = idempotent_inter_filter f ta1 tb1 in
           branch ~prefix:pa ~branching_bit:ma ~tree0 ~tree1
-        else if ma > mb && match_prefix pb pa ma
+        else if unsigned_lt mb ma && match_prefix pb pa ma
         then if ma land pb == 0
           then idempotent_inter_filter f ta0 tb
           else idempotent_inter_filter f ta1 tb
-        else if ma < mb && match_prefix pa pb mb
+        else if unsigned_lt ma mb && match_prefix pa pb mb
         then if mb land pa == 0
           then idempotent_inter_filter f ta tb0
           else idempotent_inter_filter f ta tb1
@@ -1152,11 +1160,11 @@ module MakeCustomHeterogeneous
       (* Same prefix: merge the subtrees *)
       then
         branch ~prefix:pa ~branching_bit:ma ~tree0:(slow_merge f ta0 tb0) ~tree1:(slow_merge f ta1 tb1)
-      else if ma > mb && match_prefix pb pa ma
+      else if unsigned_lt mb ma && match_prefix pb pa ma
       then if ma land pb == 0
         then branch ~prefix:pa ~branching_bit:ma ~tree0:(slow_merge f ta0 tb) ~tree1:(upd_ta ta1)
         else branch ~prefix:pa ~branching_bit:ma ~tree0:(upd_ta ta0) ~tree1:(slow_merge f ta1 tb)
-      else if ma < mb && match_prefix pa pb mb
+      else if unsigned_lt ma mb && match_prefix pa pb mb
       then if mb land pa == 0
         then branch ~prefix:pb ~branching_bit:mb ~tree0:(slow_merge f ta tb0) ~tree1:(upd_tb tb1)
         else branch ~prefix:pb ~branching_bit:mb ~tree0:(upd_tb tb0) ~tree1:(slow_merge f ta tb1)
@@ -1212,11 +1220,11 @@ module MakeCustomHeterogeneous
           if(ta0 == tree0 && ta1 == tree1)
           then ta
           else NODE.branch ~prefix:pa ~branching_bit:ma ~tree0 ~tree1
-        else if ma > mb && match_prefix pb pa ma
+        else if unsigned_lt mb ma && match_prefix pb pa ma
         then if ma land pb == 0
           then nonidempotent_inter f ta0 tb
           else nonidempotent_inter f ta1 tb
-        else if ma < mb && match_prefix pa pb mb
+        else if unsigned_lt ma mb && match_prefix pa pb mb
         then if mb land pa == 0
           then nonidempotent_inter f ta tb0
           else nonidempotent_inter f ta tb1
@@ -1259,7 +1267,7 @@ module MakeCustomHeterogeneous
         let tree1 = update_multiple_from_foreign tb1 f ta1 in
         if tree0 == ta0 && tree1 == ta1 then ta
         else branch ~prefix:pa ~branching_bit:ma ~tree0 ~tree1
-      else if ma > mb && match_prefix pb pa ma
+      else if unsigned_lt mb ma && match_prefix pb pa ma
       then if ma land pb == 0
         then
           let ta0' = update_multiple_from_foreign tb f ta0 in
@@ -1269,7 +1277,7 @@ module MakeCustomHeterogeneous
           let ta1' = update_multiple_from_foreign tb f ta1 in
           if ta1' == ta1 then ta
           else branch ~prefix:pa ~branching_bit:ma ~tree0:ta0 ~tree1:ta1'
-      else if ma < mb && match_prefix pa pb mb
+      else if unsigned_lt ma mb && match_prefix pa pb mb
       then if mb land pa == 0
         then
           let tree0 = update_multiple_from_foreign tb0 f ta in
@@ -1309,7 +1317,7 @@ module MakeCustomHeterogeneous
         let tree1 = update_multiple_from_inter_with_foreign tb1 f ta1 in
         if tree0 == ta0 && tree1 == ta1 then ta
         else branch ~prefix:pa ~branching_bit:ma ~tree0 ~tree1
-      else if ma > mb && match_prefix pb pa ma
+      else if unsigned_lt mb ma && match_prefix pb pa ma
       then if ma land pb == 0
         then
           let ta0' = update_multiple_from_inter_with_foreign tb f ta0 in
@@ -1319,7 +1327,7 @@ module MakeCustomHeterogeneous
           let ta1' = update_multiple_from_inter_with_foreign tb f ta1 in
           if ta1' == ta1 then ta
           else branch ~prefix:pa ~branching_bit:ma ~tree0:ta0 ~tree1:ta1'
-      else if ma < mb && match_prefix pa pb mb
+      else if unsigned_lt ma mb && match_prefix pa pb mb
       then if mb land pa == 0
         then update_multiple_from_inter_with_foreign tb0 f ta
         else update_multiple_from_inter_with_foreign tb1 f ta

@@ -59,3 +59,7 @@ CAMLprim uintnat  caml_int_builtin_highest_bit (value i){
   /* fflush(stdout); */
   return ((uintnat) 1 << (8*sizeof(value) - 2 - clz(i)));
 }
+
+CAMLprim value caml_int_builtin_highest_bit_byte (value i){
+  return Val_int(caml_int_builtin_highest_bit(i));
+}

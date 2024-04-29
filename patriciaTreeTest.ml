@@ -145,12 +145,22 @@ end)
 (* let _m5 = inter (fun a b -> a) _m2 _m3;; *)
 
 (* let _m6 = inter (fun a b -> a) _m1 _m2;; *)
+let unsigned_compare x y =
+  if x >= 0 && y >= 0
+  then compare x y
+  else if x >= 0
+    then (* pos < neg *) -1
+    else if y >= 0 then 1
+    else compare x y
 
 let%test_module _ = (module struct
 
   (* A model. *)
   module IntMap = struct
-    module M = Map.Make(Int)
+    module M = Map.Make(struct
+      type t = int
+      let compare = unsigned_compare
+    end)
     include M
     let subset_domain_for_all_2 m1 m2 f =
       let exception False in
@@ -252,10 +262,12 @@ let%test_module _ = (module struct
     let third = extend_map first alist3 in
     (second,third)
 
+  let nat_gen = QCheck.int
+
   let gen = QCheck.(triple
-                      (small_list (pair small_nat small_nat))
-                      (small_list (pair small_nat small_nat))
-                      (small_list (pair small_nat small_nat)));;
+                      (small_list (pair nat_gen nat_gen))
+                      (small_list (pair nat_gen nat_gen))
+                      (small_list (pair nat_gen nat_gen)));;
 
   let model_from_gen x =
     let (m1,m2) = two_maps_from_three_lists x in
@@ -281,7 +293,7 @@ let%test_module _ = (module struct
   module Foreign = MyMap.WithForeign(MyMap.BaseMap)
 
   let test_pop_minimum = QCheck.Test.make ~count:1000 ~name:"pop_minimum"
-      QCheck.(small_list (pair small_nat small_nat)) (fun x ->
+      QCheck.(small_list (pair nat_gen nat_gen)) (fun x ->
           let m = extend_map MyMap.empty x in
           let model = intmap_of_mymap m in
           match MyMap.pop_minimum m, IntMap.pop_minimum model with
@@ -292,7 +304,7 @@ let%test_module _ = (module struct
   let () = QCheck.Test.check_exn test_pop_minimum
 
   let test_pop_maximum = QCheck.Test.make ~count:1000 ~name:"pop_maximum"
-      QCheck.(small_list (pair small_nat small_nat)) (fun x ->
+      QCheck.(small_list (pair nat_gen nat_gen)) (fun x ->
           let m = extend_map MyMap.empty x in
           let model = intmap_of_mymap m in
           match MyMap.pop_maximum m, IntMap.pop_maximum model with
@@ -310,7 +322,7 @@ let%test_module _ = (module struct
       let () = match !seen with
         | None -> ()
         | Some old_key_int ->
-          if old_key_int < key_int
+          if unsigned_compare old_key_int key_int < 0
           then ()
           else QCheck.Test.fail_reportf
             "Non increasing calls to f : key %d seen after %d"
@@ -330,7 +342,7 @@ let%test_module _ = (module struct
     in f
 
  let test_map_filter = QCheck.Test.make ~count:1000 ~name:"map_filter"
-      QCheck.(small_list (pair small_nat small_nat)) (fun x ->
+      QCheck.(small_list (pair nat_gen nat_gen)) (fun x ->
           let m1 = extend_map MyMap.empty x in
           let model1 = intmap_of_mymap m1 in
           let chk_calls1 = check_increases () in
@@ -490,6 +502,27 @@ let%test_module _ = (module struct
       (* Printf.printf "res is %b\n%!" @@ IntMap.equal (=) modelres myres; *)
       modelres == myres)
   let () = QCheck.Test.check_exn test_disjoint
+
+  let%test "negative_keys" =
+    let map = MyMap.add 0 0 MyMap.empty in
+    let _pp_l fmt = Format.pp_print_list ~pp_sep:(fun fmt () -> Format.fprintf fmt "; ")
+      (fun fmt (k,l) -> Format.fprintf fmt "(%x, %x)" k l) fmt in
+    let map2 = MyMap.add min_int 5 map in
+    let map3 = MyMap.add max_int 8 map2 in
+    let map4 = MyMap.add 25 8 map2 in
+    let map5 = MyMap.idempotent_inter_filter (fun _ _ _ -> None) map3 map4 in
+    (* Format.printf "[%a]@." pp_l (MyMap.to_list  map3);
+    Format.printf "[%a]@." pp_l (MyMap.to_list  map4);
+    Format.printf "[%a]@." pp_l (MyMap.to_list  map5);
+    (match MyMap.BaseMap.view map3 with
+      | Branch{prefix; branching_bit; _} -> Format.printf "%x : %x@." (Obj.magic prefix) (Obj.magic branching_bit)
+      | _ -> ()
+    ); *)
+    MyMap.to_list map = [(0,0)] &&
+    MyMap.to_list map2 = [(0,0); (min_int,5)] &&
+    MyMap.to_list map3 = [(0,0); (max_int,8); (min_int,5)] &&
+    MyMap.to_list map4 = [(0,0); (25,8); (min_int,5)] &&
+    MyMap.to_list map5 = MyMap.to_list map2
 end)
 
 
