@@ -298,8 +298,8 @@ These are smaller and closer to OCaml's built-in Map and Set, however:
 
 ### dmap
 
-Additionally, there is a dependent map library: [dmap](https://gitlab.inria.fr/bmontagu/dmap), 
-which inspired us the idea of making our PatriciaTree dependent.
+Additionally, there is a dependent map library: [dmap](https://gitlab.inria.fr/bmontagu/dmap),
+which gave us the idea of making our PatriciaTree dependent.
 It allows creating type safe dependent maps similar to our heterogeneous maps.
 However, its maps aren't Patricia trees. They are binary trees build using a
 (polymorphic) comparison function, similarly to the maps of the standard library.

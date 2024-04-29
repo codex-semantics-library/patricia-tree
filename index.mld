@@ -14,7 +14,7 @@ The source code of this library is available {{: https://github.com/codex-semant
 under an {{: https://choosealicense.com/licenses/lgpl-2.1/}LGPL-2.1} license.
 
 This library was written by {{: https://www.researchgate.net/profile/Matthieu-Lemerre}Matthieu Lemerre},
-with some contributions by {{: https://www.normalesup.org/~dlesbre/}Dorian Lesbre},
+then further improved by {{: https://www.normalesup.org/~dlesbre/}Dorian Lesbre},
 as part of the {{: Codex semantics library}https://codex.top/}, developed at
 {{: https://list.cea.fr/en/} CEA List}.
 
@@ -296,7 +296,8 @@ These are smaller and closer to OCaml's built-in [Map] and [Set], however:
 
 {2 dmap}
 
-Additionally, there is a dependent map library: {{: https://gitlab.inria.fr/bmontagu/dmap}dmap}.
+Additionally, there is a dependent map library: {{: https://gitlab.inria.fr/bmontagu/dmap}dmap},
+which gave us the idea of making our PatriciaTree dependent.
 It allows creating type safe dependent maps similar to our heterogeneous maps.
 However, its maps aren't Patricia trees. They are binary trees build using a
 (polymorphic) comparison function, similarly to the maps of the standard library.
