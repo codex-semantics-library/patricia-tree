@@ -211,12 +211,12 @@ let%test_module _ = (module struct
           | None, _ | _, None -> None
           | Some a, Some b -> (f key a b)) m1 m2
 
-    let pop_minimum m =
+    let pop_unsigned_minimum m =
       match M.min_binding m with
       | exception Not_found -> None
       | (key,value) -> Some(key,value,M.remove key m)
 
-    let pop_maximum m =
+    let pop_unsigned_maximum m =
       match M.max_binding m with
       | exception Not_found -> None
       | (key,value) -> Some(key,value,M.remove key m)
@@ -288,22 +288,22 @@ let%test_module _ = (module struct
 
   module Foreign = MyMap.WithForeign(MyMap.BaseMap)
 
-  let test_pop_minimum = QCheck.Test.make ~count:1000 ~name:"pop_minimum"
+  let test_pop_minimum = QCheck.Test.make ~count:1000 ~name:"pop_unsigned_minimum"
       QCheck.(small_list (pair nat_gen nat_gen)) (fun x ->
           let m = extend_map MyMap.empty x in
           let model = intmap_of_mymap m in
-          match MyMap.pop_minimum m, IntMap.pop_minimum model with
+          match MyMap.pop_unsigned_minimum m, IntMap.pop_unsigned_minimum model with
           | None, Some _ | Some _, None -> false
           | None, None -> true
           | Some(key1,val1,m'), Some(key2,val2,model') ->
             key1 = key2 && val1 = val2 && IntMap.equal (=) (intmap_of_mymap m') model')
   let () = QCheck.Test.check_exn test_pop_minimum
 
-  let test_pop_maximum = QCheck.Test.make ~count:1000 ~name:"pop_maximum"
+  let test_pop_maximum = QCheck.Test.make ~count:1000 ~name:"pop_unsigned_maximum"
       QCheck.(small_list (pair nat_gen nat_gen)) (fun x ->
           let m = extend_map MyMap.empty x in
           let model = intmap_of_mymap m in
-          match MyMap.pop_maximum m, IntMap.pop_maximum model with
+          match MyMap.pop_unsigned_maximum m, IntMap.pop_unsigned_maximum model with
           | None, Some _ | Some _, None -> false
           | None, None -> true
           | Some(key1,val1,m'), Some(key2,val2,model') ->

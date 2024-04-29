@@ -82,9 +82,8 @@ dune build @doc
   This also avoids a bug in Okasaki's paper discussed in [*QuickChecking Patricia Trees*](https://www.cs.tufts.edu/comp/150FP/archive/jan-midtgaard/qc-patricia.pdf)
   by Jan Mitgaard.
 
-  It also affects functions like `min_binding` and `pop_minimum`. They will return the smallest
-  positive integer of both positive and negative keys are present; and not the smallest negative,
-  as one might expect.
+  It also affects functions like `unsigned_min_binding` and `pop_unsigned_minimum`. They will return the smallest
+  positive integer of both positive and negative keys are present; and not the smallest negative, as one might expect.
 - Supports generic maps and sets: a `'m map` that maps `'k key` to `('k, 'm) value`.
   This is especially useful when using [GADTs](https://v2.ocaml.org/manual/gadts-tutorial.html) for the type of keys. This is also sometimes called a dependent map.
 - Allows easy and fast operations across different types of maps and set (e.g.

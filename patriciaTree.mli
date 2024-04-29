@@ -48,7 +48,7 @@
      notably (key,value) pairs or different types to be in the same map,
      or to choose the memory representation of the nodes of the tree.
 
-   - Some operations like [pop_minimum] and [pop_maximum] make our Set
+   - Some operations like [pop_unsigned_minimum] and [pop_unsigned_maximum] make our Set
      suitable as priority queue (but remember that each element in the
      queue must map to a distinct integer). *)
 
@@ -190,13 +190,13 @@ module type BASE_MAP = sig
 
   (** {3 Basic functions} *)
 
-  val min_binding : 'a t -> 'a key_value_pair
-  (** [min_binding m] is minimal binding [KeyValue(k,v)] of the map,
+  val unsigned_min_binding : 'a t -> 'a key_value_pair
+  (** [unsigned_min_binding m] is minimal binding [KeyValue(k,v)] of the map,
       using the {{!unsigned_lt}unsigned order} on [Key.to_int].
       @raises Not_found if the map is empty *)
 
-  val max_binding : 'a t -> 'a key_value_pair
-  (** [max_binding m] is maximal binding [KeyValue(k,v)] of the map,
+  val unsigned_max_binding : 'a t -> 'a key_value_pair
+  (** [unsigned_max_binding m] is maximal binding [KeyValue(k,v)] of the map,
       using the {{!unsigned_lt}unsigned order} on [Key.to_int].
       @raises Not_found if the map is empty *)
 
@@ -224,15 +224,15 @@ module type BASE_MAP = sig
   (** Returns a map with the element removed, O(log(n)) complexity.
       Returns a physically equal map if the element is absent. *)
 
-  val pop_minimum: 'map t -> ('map key_value_pair * 'map t) option
-  (** [pop_minimum m] returns [None] if [is_empty m], or [Some(key,value,m')] where
-      [(key,value) = min_binding m] and [m' = remove m key].
+  val pop_unsigned_minimum: 'map t -> ('map key_value_pair * 'map t) option
+  (** [pop_unsigned_minimum m] returns [None] if [is_empty m], or [Some(key,value,m')] where
+      [(key,value) = unsigned_min_binding m] and [m' = remove m key].
       Uses the {{!unsigned_lt}unsigned order} on [Key.to_int].
       O(log(n)) complexity. *)
 
-  val pop_maximum: 'map t -> ('map key_value_pair * 'map t) option
-  (** [pop_maximum m] returns [None] if [is_empty m], or [Some(key,value,m')] where
-      [(key,value) = max_binding m] and [m' = remove m key].
+  val pop_unsigned_maximum: 'map t -> ('map key_value_pair * 'map t) option
+  (** [pop_unsigned_maximum m] returns [None] if [is_empty m], or [Some(key,value,m')] where
+      [(key,value) = unsigned_max_binding m] and [m' = remove m key].
       Uses the {{!unsigned_lt}unsigned order} on [Key.to_int].
       O(log(n)) complexity. *)
 
@@ -544,23 +544,23 @@ module type HETEROGENEOUS_SET = sig
   (** [remove elt set] returns a set containing all elements of [set] except [elt].
       Returns a value physically equal to [set] if [elt] is not present. *)
 
-  val min_elt: t -> any_elt
+  val unsigned_min_elt: t -> any_elt
   (** The minimal element if non empty, according to the
       {{!unsigned_lt}unsigned order} on elements.
       @raises Not_found *)
 
-  val max_elt: t -> any_elt
+  val unsigned_max_elt: t -> any_elt
   (** The maximal element if non empty, according to the
       {{!unsigned_lt}unsigned order} on elements.
       @raises Not_found *)
 
-  val pop_minimum: t -> (any_elt * t) option
-  (** [pop_minimum s] is [Some (elt, s')] where [elt = min_elt s] and [s' = remove elt s]
+  val pop_unsigned_minimum: t -> (any_elt * t) option
+  (** [pop_unsigned_minimum s] is [Some (elt, s')] where [elt = unsigned_min_elt s] and [s' = remove elt s]
       if [s] is non empty.
       Uses the {{!unsigned_lt}unsigned order} on elements. *)
 
-  val pop_maximum: t -> (any_elt * t) option
-  (** [pop_maximum s] is [Some (elt, s')] where [elt = max_elt s] and [s' = remove elt s]
+  val pop_unsigned_maximum: t -> (any_elt * t) option
+  (** [pop_unsigned_maximum s] is [Some (elt, s')] where [elt = unsigned_max_elt s] and [s' = remove elt s]
       if [s] is non empty.
       Uses the {{!unsigned_lt}unsigned order} on elements. *)
 
@@ -687,21 +687,21 @@ module type SET = sig
   (** [remove elt set] returns a set containing all elements of [set] except [elt].
       Returns a value physically equal to [set] if [elt] is not present. *)
 
-  val min_elt: t -> elt
+  val unsigned_min_elt: t -> elt
   (** The minimal element (according to the {{!unsigned_lt}unsigned order} on [Key.to_int]) if non empty.
       @raises Not_found *)
 
-  val max_elt: t -> elt
+  val unsigned_max_elt: t -> elt
   (** The maximal element (according to the {{!unsigned_lt}unsigned order} on [Key.to_int]) if non empty.
       @raises Not_found *)
 
-  val pop_minimum: t -> (elt * t) option
-  (** [pop_minimum s] is [Some (elt, s')] where [elt = min_elt s] and [s' = remove elt s]
+  val pop_unsigned_minimum: t -> (elt * t) option
+  (** [pop_unsigned_minimum s] is [Some (elt, s')] where [elt = unsigned_min_elt s] and [s' = remove elt s]
       if [s] is non empty.
       Uses the {{!unsigned_lt}unsigned order} on [Key.to_int]. *)
 
-  val pop_maximum: t -> (elt * t) option
-  (** [pop_maximum s] is [Some (elt, s')] where [elt = max_elt s] and [s' = remove elt s]
+  val pop_unsigned_maximum: t -> (elt * t) option
+  (** [pop_unsigned_maximum s] is [Some (elt, s')] where [elt = unsigned_max_elt s] and [s' = remove elt s]
       if [s] is non empty.
       Uses the {{!unsigned_lt}unsigned order} on [Key.to_int]. *)
 
@@ -806,12 +806,12 @@ module type MAP = sig
   val is_empty : 'a t -> bool
   (** Test if a map is empty; O(1) complexity. *)
 
-  val min_binding : 'a t -> (key * 'a)
+  val unsigned_min_binding : 'a t -> (key * 'a)
   (** Returns the (key,value) where [Key.to_int key] is minimal (in the
       {{!unsigned_lt}unsigned representation} of integers); O(log n) complexity.
       @raises Not_found if the map is empty *)
 
-  val max_binding : 'a t -> (key * 'a)
+  val unsigned_max_binding : 'a t -> (key * 'a)
   (** Returns the (key,value) where [Key.to_int key] is maximal (in the
       {{!unsigned_lt}unsigned representation} of integers); O(log n) complexity.
       @raises Not_found if the map is empty *)
@@ -838,14 +838,14 @@ module type MAP = sig
   (** Returns a map with the element removed, O(log(n)) complexity.
       Returns a physically equal map if the element is absent. *)
 
-  val pop_minimum : 'a t -> (key * 'a * 'a t) option
-  (** [pop_minimum m] returns [None] if [is_empty m], or [Some(key,value,m')] where
-      [(key,value) = min_binding m] and [m' = remove m key]. O(log(n)) complexity.
+  val pop_unsigned_minimum : 'a t -> (key * 'a * 'a t) option
+  (** [pop_unsigned_minimum m] returns [None] if [is_empty m], or [Some(key,value,m')] where
+      [(key,value) = unsigned_min_binding m] and [m' = remove m key]. O(log(n)) complexity.
       Uses the {{!unsigned_lt}unsigned order} on [Key.to_int]. *)
 
-  val pop_maximum : 'a t -> (key * 'a * 'a t) option
-  (** [pop_maximum m] returns [None] if [is_empty m], or [Some(key,value,m')] where
-      [(key,value) = max_binding m] and [m' = remove m key]. O(log(n)) complexity.
+  val pop_unsigned_maximum : 'a t -> (key * 'a * 'a t) option
+  (** [pop_unsigned_maximum m] returns [None] if [is_empty m], or [Some(key,value,m')] where
+      [(key,value) = unsigned_max_binding m] and [m' = remove m key]. O(log(n)) complexity.
       Uses the {{!unsigned_lt}unsigned order} on [Key.to_int]. *)
 
   val insert : key -> ('a option -> 'a) -> 'a t -> 'a t
@@ -1120,7 +1120,7 @@ module type KEY = sig
       Note that since Patricia Trees use {{!unsigned_lt}unsigned order}, negative
       keys are seen as bigger than positive keys.
       Be wary of this when using negative keys combined with functions like
-      {{!BASE_MAP.max_binding}[max_binding]} and {{!BASE_MAP.pop_maximum}[pop_maximum]}. *)
+      {{!BASE_MAP.unsigned_max_binding}[unsigned_max_binding]} and {{!BASE_MAP.pop_unsigned_maximum}[pop_unsigned_maximum]}. *)
   val to_int: t -> int
 end
 
@@ -1146,7 +1146,7 @@ module type HETEROGENEOUS_KEY = sig
       Note that since Patricia Trees use {{!unsigned_lt}unsigned order}, negative
       keys are seen as bigger than positive keys.
       Be wary of this when using negative keys combined with functions like
-      {{!BASE_MAP.max_binding}[max_binding]} and {{!BASE_MAP.pop_maximum}[pop_maximum]}. *)
+      {{!BASE_MAP.unsigned_max_binding}[unsigned_max_binding]} and {{!BASE_MAP.pop_unsigned_maximum}[pop_unsigned_maximum]}. *)
 
   val polyeq : 'a t -> 'b t -> ('a, 'b) cmp
   (** Polymorphic equality function used to compare our keys.

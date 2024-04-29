@@ -69,8 +69,8 @@ dune build @doc
   {{: https://www.cs.tufts.edu/comp/150FP/archive/jan-midtgaard/qc-patricia.pdf}{i QuickChecking Patricia Trees}}
   by Jan Mitgaard.
 
-  It also affects functions like {{!PatriciaTree.BASE_MAP.min_binding}[min_binding]}
-  and {{!PatriciaTree.BASE_MAP.pop_minimum}[pop_minimum}. They will return the smallest
+  It also affects functions like {{!PatriciaTree.BASE_MAP.unsigned_min_binding}[unsigned_min_binding]}
+  and {{!PatriciaTree.BASE_MAP.pop_unsigned_minimum}[pop_unsigned_minimum}. They will return the smallest
   positive integer of both positive and negative keys are present; and not the smallest negative,
   as one might expect.}
 {li Supports generic maps and sets: a ['m map] that maps ['k key] to [('k, 'm) value].

@@ -58,8 +58,8 @@ module type BASE_MAP = sig
 
   type 'map key_value_pair =
       KeyValue : 'a key * ('a, 'map) value -> 'map key_value_pair
-  val min_binding : 'a t -> 'a key_value_pair
-  val max_binding : 'a t -> 'a key_value_pair
+  val unsigned_min_binding : 'a t -> 'a key_value_pair
+  val unsigned_max_binding : 'a t -> 'a key_value_pair
   val singleton : 'a key -> ('a, 'b) value -> 'b t
   val cardinal : 'a t -> int
   val is_singleton : 'a t -> 'a key_value_pair option
@@ -67,8 +67,8 @@ module type BASE_MAP = sig
   val find_opt : 'key key -> 'map t -> ('key, 'map) value option
   val mem : 'key key -> 'map t -> bool
   val remove : 'key key -> 'map t -> 'map t
-  val pop_minimum: 'map t -> ('map key_value_pair * 'map t) option
-  val pop_maximum: 'map t -> ('map key_value_pair * 'map t) option
+  val pop_unsigned_minimum: 'map t -> ('map key_value_pair * 'map t) option
+  val pop_unsigned_maximum: 'map t -> ('map key_value_pair * 'map t) option
 
   val insert: 'a key -> (('a,'map) value option -> ('a,'map) value) -> 'map t -> 'map t
   val update: 'a key -> (('a,'map) value option -> ('a,'map) value option) -> 'map t -> 'map t
@@ -186,10 +186,10 @@ module type HETEROGENEOUS_SET = sig
   val cardinal: t -> int
   val is_singleton: t -> any_elt option
   val remove: 'a elt -> t -> t
-  val min_elt: t -> any_elt
-  val max_elt: t -> any_elt
-  val pop_minimum: t -> (any_elt * t) option
-  val pop_maximum: t -> (any_elt * t) option
+  val unsigned_min_elt: t -> any_elt
+  val unsigned_max_elt: t -> any_elt
+  val pop_unsigned_minimum: t -> (any_elt * t) option
+  val pop_unsigned_maximum: t -> (any_elt * t) option
   val union: t -> t -> t
   val inter: t -> t -> t
   val disjoint: t -> t -> bool
@@ -241,10 +241,10 @@ module type SET = sig
   val cardinal: t -> int
   val is_singleton: t -> elt option
   val remove: elt -> t -> t
-  val min_elt: t -> elt
-  val max_elt: t -> elt
-  val pop_minimum: t -> (elt * t) option
-  val pop_maximum: t -> (elt * t) option
+  val unsigned_min_elt: t -> elt
+  val unsigned_max_elt: t -> elt
+  val pop_unsigned_minimum: t -> (elt * t) option
+  val pop_unsigned_maximum: t -> (elt * t) option
   val iter: (elt -> unit) -> t -> unit
   val filter: (elt -> bool) -> t -> t
   val for_all: (elt -> bool) -> t -> bool
@@ -282,8 +282,8 @@ module type MAP = sig
 
   val empty : 'a t
   val is_empty : 'a t -> bool
-  val min_binding : 'a t -> (key * 'a)
-  val max_binding : 'a t -> (key * 'a)
+  val unsigned_min_binding : 'a t -> (key * 'a)
+  val unsigned_max_binding : 'a t -> (key * 'a)
   val singleton : key -> 'a -> 'a t
   val cardinal : 'a t -> int
   val is_singleton : 'a t -> (key * 'a) option
@@ -291,8 +291,8 @@ module type MAP = sig
   val find_opt : key -> 'a t -> 'a option
   val mem : key -> 'a t -> bool
   val remove : key -> 'a t -> 'a t
-  val pop_minimum : 'a t -> (key * 'a * 'a t) option
-  val pop_maximum : 'a t -> (key * 'a * 'a t) option
+  val pop_unsigned_minimum : 'a t -> (key * 'a * 'a t) option
+  val pop_unsigned_maximum : 'a t -> (key * 'a * 'a t) option
   val insert : key -> ('a option -> 'a) -> 'a t -> 'a t
   val update : key -> ('a option -> 'a option) -> 'a t -> 'a t
   val add : key -> 'a -> 'a t -> 'a t
@@ -590,14 +590,14 @@ module MakeCustomHeterogeneous
   include NODE
 
   type 'map key_value_pair = KeyValue: 'a Key.t * ('a,'map) value -> 'map key_value_pair
-  let rec min_binding x = match NODE.view x with
+  let rec unsigned_min_binding x = match NODE.view x with
     | Empty -> raise Not_found
     | Leaf{key;value} -> KeyValue(key,value)
-    | Branch{tree0;_} -> min_binding tree0
-  let rec max_binding x = match NODE.view x with
+    | Branch{tree0;_} -> unsigned_min_binding tree0
+  let rec unsigned_max_binding x = match NODE.view x with
     | Empty -> raise Not_found
     | Leaf{key;value} -> KeyValue(key,value)
-    | Branch{tree1;_} -> max_binding tree1
+    | Branch{tree1;_} -> unsigned_max_binding tree1
 
 
   (* Merge trees whose prefix disagree. *)
@@ -771,7 +771,7 @@ module MakeCustomHeterogeneous
     | Empty ->
       (* Can only happen in weak sets and maps. *)
       raise Disappeared
-  let pop_minimum m = match NODE.view m with
+  let pop_unsigned_minimum m = match NODE.view m with
     | Empty -> None
     | _ -> Some(pop_min_nonempty m)
 
@@ -786,7 +786,7 @@ module MakeCustomHeterogeneous
       (* Can only happen in weak sets and maps. *)
     | Empty -> raise Disappeared
 
-  let pop_maximum m = match NODE.view m with
+  let pop_unsigned_maximum m = match NODE.view m with
     | Empty -> None
     | _ -> Some(pop_max_nonempty m)
 
@@ -1398,11 +1398,11 @@ module MakeHeterogeneousSet(Key:HETEROGENEOUS_KEY) : HETEROGENEOUS_SET
     let f: type a. a key -> unit -> 'acc -> 'acc = fun k () acc -> f.f k acc in
     BaseMap.fold { f } set acc
 
-  let min_elt t = let KeyValue(m, ()) = BaseMap.min_binding t in Any m
-  let max_elt t = let KeyValue(m, ()) = BaseMap.max_binding t in Any m
+  let unsigned_min_elt t = let KeyValue(m, ()) = BaseMap.unsigned_min_binding t in Any m
+  let unsigned_max_elt t = let KeyValue(m, ()) = BaseMap.unsigned_max_binding t in Any m
 
-  let pop_maximum t = Option.map (fun (KeyValue(m,()),t) -> Any m,t) (BaseMap.pop_maximum t)
-  let pop_minimum t = Option.map (fun (KeyValue(m,()),t) -> Any m,t) (BaseMap.pop_minimum t)
+  let pop_unsigned_maximum t = Option.map (fun (KeyValue(m,()),t) -> Any m,t) (BaseMap.pop_unsigned_maximum t)
+  let pop_unsigned_minimum t = Option.map (fun (KeyValue(m,()),t) -> Any m,t) (BaseMap.pop_unsigned_minimum t)
 
   type polypretty = { f: 'a. Format.formatter -> 'a key -> unit; } [@@unboxed]
   let pretty ?pp_sep f fmt s = BaseMap.pretty ?pp_sep { f = fun fmt k () -> f.f fmt k} fmt s
@@ -1481,16 +1481,16 @@ module MakeCustom
   let update k f m = update k (fun v -> snd_opt (f (opt_snd v))) m
   let add k v m = add k (Snd v) m
   let split x m = let (l,m,r) = split x m in (l, opt_snd m, r)
-  let min_binding m = let KeyValue(key,Snd value) = BaseMap.min_binding m in key,value
-  let max_binding m = let KeyValue(key,Snd value) = BaseMap.max_binding m in key,value
+  let unsigned_min_binding m = let KeyValue(key,Snd value) = BaseMap.unsigned_min_binding m in key,value
+  let unsigned_max_binding m = let KeyValue(key,Snd value) = BaseMap.unsigned_max_binding m in key,value
   (* let singleton k v = BaseMap.singleton (PolyKey.K k) v *)
-  let pop_minimum m =
-    match BaseMap.pop_minimum m with
+  let pop_unsigned_minimum m =
+    match BaseMap.pop_unsigned_minimum m with
     | None -> None
     | Some(KeyValue(key,Snd value),m) -> Some(key,value,m)
 
-  let pop_maximum m =
-    match BaseMap.pop_maximum m with
+  let pop_unsigned_maximum m =
+    match BaseMap.pop_unsigned_maximum m with
     | None -> None
     | Some(KeyValue(key,Snd value),m) -> Some(key,value,m)
 
@@ -1585,10 +1585,10 @@ module MakeSet(Key: KEY) : SET with type elt = Key.t = struct
     | None -> None
     | Some(KeyValue(k,())) -> Some k
 
-  let min_elt t = let Any x = min_elt t in x
-  let max_elt t = let Any x = max_elt t in x
-  let pop_minimum t = Option.map (fun (Any x, t) -> (x,t)) (pop_minimum t)
-  let pop_maximum t = Option.map (fun (Any x, t) -> (x,t)) (pop_maximum t)
+  let unsigned_min_elt t = let Any x = unsigned_min_elt t in x
+  let unsigned_max_elt t = let Any x = unsigned_max_elt t in x
+  let pop_unsigned_minimum t = Option.map (fun (Any x, t) -> (x,t)) (pop_unsigned_minimum t)
+  let pop_unsigned_maximum t = Option.map (fun (Any x, t) -> (x,t)) (pop_unsigned_maximum t)
 
   let to_seq m = Seq.map (fun (BaseMap.KeyValue(elt,())) -> elt) (BaseMap.to_seq m)
   let to_rev_seq m = Seq.map (fun (BaseMap.KeyValue(elt,())) -> elt) (BaseMap.to_rev_seq m)
