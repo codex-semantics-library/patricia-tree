@@ -20,39 +20,42 @@
 /**************************************************************************/
 
 #define CAML_NAME_SPACE
+#include <caml/mlvalues.h>
 #include <caml/alloc.h>
 #include <caml/memory.h>
-#include <caml/mlvalues.h>
 
 #ifdef _MSC_VER
 #include <intrin.h>
 #endif
 
-__attribute__((__always_inline__)) static inline unsigned int clz(unsigned int v) {
+__attribute__((__always_inline__))
+static inline uintnat clz(uintnat v){
   /* Note: on a 64 bit platform, GCC's _builtin_clz will perform a 32
      bit operation (even if the argument has type int). We have to use
      _builtin_clzll instead. */
 #if __GNUC__
-#ifdef ARCH_SIXTYFOUR
-  return __builtin_clzll(v);
-#else
-  return __builtin_clz(v);
-#endif
+  #ifdef ARCH_SIXTYFOUR
+    return __builtin_clzll(v);
+  #else
+    return __builtin_clz(v)
+  #endif
 #endif
 #ifdef _MSC_VER
-  int res = 0;
-#ifdef ARCH_SIXTYFOUR
-  _BitScanReverse64(&res, v);
-#else
-  _BitScanReverse(&res, v);
-#endif
-  return res;
-#endif
+    int res = 0;     
+  #ifdef ARCH_SIXTYFOUR  
+    _BitScanReverse64(&res,v);
+  #else
+    _BitScanReverse(&res,v);
+  #endif
+    return res;
+#endif    
 }
 
 /**************** Highest bit ****************/
-CAMLprim uintnat caml_int_builtin_highest_bit(value i) {
-  /* log2(v) is normally 32-1-clz(v), but because of the tag we
-     must substract one more. */
-  return (1 << (8 * sizeof(value) - 2 - clz(i)));
+
+CAMLprim uintnat  caml_int_builtin_highest_bit (value i){
+  /* printf("Highest bit In C: %x %x %x %x\n", */
+  /* 	 i, i >> 1, 62-clz(i), 1 << (62 - clz(i))); */
+  /* fflush(stdout); */
+  return ((uintnat) 1 << (8*sizeof(value) - 2 - clz(i)));
 }
