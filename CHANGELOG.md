@@ -1,8 +1,8 @@
 # Unreleased
 
-- Patricia Tree now support using negative keys. Since the order used only depends
-  on the bitwise representation, negative keys appear bigger than any positive
-  keys.
+- Patricia Tree now support using negative keys. Tree are built using the bitwise representation
+  of integer, meaning they effectively use an unsigned order. Negative keys are
+  considered bigger than positive keys, `0` is the minimal number and `-1` the maximal one.
 - Renamed `min_binding`, `max_binding`, `pop_minimum`, `pop_maximum`, `min_elt`
   and `max_elt` to `unsigned_min_binding`, `unsigned_max_binding`,
   `pop_unsigned_minimum`, `pop_unsigned_maximum`, `unsigned_min_elt`
