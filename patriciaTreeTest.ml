@@ -39,6 +39,18 @@ let () = QCheck.Test.check_exn @@
   QCheck.Test.make ~count:1000 ~name:"highest_bit" QCheck.int (fun x ->
   check_highest_bit x (highest_bit x))
 
+let unsigned_lt_ref x y =
+  if x >= 0 && y >= 0
+    then x < y
+    else if x >= 0
+      then (* pos < neg *) true
+      else if y >= 0 then false
+      else x < y
+
+let () = QCheck.Test.check_exn @@
+  QCheck.Test.make ~count:1000 ~name:"unsigned_lt" QCheck.(pair int int) (fun (x,y) ->
+  unsigned_lt x y = unsigned_lt_ref x y)
+
 let%test_module "TestHeterogeneous" = (module struct
 
   module MyKey = struct
