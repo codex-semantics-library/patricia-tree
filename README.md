@@ -13,8 +13,8 @@ It is a space-efficient prefix trie over the big-endian representation of the ke
 The documentation for this library can be found online at
 [codex.top/patricia-tree/](https://codex.top/patricia-tree/).
 
-This library was written by [Matthieu Lemerre](https://www.researchgate.net/profile/Matthieu-Lemerre),
-with some contributions by [Dorian Lesbre](https://www.normalesup.org/~dlesbre/),
+This library was written by [Matthieu Lemerre](https://www.researchgate.net/profile/Matthieu-Lemerre) then further improved
+by [Dorian Lesbre](https://www.normalesup.org/~dlesbre/),
 as part of the [Codex semantics library](https://codex.top/), developed at [CEA List](https://list.cea.fr/en/).
 
 **Table of Contents:**
@@ -59,8 +59,7 @@ dune build @doc
   and the same convention for order of arguments. This should allow switching to
   and from Patricia Tree with minimal effort.
 - The functor parameters (`KEY` module) requires an injective `to_int : t -> int`
-  function instead of a `compare` function. `to_int` should be fast, injective,
-  and only return positive integers.
+  function instead of a `compare` function. `to_int` should be fast and injective.
   This works well with [hash-consed](https://en.wikipedia.org/wiki/Hash_consing) types.
 - The Patricia Tree representation is stable, contrary to maps, inserting nodes
   in any order will return the same shape.
@@ -77,13 +76,18 @@ dune build @doc
   for the general one)
 
 - Since our Patricia Tree use big-endian order on keys, the maps and sets are
-  sorted in increasing order of keys. We only support positive integer keys.
+  sorted in increasing **unsigned order** of keys.
+  This means negative keys are sorted above positive keys, with `-1` being the
+  largest possible key, and `0` the smallest.
   This also avoids a bug in Okasaki's paper discussed in [*QuickChecking Patricia Trees*](https://www.cs.tufts.edu/comp/150FP/archive/jan-midtgaard/qc-patricia.pdf)
   by Jan Mitgaard.
+
+  It also affects functions like `unsigned_min_binding` and `pop_unsigned_minimum`. They will return the smallest
+  positive integer of both positive and negative keys are present; and not the smallest negative, as one might expect.
 - Supports generic maps and sets: a `'m map` that maps `'k key` to `('k, 'm) value`.
   This is especially useful when using [GADTs](https://v2.ocaml.org/manual/gadts-tutorial.html) for the type of keys. This is also sometimes called a dependent map.
-- Allows easy and fast operations across different types of maps and set (e.g.
-  an intersection between a map and a set), since all sets and maps, no matter their key type, are really positive integer sets or maps.
+- Allows easy and fast operations across different types of maps and set
+  which have the same type of keys (e.g. an intersection between a map and a set).
 - Multiple choices for internal representation (`NODE`), which allows for efficient
   storage (no need to store a value for sets), or using weak nodes only (values removed from the tree if no other pointer to it exists). This system can also
   be extended to store size information in nodes if needed.
@@ -319,11 +323,11 @@ These are smaller and closer to OCaml's built-in Map and Set, however:
 - These libraries work with older version of OCaml (`>= 4.05` I believe), whereas
   ours requires OCaml `>= 4.14` (for the new interface of `Ephemeron` used in
   `WeakNode`).
-- Our keys are limited to positive integers.
 
 ### dmap
 
-Additionally, there is a dependent map library: [dmap](https://gitlab.inria.fr/bmontagu/dmap).
+Additionally, there is a dependent map library: [dmap](https://gitlab.inria.fr/bmontagu/dmap),
+which gave us the idea of making our PatriciaTree dependent.
 It allows creating type safe dependent maps similar to our heterogeneous maps.
 However, its maps aren't Patricia trees. They are binary trees build using a
 (polymorphic) comparison function, similarly to the maps of the standard library.

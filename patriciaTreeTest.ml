@@ -21,6 +21,36 @@
 
 open PatriciaTree
 
+let check_highest_bit x res  =
+  (* Printf.printf "CHECK_HIGHEST_BIT: %x %x\n%!" x res; *)
+  if (x = 0)
+  then (res = 0)
+  else begin
+    x != 0 &&
+    (* The result is a single bit set. *)
+    res land (res-1) == 0 &&
+    (* The bit x is set. *)
+    x land res = res &&
+    (* It is the highest bit. *)
+    x land (lnot res) land (lnot (res - 1)) = 0
+  end
+
+let () = QCheck.Test.check_exn @@
+  QCheck.Test.make ~count:1000 ~name:"highest_bit" QCheck.int (fun x ->
+  check_highest_bit x (highest_bit x))
+
+let unsigned_lt_ref x y =
+  if x >= 0 && y >= 0
+    then x < y
+    else if x >= 0
+      then (* pos < neg *) true
+      else if y >= 0 then false
+      else x < y
+
+let () = QCheck.Test.check_exn @@
+  QCheck.Test.make ~count:1000 ~name:"unsigned_lt" QCheck.(pair int int) (fun (x,y) ->
+  unsigned_lt x y = unsigned_lt_ref x y)
+
 let%test_module "TestHeterogeneous" = (module struct
 
   module MyKey = struct
@@ -145,6 +175,9 @@ end)
 (* let _m5 = inter (fun a b -> a) _m2 _m3;; *)
 
 (* let _m6 = inter (fun a b -> a) _m1 _m2;; *)
+let unsigned_compare x y =
+  if unsigned_lt x y then -1
+  else if x = y then 0 else 1
 
 module HIntKey : sig
   type t = int
@@ -156,7 +189,10 @@ end
 
 (* A model. *)
 module IntMap = struct
-  module M = Map.Make(Int)
+  module M = Map.Make(struct
+    type t = int
+    let compare = unsigned_compare
+  end)
   include M
   let subset_domain_for_all_2 m1 m2 f =
     let exception False in
@@ -211,12 +247,12 @@ module IntMap = struct
         | None, _ | _, None -> None
         | Some a, Some b -> (f key a b)) m1 m2
 
-  let pop_minimum m =
+  let pop_unsigned_minimum m =
     match M.min_binding m with
     | exception Not_found -> None
     | (key,value) -> Some(key,value,M.remove key m)
 
-  let pop_maximum m =
+  let pop_unsigned_maximum m =
     match M.max_binding m with
     | exception Not_found -> None
     | (key,value) -> Some(key,value,M.remove key m)
@@ -261,10 +297,12 @@ end) = struct
     let third = extend_map first alist3 in
     (second,third)
 
+  let number_gen = QCheck.int
+
   let gen = QCheck.(triple
-                      (small_list (pair small_nat small_nat))
-                      (small_list (pair small_nat small_nat))
-                      (small_list (pair small_nat small_nat)))
+                      (small_list (pair number_gen number_gen))
+                      (small_list (pair number_gen number_gen))
+                      (small_list (pair number_gen number_gen)))
 
   let model_from_gen x =
     let (m1,m2) = two_maps_from_three_lists x in
@@ -289,22 +327,22 @@ end) = struct
 
   module Foreign = MyMap.WithForeign(MyMap.BaseMap)
 
-  let test_pop_minimum = QCheck.Test.make ~count:1000 ~name:"pop_minimum"
-      QCheck.(small_list (pair small_nat small_nat)) (fun x ->
+  let test_pop_minimum = QCheck.Test.make ~count:1000 ~name:"pop_unsigned_minimum"
+      QCheck.(small_list (pair number_gen number_gen)) (fun x ->
           let m = extend_map MyMap.empty x in
           let model = intmap_of_mymap m in
-          match MyMap.pop_minimum m, IntMap.pop_minimum model with
+          match MyMap.pop_unsigned_minimum m, IntMap.pop_unsigned_minimum model with
           | None, Some _ | Some _, None -> false
           | None, None -> true
           | Some(key1,val1,m'), Some(key2,val2,model') ->
             key1 = key2 && Conv.to_int val1 = val2 && IntMap.equal (=) (intmap_of_mymap m') model')
   let () = QCheck.Test.check_exn test_pop_minimum
 
-  let test_pop_maximum = QCheck.Test.make ~count:1000 ~name:"pop_maximum"
-      QCheck.(small_list (pair small_nat small_nat)) (fun x ->
+  let test_pop_maximum = QCheck.Test.make ~count:1000 ~name:"pop_unsigned_maximum"
+      QCheck.(small_list (pair number_gen number_gen)) (fun x ->
           let m = extend_map MyMap.empty x in
           let model = intmap_of_mymap m in
-          match MyMap.pop_maximum m, IntMap.pop_maximum model with
+          match MyMap.pop_unsigned_maximum m, IntMap.pop_unsigned_maximum model with
           | None, Some _ | Some _, None -> false
           | None, None -> true
           | Some(key1,val1,m'), Some(key2,val2,model') ->
@@ -319,7 +357,7 @@ end) = struct
       let () = match !seen with
         | None -> ()
         | Some old_key_int ->
-          if old_key_int < key_int
+          if unsigned_compare old_key_int key_int < 0
           then ()
           else QCheck.Test.fail_reportf
             "Non increasing calls to f : key %d seen after %d"
@@ -339,7 +377,7 @@ end) = struct
     in f
 
  let test_map_filter = QCheck.Test.make ~count:1000 ~name:"map_filter"
-      QCheck.(small_list (pair small_nat small_nat)) (fun x ->
+      QCheck.(small_list (pair number_gen number_gen)) (fun x ->
           let m1 = extend_map MyMap.empty x in
           let model1 = intmap_of_mymap m1 in
           let chk_calls1 = check_increases () in
@@ -512,6 +550,27 @@ end) = struct
       (* Printf.printf "res is %b\n%!" @@ IntMap.equal (=) modelres myres; *)
       modelres == myres)
   let () = QCheck.Test.check_exn test_disjoint
+
+  let%test "negative_keys" =
+    let map = MyMap.add 0 (Conv.of_int 0) MyMap.empty in
+    let _pp_l fmt = Format.pp_print_list ~pp_sep:(fun fmt () -> Format.fprintf fmt "; ")
+      (fun fmt (k,l) -> Format.fprintf fmt "(%x, %x)" k l) fmt in
+    let map2 = MyMap.add min_int (Conv.of_int 5) map in
+    let map3 = MyMap.add max_int (Conv.of_int 8) map2 in
+    let map4 = MyMap.add 25 (Conv.of_int 8) map2 in
+    let map5 = MyMap.idempotent_inter_filter (fun _ _ _ -> None) map3 map4 in
+    (* Format.printf "[%a]@." pp_l (MyMap.to_list  map3);
+    Format.printf "[%a]@." pp_l (MyMap.to_list  map4);
+    Format.printf "[%a]@." pp_l (MyMap.to_list  map5);
+    (match MyMap.BaseMap.view map3 with
+      | Branch{prefix; branching_bit; _} -> Format.printf "%x : %x@." (Obj.magic prefix) (Obj.magic branching_bit)
+      | _ -> ()
+    ); *)
+    MyMap.to_list map = [(0, Conv.of_int 0)] &&
+    MyMap.to_list map2 = [(0,Conv.of_int 0); (min_int,Conv.of_int 5)] &&
+    MyMap.to_list map3 = [(0,Conv.of_int 0); (max_int,Conv.of_int 8); (min_int,Conv.of_int 5)] &&
+    MyMap.to_list map4 = [(0,Conv.of_int 0); (25,Conv.of_int 8); (min_int,Conv.of_int 5)] &&
+    MyMap.to_list map5 = MyMap.to_list map2
 
   let test_id_unique = QCheck.Test.make ~count:1000 ~name:"unique_hashcons_id"
   gen (fun (one,two,three) ->
