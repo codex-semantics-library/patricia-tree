@@ -467,7 +467,8 @@ module type HETEROGENEOUS_MAP = sig
 
   include BASE_MAP
 
-  (** Operation with maps/set of different types *)
+  (** Operation with maps/set of different types.
+      [Map2] must use the same [Key.to_int] function. *)
   module WithForeign(Map2:BASE_MAP with type 'a key = 'a key):sig
     type ('map1,'map2) polyinter_foreign = { f: 'a. 'a key -> ('a,'map1) value -> ('a,'map2) Map2.value -> ('a,'map1) value } [@@unboxed]
 
@@ -1048,9 +1049,8 @@ module type MAP = sig
 
   val disjoint : 'a t -> 'a t -> bool
 
-  (* Maybe: WithForeign and WithForeignHeterogeneous.  *)
-
-  (** Combination with other kinds of maps. *)
+  (** Combination with other kinds of maps.
+      [Map2] must use the same [Key.to_int] function. *)
   module WithForeign(Map2 : BASE_MAP with type _ key = key):sig
 
     type ('b,'c) polyfilter_map_foreign = { f: 'a. key -> ('a,'b) Map2.value -> 'c option } [@@unboxed]

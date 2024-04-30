@@ -86,8 +86,8 @@ dune build @doc
   positive integer of both positive and negative keys are present; and not the smallest negative, as one might expect.
 - Supports generic maps and sets: a `'m map` that maps `'k key` to `('k, 'm) value`.
   This is especially useful when using [GADTs](https://v2.ocaml.org/manual/gadts-tutorial.html) for the type of keys. This is also sometimes called a dependent map.
-- Allows easy and fast operations across different types of maps and set (e.g.
-  an intersection between a map and a set), since all sets and maps, no matter their key type, are really integer sets or maps.
+- Allows easy and fast operations across different types of maps and set
+  which have the same type of keys (e.g. an intersection between a map and a set).
 - Multiple choices for internal representation (`NODE`), which allows for efficient
   storage (no need to store a value for sets), or using weak nodes only (values removed from the tree if no other pointer to it exists). This system can also
   be extended to store size information in nodes if needed.
