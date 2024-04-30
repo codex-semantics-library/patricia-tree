@@ -1,5 +1,13 @@
 # v0.10.0 - Unreleased
 
+## Main changes
+
+- Added hash-consed nodes and functors to build hash-consed maps and sets
+- Now support using negative keys, removed `zarith` dependency.
+- Fixed some bugs
+
+## Detailed changes
+
 - Renamed `MakeCustom` to `MakeCustomMap`, added new functor `MakeCustomSet`.
 - Renamed `MakeCustomHeterogeneous` to `MakeCustomHeterogeneousMap`, added new functor
   `MakeCustomHeterogeneousSet`.
@@ -8,7 +16,7 @@
 - Added `HashconsedNode`, `HashconsedSetNode` as well as four functors to create
   hash-consed heterogeneous/homogeneous maps/sets: `MakeHashconsedMap`, `MakeHashconsedSet`,
   `MakeHashconsedHeterogeneousMap` and `MakeHashconsedHeterogeneousSet`.
-- Patricia Tree now support using negative keys. Tree are built using the bitwise representation
+- Now support using negative keys. Trees are built using the bitwise representation
   of integer, meaning they effectively use an unsigned order. Negative keys are
   considered bigger than positive keys, `0` is the minimal number and `-1` the maximal one.
 - Renamed `min_binding`, `max_binding`, `pop_minimum`, `pop_maximum`, `min_elt`
