@@ -40,12 +40,13 @@ dune build @doc
 {1 Features}
 
 {ul
-{li Similar to OCaml's [Map] and [Set], using the same function names when possible
+{li Similar to OCaml's {{: https://ocaml.org/api/Map.S.html}[Map]} and {{: https://ocaml.org/api/Set.S.html}[Set]},
+  using the same function names when possible
   and the same convention for order of arguments. This should allow switching to
   and from Patricia Tree with minimal effort.}
 {li The functor parameters ({!PatriciaTree.KEY} module) requires an injective [to_int : t -> int]
   function instead of a [compare] function. {!PatriciaTree.KEY.to_int} should be fast,
-  injective, and only return positive integers.
+  and injective.
   This works well with {{: https://en.wikipedia.org/wiki/Hash_consing}hash-consed} types.}
 {li The Patricia Tree representation is stable, contrary to maps, inserting nodes
   in any order will return the same shape.
@@ -61,16 +62,22 @@ dune build @doc
   [idempotent_inter] for the efficient version and [nonidempotent_inter_no_share]
   for the general one)}
 {li Since our Patricia Tree use big-endian order on keys, the maps and sets are
-  sorted in increasing order of keys. We only support positive integer keys.
+  sorted in increasing {b {{!PatriciaTree.unsigned_lt}unsigned order}} of keys.
+  This means negative keys are sorted above positive keys, with [-1] being the
+  largest possible key, and [0] the smallest.
   This also avoids a bug in Okasaki's paper discussed in
   {{: https://www.cs.tufts.edu/comp/150FP/archive/jan-midtgaard/qc-patricia.pdf}{i QuickChecking Patricia Trees}}
-  by Jan Mitgaard.}
+  by Jan Mitgaard.
+
+  It also affects functions like {{!PatriciaTree.BASE_MAP.unsigned_min_binding}[unsigned_min_binding]}
+  and {{!PatriciaTree.BASE_MAP.pop_unsigned_minimum}[pop_unsigned_minimum}. They will return the smallest
+  positive integer of both positive and negative keys are present; and not the smallest negative,
+  as one might expect.}
 {li Supports generic maps and sets: a ['m map] that maps ['k key] to [('k, 'm) value].
   This is especially useful when using {{: https://v2.ocaml.org/manual/gadts-tutorial.html}GADTs}
   for the type of keys. This is also sometimes called a dependent map.}
-{li Allows easy and fast operations across different types of maps and set (e.g.
-  an intersection between a map and a set), since all sets and maps, no matter their key type,
-  are really positive integer sets or maps.}
+{li Allows easy and fast operations across different types of maps and set
+  which have the same type of keys (e.g. an intersection between a map and a set).}
 {li Multiple choices for internal representation ({!PatriciaTree.NODE}), which allows for efficient
   storage (no need to store a value for sets), or using weak nodes only (values removed from the tree if no other pointer to it exists). This system can also
   be extended to store size information in nodes if needed.}
@@ -292,7 +299,6 @@ These are smaller and closer to OCaml's built-in [Map] and [Set], however:
 - These libraries work with older version of OCaml ([>= 4.05] I believe), whereas
   ours requires OCaml [>= 4.14] (for the new interface of [Ephemeron] used in
   {!PatriciaTree.WeakNode}).
-- Our keys are limited to positive integers.
 
 {2 dmap}
 

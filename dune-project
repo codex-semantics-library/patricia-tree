@@ -52,8 +52,6 @@
  (depends
   (ocaml
    (>= 4.14))
-  (zarith
-   (>= "1.13"))
   dune
   (qcheck-core
    (and

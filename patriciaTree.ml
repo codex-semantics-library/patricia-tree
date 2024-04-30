@@ -58,8 +58,8 @@ module type BASE_MAP = sig
 
   type 'map key_value_pair =
       KeyValue : 'a key * ('a, 'map) value -> 'map key_value_pair
-  val min_binding : 'a t -> 'a key_value_pair
-  val max_binding : 'a t -> 'a key_value_pair
+  val unsigned_min_binding : 'a t -> 'a key_value_pair
+  val unsigned_max_binding : 'a t -> 'a key_value_pair
   val singleton : 'a key -> ('a, 'b) value -> 'b t
   val cardinal : 'a t -> int
   val is_singleton : 'a t -> 'a key_value_pair option
@@ -67,8 +67,8 @@ module type BASE_MAP = sig
   val find_opt : 'key key -> 'map t -> ('key, 'map) value option
   val mem : 'key key -> 'map t -> bool
   val remove : 'key key -> 'map t -> 'map t
-  val pop_minimum: 'map t -> ('map key_value_pair * 'map t) option
-  val pop_maximum: 'map t -> ('map key_value_pair * 'map t) option
+  val pop_unsigned_minimum: 'map t -> ('map key_value_pair * 'map t) option
+  val pop_unsigned_maximum: 'map t -> ('map key_value_pair * 'map t) option
 
   val insert: 'a key -> (('a,'map) value option -> ('a,'map) value) -> 'map t -> 'map t
   val update: 'a key -> (('a,'map) value option -> ('a,'map) value option) -> 'map t -> 'map t
@@ -186,10 +186,10 @@ module type HETEROGENEOUS_SET = sig
   val cardinal: t -> int
   val is_singleton: t -> any_elt option
   val remove: 'a elt -> t -> t
-  val min_elt: t -> any_elt
-  val max_elt: t -> any_elt
-  val pop_minimum: t -> (any_elt * t) option
-  val pop_maximum: t -> (any_elt * t) option
+  val unsigned_min_elt: t -> any_elt
+  val unsigned_max_elt: t -> any_elt
+  val pop_unsigned_minimum: t -> (any_elt * t) option
+  val pop_unsigned_maximum: t -> (any_elt * t) option
   val union: t -> t -> t
   val inter: t -> t -> t
   val disjoint: t -> t -> bool
@@ -241,10 +241,10 @@ module type SET = sig
   val cardinal: t -> int
   val is_singleton: t -> elt option
   val remove: elt -> t -> t
-  val min_elt: t -> elt
-  val max_elt: t -> elt
-  val pop_minimum: t -> (elt * t) option
-  val pop_maximum: t -> (elt * t) option
+  val unsigned_min_elt: t -> elt
+  val unsigned_max_elt: t -> elt
+  val pop_unsigned_minimum: t -> (elt * t) option
+  val pop_unsigned_maximum: t -> (elt * t) option
   val iter: (elt -> unit) -> t -> unit
   val filter: (elt -> bool) -> t -> t
   val for_all: (elt -> bool) -> t -> bool
@@ -282,8 +282,8 @@ module type MAP = sig
 
   val empty : 'a t
   val is_empty : 'a t -> bool
-  val min_binding : 'a t -> (key * 'a)
-  val max_binding : 'a t -> (key * 'a)
+  val unsigned_min_binding : 'a t -> (key * 'a)
+  val unsigned_max_binding : 'a t -> (key * 'a)
   val singleton : key -> 'a -> 'a t
   val cardinal : 'a t -> int
   val is_singleton : 'a t -> (key * 'a) option
@@ -291,8 +291,8 @@ module type MAP = sig
   val find_opt : key -> 'a t -> 'a option
   val mem : key -> 'a t -> bool
   val remove : key -> 'a t -> 'a t
-  val pop_minimum : 'a t -> (key * 'a * 'a t) option
-  val pop_maximum : 'a t -> (key * 'a * 'a t) option
+  val pop_unsigned_minimum : 'a t -> (key * 'a * 'a t) option
+  val pop_unsigned_maximum : 'a t -> (key * 'a * 'a t) option
   val insert : key -> ('a option -> 'a) -> 'a t -> 'a t
   val update : key -> ('a option -> 'a option) -> 'a t -> 'a t
   val add : key -> 'a -> 'a t -> 'a t
@@ -368,42 +368,22 @@ end
 
 (** {1 Utility functions} *)
 
-(** Optimized computation, but does not work for values too high. *)
-(* let _highest_bit v =
-  (* compute highest bit.
-     First, set all bits with weight less than
-     the highest set bit *)
-  let v1 = v lsr 1 in
-  let v2 = v lsr 2 in
-  let v = v lor v1 in
-  let v = v lor v2 in
-  let v1 = v lsr 3 in
-  let v2 = v lsr 6 in
-  let v = v lor v1 in
-  let v = v lor v2 in
-  let v1 = v lsr 9 in
-  let v2 = v lsr 18 in
-  let v = v lor v1 in
-  let v = v lor v2 in
-  (* then get highest bit *)
-  (succ v) lsr 1
+(** Fast highest bit computation in c, using GCC's __builtin_clz
+    which compile to efficient instruction (bsr) when possible. *)
+external highest_bit: int -> (int[@untagged]) =
+  "caml_int_builtin_highest_bit_byte" "caml_int_builtin_highest_bit" [@@noalloc]
 
-let lowest_bit x =
-  x land (-x) *)
-
-(* let rec _highest_bit x =
-  let m = lowest_bit x in
-  if x = m then
-    m
-  else
-    _highest_bit (x - m) *)
-
-let highest_bit x =
-  1 lsl (Z.log2 @@ Z.of_int x)
+let unsigned_lt x y = x - min_int < y - min_int
+  (* if x >= 0 && y >= 0
+  then x < y
+  else if x >= 0
+    then (* pos < neg *) true
+    else if y >= 0 then false
+    else x < y *)
 
 (** Note: in the original version, okasaki give the masks as arguments
     to optimize the computation of highest_bit. *)
-let branching_bit a b = highest_bit (a lxor b);;
+let branching_bit a b = highest_bit (a lxor b)
 
 let mask i m = i land (lnot (2*m-1))
 
@@ -610,14 +590,14 @@ module MakeCustomHeterogeneous
   include NODE
 
   type 'map key_value_pair = KeyValue: 'a Key.t * ('a,'map) value -> 'map key_value_pair
-  let rec min_binding x = match NODE.view x with
+  let rec unsigned_min_binding x = match NODE.view x with
     | Empty -> raise Not_found
     | Leaf{key;value} -> KeyValue(key,value)
-    | Branch{tree0;_} -> min_binding tree0
-  let rec max_binding x = match NODE.view x with
+    | Branch{tree0;_} -> unsigned_min_binding tree0
+  let rec unsigned_max_binding x = match NODE.view x with
     | Empty -> raise Not_found
     | Leaf{key;value} -> KeyValue(key,value)
-    | Branch{tree1;_} -> max_binding tree1
+    | Branch{tree1;_} -> unsigned_max_binding tree1
 
 
   (* Merge trees whose prefix disagree. *)
@@ -668,12 +648,12 @@ module MakeCustomHeterogeneous
           match Key.polyeq key split_key with
           | Eq -> NODE.empty, Some value, NODE.empty
           | Diff ->
-            if Key.to_int key < split_key_int then
+            if unsigned_lt (Key.to_int key) split_key_int then
               m, None, NODE.empty else NODE.empty, None, m
         end
       | Branch{prefix;branching_bit;tree0;tree1} ->
           if not (match_prefix split_key_int prefix branching_bit) then
-            if prefix < split_key_int
+            if unsigned_lt prefix split_key_int
             then m, None, NODE.empty
             else NODE.empty, None, m
           else if (branching_bit land split_key_int == 0) then
@@ -790,8 +770,8 @@ module MakeCustomHeterogeneous
       in (res,restree)
     | Empty ->
       (* Can only happen in weak sets and maps. *)
-      raise Disappeared ;;
-  let pop_minimum m = match NODE.view m with
+      raise Disappeared
+  let pop_unsigned_minimum m = match NODE.view m with
     | Empty -> None
     | _ -> Some(pop_min_nonempty m)
 
@@ -806,7 +786,7 @@ module MakeCustomHeterogeneous
       (* Can only happen in weak sets and maps. *)
     | Empty -> raise Disappeared
 
-  let pop_maximum m = match NODE.view m with
+  let pop_unsigned_maximum m = match NODE.view m with
     | Empty -> None
     | _ -> Some(pop_max_nonempty m)
 
@@ -972,7 +952,7 @@ module MakeCustomHeterogeneous
         (reflexive_subset_domain_for_all2 f ta0 tb0) &&
         (reflexive_subset_domain_for_all2 f ta1 tb1)
         (* Case where ta have to be included in one of tb0 or tb1. *)
-      else if ma < mb && match_prefix pa pb mb
+      else if unsigned_lt ma mb && match_prefix pa pb mb
       then if mb land pa == 0
         then reflexive_subset_domain_for_all2 f ta tb0
         else reflexive_subset_domain_for_all2 f ta tb1
@@ -990,11 +970,11 @@ module MakeCustomHeterogeneous
         if ma == mb && pa == pb
         (* Same prefix: check both subtrees *)
         then disjoint ta0 tb0 && disjoint ta1 tb1
-        else if ma > mb && match_prefix pb pa ma (* tb included in ta0 or ta1 *)
+        else if unsigned_lt mb ma && match_prefix pb pa ma (* tb included in ta0 or ta1 *)
         then if ma land pb == 0
           then disjoint ta0 tb
           else disjoint ta1 tb
-        else if ma < mb && match_prefix pa pb mb (* ta included in tb0 or tb1 *)
+        else if unsigned_lt ma mb && match_prefix pa pb mb (* ta included in tb0 or tb1 *)
         then if mb land pa == 0
           then disjoint ta tb0
           else disjoint ta tb1
@@ -1019,11 +999,11 @@ module MakeCustomHeterogeneous
           let tree0 = idempotent_union f ta0 tb0 in
           let tree1 = idempotent_union f ta1 tb1 in
           branch ~prefix:pa ~branching_bit:ma ~tree0 ~tree1
-        else if ma > mb && match_prefix pb pa ma
+        else if unsigned_lt mb ma && match_prefix pb pa ma
         then if ma land pb == 0
           then branch ~prefix:pa ~branching_bit:ma ~tree0:(idempotent_union f ta0 tb) ~tree1:ta1
           else branch ~prefix:pa ~branching_bit:ma ~tree0:ta0 ~tree1:(idempotent_union f ta1 tb)
-        else if ma < mb && match_prefix pa pb mb
+        else if unsigned_lt ma mb && match_prefix pa pb mb
         then if mb land pa == 0
           then branch ~prefix:pb ~branching_bit:mb ~tree0:(idempotent_union f ta tb0) ~tree1:tb1
           else branch ~prefix:pb ~branching_bit:mb ~tree0:tb0 ~tree1:(idempotent_union f ta tb1)
@@ -1056,11 +1036,11 @@ module MakeCustomHeterogeneous
           let tree0 = idempotent_inter f ta0 tb0 in
           let tree1 = idempotent_inter f ta1 tb1 in
           branch ~prefix:pa ~branching_bit:ma ~tree0 ~tree1
-        else if ma > mb && match_prefix pb pa ma
+        else if unsigned_lt mb ma && match_prefix pb pa ma
         then if ma land pb == 0
           then idempotent_inter f ta0 tb
           else idempotent_inter f ta1 tb
-        else if ma < mb && match_prefix pa pb mb
+        else if unsigned_lt ma mb && match_prefix pa pb mb
         then if mb land pa == 0
           then idempotent_inter f ta tb0
           else idempotent_inter f ta tb1
@@ -1086,11 +1066,11 @@ module MakeCustomHeterogeneous
         let tree0 = nonidempotent_inter_no_share f ta0 tb0 in
         let tree1 = nonidempotent_inter_no_share f ta1 tb1 in
         branch ~prefix:pa ~branching_bit:ma ~tree0 ~tree1
-      else if ma > mb && match_prefix pb pa ma
+      else if unsigned_lt mb ma && match_prefix pb pa ma
       then if ma land pb == 0
         then nonidempotent_inter_no_share f ta0 tb
         else nonidempotent_inter_no_share f ta1 tb
-      else if ma < mb && match_prefix pa pb mb
+      else if unsigned_lt ma mb && match_prefix pa pb mb
       then if mb land pa == 0
         then nonidempotent_inter_no_share f ta tb0
         else nonidempotent_inter_no_share f ta tb1
@@ -1125,11 +1105,11 @@ module MakeCustomHeterogeneous
           let tree0 = idempotent_inter_filter f ta0 tb0 in
           let tree1 = idempotent_inter_filter f ta1 tb1 in
           branch ~prefix:pa ~branching_bit:ma ~tree0 ~tree1
-        else if ma > mb && match_prefix pb pa ma
+        else if unsigned_lt mb ma && match_prefix pb pa ma
         then if ma land pb == 0
           then idempotent_inter_filter f ta0 tb
           else idempotent_inter_filter f ta1 tb
-        else if ma < mb && match_prefix pa pb mb
+        else if unsigned_lt ma mb && match_prefix pa pb mb
         then if mb land pa == 0
           then idempotent_inter_filter f ta tb0
           else idempotent_inter_filter f ta tb1
@@ -1180,11 +1160,11 @@ module MakeCustomHeterogeneous
       (* Same prefix: merge the subtrees *)
       then
         branch ~prefix:pa ~branching_bit:ma ~tree0:(slow_merge f ta0 tb0) ~tree1:(slow_merge f ta1 tb1)
-      else if ma > mb && match_prefix pb pa ma
+      else if unsigned_lt mb ma && match_prefix pb pa ma
       then if ma land pb == 0
         then branch ~prefix:pa ~branching_bit:ma ~tree0:(slow_merge f ta0 tb) ~tree1:(upd_ta ta1)
         else branch ~prefix:pa ~branching_bit:ma ~tree0:(upd_ta ta0) ~tree1:(slow_merge f ta1 tb)
-      else if ma < mb && match_prefix pa pb mb
+      else if unsigned_lt ma mb && match_prefix pa pb mb
       then if mb land pa == 0
         then branch ~prefix:pb ~branching_bit:mb ~tree0:(slow_merge f ta tb0) ~tree1:(upd_tb tb1)
         else branch ~prefix:pb ~branching_bit:mb ~tree0:(upd_tb tb0) ~tree1:(slow_merge f ta tb1)
@@ -1240,11 +1220,11 @@ module MakeCustomHeterogeneous
           if(ta0 == tree0 && ta1 == tree1)
           then ta
           else NODE.branch ~prefix:pa ~branching_bit:ma ~tree0 ~tree1
-        else if ma > mb && match_prefix pb pa ma
+        else if unsigned_lt mb ma && match_prefix pb pa ma
         then if ma land pb == 0
           then nonidempotent_inter f ta0 tb
           else nonidempotent_inter f ta1 tb
-        else if ma < mb && match_prefix pa pb mb
+        else if unsigned_lt ma mb && match_prefix pa pb mb
         then if mb land pa == 0
           then nonidempotent_inter f ta tb0
           else nonidempotent_inter f ta tb1
@@ -1287,7 +1267,7 @@ module MakeCustomHeterogeneous
         let tree1 = update_multiple_from_foreign tb1 f ta1 in
         if tree0 == ta0 && tree1 == ta1 then ta
         else branch ~prefix:pa ~branching_bit:ma ~tree0 ~tree1
-      else if ma > mb && match_prefix pb pa ma
+      else if unsigned_lt mb ma && match_prefix pb pa ma
       then if ma land pb == 0
         then
           let ta0' = update_multiple_from_foreign tb f ta0 in
@@ -1297,7 +1277,7 @@ module MakeCustomHeterogeneous
           let ta1' = update_multiple_from_foreign tb f ta1 in
           if ta1' == ta1 then ta
           else branch ~prefix:pa ~branching_bit:ma ~tree0:ta0 ~tree1:ta1'
-      else if ma < mb && match_prefix pa pb mb
+      else if unsigned_lt ma mb && match_prefix pa pb mb
       then if mb land pa == 0
         then
           let tree0 = update_multiple_from_foreign tb0 f ta in
@@ -1337,7 +1317,7 @@ module MakeCustomHeterogeneous
         let tree1 = update_multiple_from_inter_with_foreign tb1 f ta1 in
         if tree0 == ta0 && tree1 == ta1 then ta
         else branch ~prefix:pa ~branching_bit:ma ~tree0 ~tree1
-      else if ma > mb && match_prefix pb pa ma
+      else if unsigned_lt mb ma && match_prefix pb pa ma
       then if ma land pb == 0
         then
           let ta0' = update_multiple_from_inter_with_foreign tb f ta0 in
@@ -1347,7 +1327,7 @@ module MakeCustomHeterogeneous
           let ta1' = update_multiple_from_inter_with_foreign tb f ta1 in
           if ta1' == ta1 then ta
           else branch ~prefix:pa ~branching_bit:ma ~tree0:ta0 ~tree1:ta1'
-      else if ma < mb && match_prefix pa pb mb
+      else if unsigned_lt ma mb && match_prefix pa pb mb
       then if mb land pa == 0
         then update_multiple_from_inter_with_foreign tb0 f ta
         else update_multiple_from_inter_with_foreign tb1 f ta
@@ -1418,11 +1398,11 @@ module MakeHeterogeneousSet(Key:HETEROGENEOUS_KEY) : HETEROGENEOUS_SET
     let f: type a. a key -> unit -> 'acc -> 'acc = fun k () acc -> f.f k acc in
     BaseMap.fold { f } set acc
 
-  let min_elt t = let KeyValue(m, ()) = BaseMap.min_binding t in Any m
-  let max_elt t = let KeyValue(m, ()) = BaseMap.max_binding t in Any m
+  let unsigned_min_elt t = let KeyValue(m, ()) = BaseMap.unsigned_min_binding t in Any m
+  let unsigned_max_elt t = let KeyValue(m, ()) = BaseMap.unsigned_max_binding t in Any m
 
-  let pop_maximum t = Option.map (fun (KeyValue(m,()),t) -> Any m,t) (BaseMap.pop_maximum t)
-  let pop_minimum t = Option.map (fun (KeyValue(m,()),t) -> Any m,t) (BaseMap.pop_minimum t)
+  let pop_unsigned_maximum t = Option.map (fun (KeyValue(m,()),t) -> Any m,t) (BaseMap.pop_unsigned_maximum t)
+  let pop_unsigned_minimum t = Option.map (fun (KeyValue(m,()),t) -> Any m,t) (BaseMap.pop_unsigned_minimum t)
 
   type polypretty = { f: 'a. Format.formatter -> 'a key -> unit; } [@@unboxed]
   let pretty ?pp_sep f fmt s = BaseMap.pretty ?pp_sep { f = fun fmt k () -> f.f fmt k} fmt s
@@ -1501,16 +1481,16 @@ module MakeCustom
   let update k f m = update k (fun v -> snd_opt (f (opt_snd v))) m
   let add k v m = add k (Snd v) m
   let split x m = let (l,m,r) = split x m in (l, opt_snd m, r)
-  let min_binding m = let KeyValue(key,Snd value) = BaseMap.min_binding m in key,value
-  let max_binding m = let KeyValue(key,Snd value) = BaseMap.max_binding m in key,value
+  let unsigned_min_binding m = let KeyValue(key,Snd value) = BaseMap.unsigned_min_binding m in key,value
+  let unsigned_max_binding m = let KeyValue(key,Snd value) = BaseMap.unsigned_max_binding m in key,value
   (* let singleton k v = BaseMap.singleton (PolyKey.K k) v *)
-  let pop_minimum m =
-    match BaseMap.pop_minimum m with
+  let pop_unsigned_minimum m =
+    match BaseMap.pop_unsigned_minimum m with
     | None -> None
     | Some(KeyValue(key,Snd value),m) -> Some(key,value,m)
 
-  let pop_maximum m =
-    match BaseMap.pop_maximum m with
+  let pop_unsigned_maximum m =
+    match BaseMap.pop_unsigned_maximum m with
     | None -> None
     | Some(KeyValue(key,Snd value),m) -> Some(key,value,m)
 
@@ -1605,10 +1585,10 @@ module MakeSet(Key: KEY) : SET with type elt = Key.t = struct
     | None -> None
     | Some(KeyValue(k,())) -> Some k
 
-  let min_elt t = let Any x = min_elt t in x
-  let max_elt t = let Any x = max_elt t in x
-  let pop_minimum t = Option.map (fun (Any x, t) -> (x,t)) (pop_minimum t)
-  let pop_maximum t = Option.map (fun (Any x, t) -> (x,t)) (pop_maximum t)
+  let unsigned_min_elt t = let Any x = unsigned_min_elt t in x
+  let unsigned_max_elt t = let Any x = unsigned_max_elt t in x
+  let pop_unsigned_minimum t = Option.map (fun (Any x, t) -> (x,t)) (pop_unsigned_minimum t)
+  let pop_unsigned_maximum t = Option.map (fun (Any x, t) -> (x,t)) (pop_unsigned_maximum t)
 
   let to_seq m = Seq.map (fun (BaseMap.KeyValue(elt,())) -> elt) (BaseMap.to_seq m)
   let to_rev_seq m = Seq.map (fun (BaseMap.KeyValue(elt,())) -> elt) (BaseMap.to_rev_seq m)

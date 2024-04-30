@@ -31,8 +31,9 @@
       each key to be mapped to a unique integer identifier.
 
     - The implementation uses Patricia Tree, as described in Oksasaki
-      and Gill's 1998 paper "Fast mergeable integer maps", i.e. it is a
-      space-efficient prefix trie over the big-endian representation of
+      and Gill's 1998 paper
+      {{: https://www.semanticscholar.org/paper/Fast-Mergeable-Integer-Maps-Okasaki-Gill/23003be706e5f586f23dd7fa5b2a410cc91b659d}{i Fast mergeable integer maps}},
+      i.e. it is a space-efficient prefix trie over the big-endian representation of
       the key's integer identifier.
 
       The main benefit of Patricia Tree is that their representation
@@ -48,9 +49,12 @@
      notably (key,value) pairs or different types to be in the same map,
      or to choose the memory representation of the nodes of the tree.
 
-   - Some operations like [pop_minimum] and [pop_maximum] make our Set
+   - Some operations like {{!BASE_MAP.pop_unsigned_minimum}[pop_unsigned_minimum]} and
+     {{!BASE_MAP.pop_unsigned_maximum}[pop_unsigned_maximum]} make our Set
      suitable as priority queue (but remember that each element in the
-     queue must map to a distinct integer). *)
+     queue must map to a distinct integer, and that using the {{!unsigned_lt}unsigned order}
+     means elements with negative priority are seen as greater than elements with
+     positive ones). *)
 
 (** Note on complexity: in the following, n represents the size of the
     map when there is one (and [|map1|] is the number of elements in
@@ -65,6 +69,40 @@
 
 type intkey
 type mask
+
+val unsigned_lt : int -> int -> bool
+(** All integers comparisons in this library are done according to their
+    {b unsigned representation}. This is the same as signed comparison for same
+    sign integers, but all negative integers are greater than the positives.
+    This means [-1] is the greatest possible number, and [0] is the smallest.
+    {[
+    # unsigned_lt 2 (-1);;
+    - bool : true
+    # unsigned_lt max_int min_int;;
+    - bool : true
+    # unsigned_lt 3 2;;
+    - bool : false
+    # unsigned_lt 2 3;;
+    - bool : true
+    # unsigned_lt (-2) (-3);;
+    - bool : false
+    # unsigned_lt (-4) (-3);;
+    - bool : true
+    # unsigned_lt 0 0;;
+    - bool : false
+    ]}
+
+    @since 0.10.0 *)
+
+(**/**)
+
+val highest_bit : int -> (int[@untagged])
+(** [highest_bit x] is an integer with a single bit set: the highest set bit of [x].
+    exported for test purposes only.
+
+    @since 0.10.0 *)
+
+(**/**)
 
 (** {1 Nodes} *)
 
@@ -166,13 +204,18 @@ module type BASE_MAP = sig
 
   (** {3 Basic functions} *)
 
-  val min_binding : 'a t -> 'a key_value_pair
-  (** @raises Not_found if the map is empty *)
+  val unsigned_min_binding : 'a t -> 'a key_value_pair
+  (** [unsigned_min_binding m] is minimal binding [KeyValue(k,v)] of the map,
+      using the {{!unsigned_lt}unsigned order} on [Key.to_int].
+      @raises Not_found if the map is empty *)
 
-  val max_binding : 'a t -> 'a key_value_pair
-  (** @raises Not_found if the map is empty *)
+  val unsigned_max_binding : 'a t -> 'a key_value_pair
+  (** [unsigned_max_binding m] is maximal binding [KeyValue(k,v)] of the map,
+      using the {{!unsigned_lt}unsigned order} on [Key.to_int].
+      @raises Not_found if the map is empty *)
 
   val singleton : 'a key -> ('a, 'b) value -> 'b t
+  (** Create a map with a single binding. *)
 
   val cardinal : 'a t -> int
   (** The size of the map, O(n) complexity *)
@@ -182,10 +225,11 @@ module type BASE_MAP = sig
       [m] contains a unique binding [k->v]. *)
 
   val find : 'key key -> 'map t -> ('key, 'map) value
-  (** @raises Not_found if key is absent from map *)
+  (** [find key map] returns the value associated with [key] in [map] if present.
+      @raises Not_found if [key] is absent from map *)
 
   val find_opt : 'key key -> 'map t -> ('key, 'map) value option
-  (** Same as [find], but returns [None] for Not_found *)
+  (** Same as {!find}, but returns [None] for Not_found *)
 
   val mem : 'key key -> 'map t -> bool
   (** [mem key map] returns [true] iff [key] is bound in [map], O(log(n)) complexity. *)
@@ -194,13 +238,17 @@ module type BASE_MAP = sig
   (** Returns a map with the element removed, O(log(n)) complexity.
       Returns a physically equal map if the element is absent. *)
 
-  val pop_minimum: 'map t -> ('map key_value_pair * 'map t) option
-  (** [pop_minimum m] returns [None] if [is_empty m], or [Some(key,value,m')] where
-      [(key,value) = min_binding m] and [m' = remove m key]. O(log(n)) complexity. *)
+  val pop_unsigned_minimum: 'map t -> ('map key_value_pair * 'map t) option
+  (** [pop_unsigned_minimum m] returns [None] if [is_empty m], or [Some(key,value,m')] where
+      [(key,value) = unsigned_min_binding m] and [m' = remove m key].
+      Uses the {{!unsigned_lt}unsigned order} on [Key.to_int].
+      O(log(n)) complexity. *)
 
-  val pop_maximum: 'map t -> ('map key_value_pair * 'map t) option
-  (** [pop_maximum m] returns [None] if [is_empty m], or [Some(key,value,m')] where
-      [(key,value) = max_binding m] and [m' = remove m key]. O(log(n)) complexity. *)
+  val pop_unsigned_maximum: 'map t -> ('map key_value_pair * 'map t) option
+  (** [pop_unsigned_maximum m] returns [None] if [is_empty m], or [Some(key,value,m')] where
+      [(key,value) = unsigned_max_binding m] and [m' = remove m key].
+      Uses the {{!unsigned_lt}unsigned order} on [Key.to_int].
+      O(log(n)) complexity. *)
 
   val insert: 'a key -> (('a,'map) value option -> ('a,'map) value) -> 'map t -> 'map t
   (** [insert key f map] modifies or insert an element of the map; [f]
@@ -230,23 +278,24 @@ module type BASE_MAP = sig
       - submap of [map] whose keys are smaller than [key]
       - value associated to [key] (if present)
       - submap of [map] whose keys are bigger than [key]
-      Where the order is given by [Key.to_int]. *)
+      Where the order is given by the {{!unsigned_lt}unsigned order} on [Key.to_int]. *)
 
   type 'map polyiter = { f : 'a. 'a key -> ('a, 'map) value -> unit; } [@@unboxed]
   val iter : 'map polyiter -> 'map t -> unit
-  (** [iter f m] calls [f.f] on all bindings of [m], in the order given by [Key.to_int] *)
+  (** [iter f m] calls [f.f] on all bindings of [m],
+      in the {{!unsigned_lt}unsigned order} on [Key.to_int] *)
 
   type ('acc,'map) polyfold = { f: 'a. 'a key -> ('a,'map) value -> 'acc -> 'acc } [@@unboxed]
   val fold : ('acc,'map) polyfold -> 'map t -> 'acc -> 'acc
   (** [fold f m acc] returns [f.f key_n value_n (... (f.f key_1 value_1 acc))]
       where [(key_1, value_1) ... (key_n, value_n)] are the bindings of [m], in
-      the order given by [Key.to_int]. *)
+      the {{!unsigned_lt}unsigned order} on [Key.to_int]. *)
 
   type 'map polypredicate = { f: 'a. 'a key -> ('a,'map) value -> bool; } [@@unboxed]
   val filter : 'map polypredicate -> 'map t -> 'map t
   (** [filter f m] returns the submap of [m] containing the bindings [k->v]
       such that [f.f k v = true].
-      [f.f] is called in the order given by [Key.to_int] *)
+      [f.f] is called in the {{!unsigned_lt}unsigned order} of [Key.to_int] *)
 
   val for_all : 'map polypredicate -> 'map t -> bool
   (** [for_all f m] checks that [f] holds on all bindings of [m]7
@@ -262,14 +311,14 @@ module type BASE_MAP = sig
   val map : ('map,'map) polymap -> 'map t -> 'map t
   val map_no_share : ('map1,'map2) polymap -> 'map1 t -> 'map2 t
   (** [map f m] and [map_no_share f m] replace all bindings [(k,v)] by [(k, f.f v)].
-      Bindings are examined in the order given by [Key.to_int]. *)
+      Bindings are examined in the {{!unsigned_lt}unsigned order} of [Key.to_int]. *)
 
   type ('map1,'map2) polymapi =
     { f : 'a. 'a key -> ('a, 'map1) value -> ('a, 'map2) value; } [@@unboxed]
   val mapi : ('map,'map) polymapi -> 'map t -> 'map t
   val mapi_no_share : ('map1,'map2) polymapi -> 'map1 t -> 'map2 t
   (** [mapi f m] and [mapi_no_share f m] replace all bindings [(k,v)] by [(k, f.f k v)].
-      Bindings are examined in the order given by [Key.to_int]. *)
+      Bindings are examined in the {{!unsigned_lt}unsigned order} of [Key.to_int]. *)
 
   type ('map1,'map2) polyfilter_map =
     { f : 'a. 'a key -> ('a, 'map1) value -> ('a, 'map2) value option; } [@@unboxed]
@@ -278,7 +327,7 @@ module type BASE_MAP = sig
   (** [filter_map m f] and [filter_map_no_share m f] remove the bindings
       [(k,v)] for which [f.f k v] is [None], and replaces the bindings [(k,v)]
       for which [f.f k v] is [Some v'] by [(k,v')].
-      Bindings are examined in the order given by [Key.to_int]. *)
+      Bindings are examined in the {{!unsigned_lt}unsigned order} of [Key.to_int]. *)
 
   type 'map polypretty = { f: 'a. Format.formatter -> 'a key -> ('a, 'map) value -> unit } [@@unboxed]
   val pretty :
@@ -287,7 +336,7 @@ module type BASE_MAP = sig
   (** Pretty-prints a map using the given formatter.
       [pp_sep] is called once between each binding,
       it defaults to [Format.pp_print_cut].
-      Bindings are printed in the order given by [Key.to_int] *)
+      Bindings are printed in the {{!unsigned_lt}unsigned order} of [Key.to_int] *)
 
   (** {3 Functions on pairs of maps} *)
 
@@ -300,7 +349,7 @@ module type BASE_MAP = sig
       - [m1] and [m2] have the same domain (set of keys)
       - for all bindings [(k, v1)] in [m1] and [(k, v2)] in [m2], [f.f k v1 v2] holds
       @assumes [f.f] is reflexive, i.e. [f.f k v v = true] to skip calls to equal subtrees.
-      Calls [f.f] in ascending order of [Key.to_int].
+      Calls [f.f] in ascending {{!unsigned_lt}unsigned order} of [Key.to_int].
       Exits early if the domains mismatch.
 
       It is useful to implement equality on maps:
@@ -315,7 +364,7 @@ module type BASE_MAP = sig
     ('map1,'map2) polysame_domain_for_all2 -> 'map1 t -> 'map2 t -> bool
   (** [nonreflexive_same_domain_for_all2 f m1 m2] is the same as
       {!reflexive_same_domain_for_all2}, but doesn't assume [f.f] is reflexive.
-      It thus calls [f.f] on every binding, in ascending order of [Key.to_int].
+      It thus calls [f.f] on every binding, in ascending {{!unsigned_lt}unsigned order} of [Key.to_int].
       Exits early if the domains mismatch. *)
 
   val reflexive_subset_domain_for_all2 :
@@ -324,7 +373,7 @@ module type BASE_MAP = sig
       - [m1]'s domain is a subset of [m2]'s. (all keys defined in [m1] are also defined in [m2])
       - for all bindings [(k, v1)] in [m1] and [(k, v2)] in [m2], [f.f k v1 v2] holds
       @assumes [f.f] is reflexive, i.e. [f.f k v v = true] to skip calls to equal subtrees.
-      Calls [f.f] in ascending order of [Key.to_int].
+      Calls [f.f] in ascending {{!unsigned_lt}unsigned order} of [Key.to_int].
       Exits early if the domains mismatch. *)
 
   type ('map1, 'map2, 'map3) polyunion = {
@@ -334,7 +383,7 @@ module type BASE_MAP = sig
       union of the keys of [map1] and [map2]. [f.f] is used to combine
       the values of keys mapped in both maps.
       @assumes [f.f] idempotent (i.e. [f key value value == value])
-      [f.f] is called in the order given by [Key.to_int].
+      [f.f] is called in the {{!unsigned_lt}unsigned order} of [Key.to_int].
       [f.f] is never called on physically equal values.
       Preserves physical equality as much as possible.
       Complexity is O(log(n)*Delta) where Delta is the number of
@@ -348,7 +397,7 @@ module type BASE_MAP = sig
       intersection of the keys of [map1] and [map2]. [f.f] is used to combine
       the values a key is mapped in both maps.
       @assumes [f.f] idempotent (i.e. [f key value value == value])
-      [f.f] is called in the order given by [Key.to_int].
+      [f.f] is called in the {{!unsigned_lt}unsigned order} of [Key.to_int].
       [f.f] is never called on physically equal values.
       Preserves physical equality as much as possible.
       Complexity is O(log(n)*Delta) where Delta is the number of
@@ -358,7 +407,7 @@ module type BASE_MAP = sig
   (** [nonidempotent_inter_no_share f map1 map2] is the same as {!idempotent_inter}
       but doesn't preverse physical equality, doesn't assume [f.f] is idempotent,
       and can change the type of values. [f.f] is called on every shared binding.
-      [f.f] is called in increasing order of keys.
+      [f.f] is called in increasing {{!unsigned_lt}unsigned order} of keys.
       O(n) complexity *)
 
 
@@ -370,7 +419,7 @@ module type BASE_MAP = sig
   type ('map1, 'map2, 'map3) polymerge = {
     f : 'a. 'a key -> ('a, 'map1) value option -> ('a, 'map2) value option -> ('a, 'map3) value  option; } [@@unboxed]
   val slow_merge : ('map1, 'map2, 'map3) polymerge -> 'map1 t -> 'map2 t -> 'map3 t
-  (** This is the same as {!Stdlib.Map.S.merge} *)
+  (** This is the same as {{: https://ocaml.org/manual/5.1/api/Map.S.html#VALmerge}Stdlib.Map.S.merge} *)
 
   val disjoint : 'a t -> 'a t -> bool
   (** [disjoint m1 m2] is [true] iff [m1] and [m2] have disjoint domains *)
@@ -378,10 +427,10 @@ module type BASE_MAP = sig
   (** {3 Conversion functions} *)
 
   val to_seq : 'a t -> 'a key_value_pair Seq.t
-  (** [to_seq m] iterates the whole map, in increasing order of [Key.to_int] *)
+  (** [to_seq m] iterates the whole map, in increasing {{!unsigned_lt}unsigned order} of [Key.to_int] *)
 
   val to_rev_seq : 'a t -> 'a key_value_pair Seq.t
-  (** [to_rev_seq m] iterates the whole map, in decreasing order of [Key.to_int] *)
+  (** [to_rev_seq m] iterates the whole map, in decreasing {{!unsigned_lt}unsigned order} of [Key.to_int] *)
 
   val add_seq : 'a key_value_pair Seq.t -> 'a t -> 'a t
   (** [add_seq s m] adds all bindings of the sequence [s] to [m] in order. *)
@@ -395,7 +444,7 @@ module type BASE_MAP = sig
       If a key is bound multiple times in [l], the latest binding is kept *)
 
   val to_list : 'a t -> 'a key_value_pair list
-  (** [to_list m] returns the bindings of [m] as a list, in increasing order of [Key.to_int] *)
+  (** [to_list m] returns the bindings of [m] as a list, in increasing {{!unsigned_lt}unsigned order} of [Key.to_int] *)
 end
 
 (** {2 Heterogeneous maps and sets} *)
@@ -418,7 +467,8 @@ module type HETEROGENEOUS_MAP = sig
 
   include BASE_MAP
 
-  (** Operation with maps/set of different types *)
+  (** Operation with maps/set of different types.
+      [Map2] must use the same [Key.to_int] function. *)
   module WithForeign(Map2:BASE_MAP with type 'a key = 'a key):sig
     type ('map1,'map2) polyinter_foreign = { f: 'a. 'a key -> ('a,'map1) value -> ('a,'map2) Map2.value -> ('a,'map1) value } [@@unboxed]
 
@@ -439,7 +489,7 @@ module type HETEROGENEOUS_MAP = sig
         i.e. [update_multiple_from_foreign m_from f m_to] calls [f.f] on every
         key of [m_from], says if the corresponding value also exists in [m_to],
         and adds or remove the element in [m_to] depending on the value of [f.f].
-        [f.f] is called in the order of [Key.to_int].
+        [f.f] is called in the {{!unsigned_lt}unsigned order} of [Key.to_int].
         O(size(m_from) + size(m_to)) complexity. *)
 
     type ('map1,'map2) polyupdate_multiple_inter = { f: 'a. 'a key -> ('a,'map1) value -> ('a,'map2) Map2.value -> ('a,'map1) value option } [@@unboxed]
@@ -509,21 +559,25 @@ module type HETEROGENEOUS_SET = sig
   (** [remove elt set] returns a set containing all elements of [set] except [elt].
       Returns a value physically equal to [set] if [elt] is not present. *)
 
-  val min_elt: t -> any_elt
-  (** The minimal element if non empty.
+  val unsigned_min_elt: t -> any_elt
+  (** The minimal element if non empty, according to the
+      {{!unsigned_lt}unsigned order} on elements.
       @raises Not_found *)
 
-  val max_elt: t -> any_elt
-  (** The maximal element if non empty.
+  val unsigned_max_elt: t -> any_elt
+  (** The maximal element if non empty, according to the
+      {{!unsigned_lt}unsigned order} on elements.
       @raises Not_found *)
 
-  val pop_minimum: t -> (any_elt * t) option
-  (** [pop_minimum s] is [Some (elt, s')] where [elt = min_elt s] and [s' = remove elt s]
-      if [s] is non empty. *)
+  val pop_unsigned_minimum: t -> (any_elt * t) option
+  (** [pop_unsigned_minimum s] is [Some (elt, s')] where [elt = unsigned_min_elt s] and [s' = remove elt s]
+      if [s] is non empty.
+      Uses the {{!unsigned_lt}unsigned order} on elements. *)
 
-  val pop_maximum: t -> (any_elt * t) option
-  (** [pop_maximum s] is [Some (elt, s')] where [elt = max_elt s] and [s' = remove elt s]
-      if [s] is non empty. *)
+  val pop_unsigned_maximum: t -> (any_elt * t) option
+  (** [pop_unsigned_maximum s] is [Some (elt, s')] where [elt = unsigned_max_elt s] and [s' = remove elt s]
+      if [s] is non empty.
+      Uses the {{!unsigned_lt}unsigned order} on elements. *)
 
   (** {3 Functions on pairs of sets} *)
 
@@ -547,27 +601,28 @@ module type HETEROGENEOUS_SET = sig
   val split: 'a elt -> t -> t * bool * t
   (** [split elt set] returns [s_lt, present, s_gt] where
       [s_lt] contains all elements of [set] smaller than [elt], [s_gt]
-      all those greater than [elt], and [present] is [true] if [elt] is in [set]. *)
+      all those greater than [elt], and [present] is [true] if [elt] is in [set].
+      Uses the {{!unsigned_lt}unsigned order} on elements. *)
 
   (** {3 Iterators} *)
 
   type polyiter = { f: 'a. 'a elt -> unit; } [@@unboxed]
   val iter: polyiter -> t -> unit
-  (** [iter f set] calls [f.f] on all elements of [set], in order of [Key.to_int]. *)
+  (** [iter f set] calls [f.f] on all elements of [set], in the {{!unsigned_lt}unsigned order} of [Key.to_int]. *)
 
   type polypredicate = { f: 'a. 'a elt -> bool; } [@@unboxed]
   val filter: polypredicate -> t -> t
   (** [filter f set] is the subset of [set] that only contains the elements that
-      satisfy [f.f]. [f.f] is called in order of [Key.to_int]. *)
+      satisfy [f.f]. [f.f] is called in the {{!unsigned_lt}unsigned order} of [Key.to_int]. *)
 
   val for_all: polypredicate -> t -> bool
   (** [for_all f set] is [true] if [f.f] is [true] on all elements of [set].
-      Short-circuits on first [false]. [f.f] is called in order of [Key.to_int]. *)
+      Short-circuits on first [false]. [f.f] is called in the {{!unsigned_lt}unsigned order} of [Key.to_int]. *)
 
   type 'acc polyfold = { f: 'a. 'a elt -> 'acc -> 'acc } [@@unboxed]
   val fold: 'acc polyfold -> t -> 'acc -> 'acc
   (** [fold f set acc] returns [f.f elt_n (... (f.f elt_1 acc) ...)], where
-      [elt_1, ..., elt_n] are the elements of [set], in increasing order of
+      [elt_1, ..., elt_n] are the elements of [set], in increasing {{!unsigned_lt}unsigned order} of
       [Key.to_int] *)
 
   type polypretty = { f: 'a. Format.formatter -> 'a elt -> unit; } [@@unboxed]
@@ -579,10 +634,10 @@ module type HETEROGENEOUS_SET = sig
   (** {3 Conversion functions} *)
 
   val to_seq : t -> any_elt Seq.t
-  (** [to_seq st] iterates the whole set, in increasing order of [Key.to_int] *)
+  (** [to_seq st] iterates the whole set, in increasing {{!unsigned_lt}unsigned order} of [Key.to_int] *)
 
   val to_rev_seq : t -> any_elt Seq.t
-  (** [to_rev_seq st] iterates the whole set, in decreasing order of [Key.to_int] *)
+  (** [to_rev_seq st] iterates the whole set, in decreasing {{!unsigned_lt}unsigned order} of [Key.to_int] *)
 
   val add_seq : any_elt Seq.t -> t -> t
   (** [add_seq s st] adds all elements of the sequence [s] to [st] in order. *)
@@ -594,7 +649,7 @@ module type HETEROGENEOUS_SET = sig
   (** [of_list l] creates a new set from the elements of [l]. *)
 
   val to_list : t -> any_elt list
-  (** [to_list s] returns the elements of [s] as a list, in increasing order of [Key.to_int] *)
+  (** [to_list s] returns the elements of [s] as a list, in increasing {{!unsigned_lt}unsigned order} of [Key.to_int] *)
 end
 
 
@@ -647,44 +702,47 @@ module type SET = sig
   (** [remove elt set] returns a set containing all elements of [set] except [elt].
       Returns a value physically equal to [set] if [elt] is not present. *)
 
-  val min_elt: t -> elt
-  (** The minimal element if non empty.
+  val unsigned_min_elt: t -> elt
+  (** The minimal element (according to the {{!unsigned_lt}unsigned order} on [Key.to_int]) if non empty.
       @raises Not_found *)
 
-  val max_elt: t -> elt
-  (** The maximal element if non empty.
+  val unsigned_max_elt: t -> elt
+  (** The maximal element (according to the {{!unsigned_lt}unsigned order} on [Key.to_int]) if non empty.
       @raises Not_found *)
 
-  val pop_minimum: t -> (elt * t) option
-  (** [pop_minimum s] is [Some (elt, s')] where [elt = min_elt s] and [s' = remove elt s]
-      if [s] is non empty. *)
+  val pop_unsigned_minimum: t -> (elt * t) option
+  (** [pop_unsigned_minimum s] is [Some (elt, s')] where [elt = unsigned_min_elt s] and [s' = remove elt s]
+      if [s] is non empty.
+      Uses the {{!unsigned_lt}unsigned order} on [Key.to_int]. *)
 
-  val pop_maximum: t -> (elt * t) option
-  (** [pop_maximum s] is [Some (elt, s')] where [elt = max_elt s] and [s' = remove elt s]
-      if [s] is non empty. *)
+  val pop_unsigned_maximum: t -> (elt * t) option
+  (** [pop_unsigned_maximum s] is [Some (elt, s')] where [elt = unsigned_max_elt s] and [s' = remove elt s]
+      if [s] is non empty.
+      Uses the {{!unsigned_lt}unsigned order} on [Key.to_int]. *)
 
   (** {3 Iterators} *)
 
   val iter: (elt -> unit) -> t -> unit
-  (** [iter f set] calls [f] on all elements of [set], in order of [Key.to_int]. *)
+  (** [iter f set] calls [f] on all elements of [set], in the {{!unsigned_lt}unsigned order} of [Key.to_int]. *)
 
   val filter: (elt -> bool) -> t -> t
   (** [filter f set] is the subset of [set] that only contains the elements that
-      satisfy [f]. [f] is called in order of [Key.to_int]. *)
+      satisfy [f]. [f] is called in the {{!unsigned_lt}unsigned order} of [Key.to_int]. *)
 
   val for_all: (elt -> bool) -> t -> bool
   (** [for_all f set] is [true] if [f] is [true] on all elements of [set].
-      Short-circuits on first [false]. [f] is called in order of [Key.to_int]. *)
+      Short-circuits on first [false]. [f] is called in the {{!unsigned_lt}unsigned order} of [Key.to_int]. *)
 
   val fold: (elt -> 'acc -> 'acc) -> t -> 'acc -> 'acc
   (** [fold f set acc] returns [f elt_n (... (f elt_1 acc) ...)], where
-      [elt_1, ..., elt_n] are the elements of [set], in increasing order of
+      [elt_1, ..., elt_n] are the elements of [set], in increasing {{!unsigned_lt}unsigned order} of
       [Key.to_int] *)
 
   val split: elt -> t -> t * bool * t
   (** [split elt set] returns [s_lt, present, s_gt] where
       [s_lt] contains all elements of [set] smaller than [elt], [s_gt]
-      all those greater than [elt], and [present] is [true] if [elt] is in [set]. *)
+      all those greater than [elt], and [present] is [true] if [elt] is in [set].
+      Uses the {{!unsigned_lt}unsigned order} on [Key.to_int].*)
 
   val pretty :
     ?pp_sep:(Format.formatter -> unit -> unit) ->
@@ -714,10 +772,10 @@ module type SET = sig
   (** {3 Conversion functions} *)
 
   val to_seq : t -> elt Seq.t
-  (** [to_seq st] iterates the whole set, in increasing order of [Key.to_int] *)
+  (** [to_seq st] iterates the whole set, in increasing {{!unsigned_lt}unsigned order} of [Key.to_int] *)
 
   val to_rev_seq : t -> elt Seq.t
-  (** [to_rev_seq st] iterates the whole set, in decreasing order of [Key.to_int] *)
+  (** [to_rev_seq st] iterates the whole set, in decreasing {{!unsigned_lt}unsigned order} of [Key.to_int] *)
 
   val add_seq : elt Seq.t -> t -> t
   (** [add_seq s st] adds all elements of the sequence [s] to [st] in order. *)
@@ -729,7 +787,7 @@ module type SET = sig
   (** [of_list l] creates a new set from the elements of [l]. *)
 
   val to_list : t -> elt list
-  (** [to_list s] returns the elements of [s] as a list, in increasing order of [Key.to_int] *)
+  (** [to_list s] returns the elements of [s] as a list, in increasing {{!unsigned_lt}unsigned order} of [Key.to_int] *)
 end
 
 (** The typechecker struggles with forall quantification on values if they
@@ -763,13 +821,14 @@ module type MAP = sig
   val is_empty : 'a t -> bool
   (** Test if a map is empty; O(1) complexity. *)
 
-  val min_binding : 'a t -> (key * 'a)
-  (** Returns the (key,value) where [Key.to_int key] is minimal (in
-      unsigned representation of integers); O(log n) complexity.
+  val unsigned_min_binding : 'a t -> (key * 'a)
+  (** Returns the (key,value) where [Key.to_int key] is minimal (in the
+      {{!unsigned_lt}unsigned representation} of integers); O(log n) complexity.
       @raises Not_found if the map is empty *)
 
-  val max_binding : 'a t -> (key * 'a)
-  (** Returns the (key,value) where [Key.to_int key] is maximal; O(log n) complexity.
+  val unsigned_max_binding : 'a t -> (key * 'a)
+  (** Returns the (key,value) where [Key.to_int key] is maximal (in the
+      {{!unsigned_lt}unsigned representation} of integers); O(log n) complexity.
       @raises Not_found if the map is empty *)
 
   val singleton : key -> 'a -> 'a t
@@ -794,13 +853,15 @@ module type MAP = sig
   (** Returns a map with the element removed, O(log(n)) complexity.
       Returns a physically equal map if the element is absent. *)
 
-  val pop_minimum : 'a t -> (key * 'a * 'a t) option
-  (** [pop_minimum m] returns [None] if [is_empty m], or [Some(key,value,m')] where
-      [(key,value) = min_binding m] and [m' = remove m key]. O(log(n)) complexity. *)
+  val pop_unsigned_minimum : 'a t -> (key * 'a * 'a t) option
+  (** [pop_unsigned_minimum m] returns [None] if [is_empty m], or [Some(key,value,m')] where
+      [(key,value) = unsigned_min_binding m] and [m' = remove m key]. O(log(n)) complexity.
+      Uses the {{!unsigned_lt}unsigned order} on [Key.to_int]. *)
 
-  val pop_maximum : 'a t -> (key * 'a * 'a t) option
-  (** [pop_maximum m] returns [None] if [is_empty m], or [Some(key,value,m')] where
-      [(key,value) = max_binding m] and [m' = remove m key]. O(log(n)) complexity. *)
+  val pop_unsigned_maximum : 'a t -> (key * 'a * 'a t) option
+  (** [pop_unsigned_maximum m] returns [None] if [is_empty m], or [Some(key,value,m')] where
+      [(key,value) = unsigned_max_binding m] and [m' = remove m key]. O(log(n)) complexity.
+      Uses the {{!unsigned_lt}unsigned order} on [Key.to_int]. *)
 
   val insert : key -> ('a option -> 'a) -> 'a t -> 'a t
   (** [insert key f map] modifies or insert an element of the map; [f]
@@ -830,20 +891,21 @@ module type MAP = sig
       - submap of [map] whose keys are smaller than [key]
       - value associated to [key] (if present)
       - submap of [map] whose keys are bigger than [key]
-      Where the order is given by [Key.to_int]. *)
+      Using the {{!unsigned_lt}unsigned order} is given by [Key.to_int]. *)
 
   val iter : (key -> 'a -> unit) -> 'a t -> unit
-  (** Iterate on each (key,value) pair of the map, in increasing order of keys. *)
+  (** Iterate on each (key,value) pair of the map, in increasing {{!unsigned_lt}unsigned order} of keys. *)
 
   val fold : (key -> 'a -> 'acc -> 'acc) ->  'a t -> 'acc -> 'acc
-  (** Fold on each (key,value) pair of the map, in increasing order of keys. *)
+  (** Fold on each (key,value) pair of the map, in increasing {{!unsigned_lt}unsigned order} of keys. *)
 
   val filter : (key -> 'a -> bool) -> 'a t -> 'a t
   (** Returns the submap containing only the key->value pairs satisfying the
-      given predicate. [f] is called in increasing number of keys *)
+      given predicate. [f] is called in increasing {{!unsigned_lt}unsigned order} of keys. *)
 
   val for_all : (key -> 'a -> bool) -> 'a t -> bool
-  (** Returns true if the predicate holds on all map bindings. Short-circuiting *)
+  (** Returns true if the predicate holds on all map bindings. Short-circuiting.
+      [f] is called in increasing {{!unsigned_lt}unsigned order} of keys. *)
 
   (** In the following, the *no_share function allows taking arguments
       of different types (but cannot share subtrees of the map), while
@@ -857,12 +919,12 @@ module type MAP = sig
       value is physically the same (i.e. [f key value == value] for
       all the keys in the subtree) are guaranteed to be physically
       equal to the original subtree. O(n) complexity.
-      [f] is called in increasing order of keys. *)
+      [f] is called in increasing {{!unsigned_lt}unsigned order} of keys. *)
 
   val map_no_share : ('a -> 'b) -> 'a t -> 'b t
   (** [map_no_share f m] returns a map where the [value] bound to each
       [key] is replaced by [f value]. O(n) complexity.
-      [f] is called in increasing order of keys. *)
+      [f] is called in increasing {{!unsigned_lt}unsigned order} of keys. *)
 
   val mapi : (key -> 'a -> 'a) -> 'a t -> 'a t
   (** [mapi f m] returns a map where the [value] bound to each [key] is
@@ -870,12 +932,12 @@ module type MAP = sig
       value is physically the same (i.e. [f key value == value] for
       all the keys in the subtree) are guaranteed to be physically
       equal to the original subtree. O(n) complexity.
-      [f] is called in increasing order of keys. *)
+      [f] is called in increasing {{!unsigned_lt}unsigned order} of keys. *)
 
   val mapi_no_share : (key -> 'a -> 'b) -> 'a t -> 'b t
   (** [mapi_no_share f m] returns a map where the [value] bound to each
       [key] is replaced by [f key value]. O(n) complexity.
-      [f] is called in increasing order of keys. *)
+      [f] is called in increasing {{!unsigned_lt}unsigned order} of keys. *)
 
   val filter_map : (key -> 'a -> 'a option) -> 'a t -> 'a t
   (** [filter_map m f] returns a map where the [value] bound to each
@@ -885,14 +947,14 @@ module type MAP = sig
       (i.e. [f key value = Some v] with [value == v] for all the keys
       in the subtree) are guaranteed to be physically equal to the
       original subtree. O(n) complexity.
-      [f] is called in increasing order of keys. *)
+      [f] is called in increasing {{!unsigned_lt}unsigned order} of keys. *)
 
   val filter_map_no_share : (key -> 'a -> 'b option) -> 'a t -> 'b t
   (** [filter_map m f] returns a map where the [value] bound to each
       [key] is removed (if [f key value] returns [None]), or is
       replaced by [v] ((if [f key value] returns [Some v]). O(n)
       complexity.
-      [f] is called in increasing order of keys. *)
+      [f] is called in increasing {{!unsigned_lt}unsigned order} of keys. *)
 
 
   (** {3 Operations on pairs of maps} *)
@@ -947,7 +1009,7 @@ module type MAP = sig
       preserve physical equality of the subtreess in that case.  The
       complexity is O(log(n)*Delta) where Delta is the number of
       different keys between [map1] and [map2].
-      [f] is called in increasing order of keys.
+      [f] is called in increasing {{!unsigned_lt}unsigned order} of keys.
       [f] is never called on physically equal values. *)
 
   val idempotent_inter : (key -> 'a -> 'a -> 'a) -> 'a t -> 'a t -> 'a t
@@ -959,7 +1021,7 @@ module type MAP = sig
       preserve physical equality of the subtrees in that case.  The
       complexity is O(log(n)*Delta) where Delta is the number of
       different keys between [map1] and [map2].
-      [f] is called in increasing order of keys.
+      [f] is called in increasing {{!unsigned_lt}unsigned order} of keys.
       [f] is never called on physically equal values. *)
 
   val nonidempotent_inter_no_share : (key -> 'a -> 'b -> 'c) -> 'a t -> 'b t -> 'c t
@@ -969,12 +1031,12 @@ module type MAP = sig
       need to be idempotent, which imply that we have to visit
       physically equal subtrees of [map1] and [map2].  The complexity
       is O(log(n)*min(|map1|,|map2|)).
-      [f] is called in increasing order of keys.
+      [f] is called in increasing {{!unsigned_lt}unsigned order} of keys.
       [f] is called on every shared binding. *)
 
   val idempotent_inter_filter : (key -> 'a -> 'a -> 'a option) -> 'a t -> 'a t -> 'a t
-  (** [idempotent_inter_filter f m1 m2] is like [idempotent_inter f m1
-      m2] (assuming idempotence, using and preserving physically
+  (** [idempotent_inter_filter f m1 m2] is like {!idempotent_inter}
+      (assuming idempotence, using and preserving physically
       equal subtrees), but it also removes the key->value bindings for
       which [f] returns [None]. *)
 
@@ -987,9 +1049,8 @@ module type MAP = sig
 
   val disjoint : 'a t -> 'a t -> bool
 
-  (* Maybe: WithForeign and WithForeignHeterogeneous.  *)
-
-  (** Combination with other kinds of maps. *)
+  (** Combination with other kinds of maps.
+      [Map2] must use the same [Key.to_int] function. *)
   module WithForeign(Map2 : BASE_MAP with type _ key = key):sig
 
     type ('b,'c) polyfilter_map_foreign = { f: 'a. key -> ('a,'b) Map2.value -> 'c option } [@@unboxed]
@@ -1011,7 +1072,7 @@ module type MAP = sig
         i.e. [update_multiple_from_foreign m_from f m_to] calls [f.f] on every
         key of [m_from], says if the corresponding value also exists in [m_to],
         and adds or remove the element in [m_to] depending on the value of [f.f].
-        [f.f] is called in the order of [Key.to_int].
+        [f.f] is called in the {{!unsigned_lt}unsigned order} of [Key.to_int].
         O(size(m_from) + size(m_to)) complexity. *)
 
 
@@ -1033,10 +1094,10 @@ module type MAP = sig
   (** {3 Conversion functions} *)
 
   val to_seq : 'a t -> (key * 'a) Seq.t
-  (** [to_seq m] iterates the whole map, in increasing order of [Key.to_int] *)
+  (** [to_seq m] iterates the whole map, in increasing {{!unsigned_lt}unsigned order} of [Key.to_int] *)
 
   val to_rev_seq : 'a t -> (key * 'a) Seq.t
-  (** [to_rev_seq m] iterates the whole map, in decreasing order of [Key.to_int] *)
+  (** [to_rev_seq m] iterates the whole map, in decreasing {{!unsigned_lt}unsigned order} of [Key.to_int] *)
 
   val add_seq : (key * 'a) Seq.t -> 'a t -> 'a t
   (** [add_seq s m] adds all bindings of the sequence [s] to [m] in order. *)
@@ -1050,7 +1111,8 @@ module type MAP = sig
       If a key is bound multiple times in [l], the latest binding is kept *)
 
   val to_list : 'a t -> (key * 'a) list
-  (** [to_list m] returns the bindings of [m] as a list, in increasing order of [Key.to_int] *)
+  (** [to_list m] returns the bindings of [m] as a list,
+      in increasing {{!unsigned_lt}unsigned order} of [Key.to_int] *)
 end
 
 
@@ -1067,7 +1129,12 @@ module type KEY = sig
       object. Correctness of the operations requires that different
       values in a tree correspond to different integers.
 
-      Must be injective, return only positive values, and ideally fast *)
+      Must be injective, and ideally fast.
+
+      Note that since Patricia Trees use {{!unsigned_lt}unsigned order}, negative
+      keys are seen as bigger than positive keys.
+      Be wary of this when using negative keys combined with functions like
+      {{!BASE_MAP.unsigned_max_binding}[unsigned_max_binding]} and {{!BASE_MAP.pop_unsigned_maximum}[pop_unsigned_maximum]}. *)
   val to_int: t -> int
 end
 
@@ -1088,7 +1155,12 @@ module type HETEROGENEOUS_KEY = sig
       object. Correctness of the operations requires that different
       values in a tree correspond to different integers.
 
-      Must be injective, return only positive values, and ideally fast *)
+      Must be injective, and ideally fast.
+
+      Note that since Patricia Trees use {{!unsigned_lt}unsigned order}, negative
+      keys are seen as bigger than positive keys.
+      Be wary of this when using negative keys combined with functions like
+      {{!BASE_MAP.unsigned_max_binding}[unsigned_max_binding]} and {{!BASE_MAP.pop_unsigned_maximum}[pop_unsigned_maximum]}. *)
 
   val polyeq : 'a t -> 'b t -> ('a, 'b) cmp
   (** Polymorphic equality function used to compare our keys.
