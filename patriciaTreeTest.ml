@@ -272,6 +272,7 @@ module TestImpl(MyMap : MAP_WITH_VALUE with type key = int)(Conv : sig
   val to_int : int MyMap.value -> int
   val of_int : int -> int MyMap.value
   val test_id : bool
+  val number_gen : int QCheck.arbitrary
   (* val get_id : 'a MyMap.t -> int option *)
 end) = struct
 
@@ -297,7 +298,7 @@ end) = struct
     let third = extend_map first alist3 in
     (second,third)
 
-  let number_gen = QCheck.int
+  let number_gen = Conv.number_gen
 
   let gen = QCheck.(triple
                       (small_list (pair number_gen number_gen))
@@ -593,16 +594,32 @@ end
 module MyMap = MakeMap(HIntKey)
 module MyHashedMap = MakeHashconsedMap(HIntKey)(Int)
 
-let%test_module "TestMap" = (module TestImpl(MyMap)(struct
+let%test_module "TestMap_SmallNat" = (module TestImpl(MyMap)(struct
   let to_int x = x
   let of_int x = x
   let test_id = false
+  let number_gen = QCheck.small_nat
 end))
 
-let%test_module "TestHashconsedMap" = (module TestImpl(MyHashedMap)(struct
+let%test_module "TestMap_Int" = (module TestImpl(MyMap)(struct
+  let to_int x = x
+  let of_int x = x
+  let test_id = false
+  let number_gen = QCheck.int
+end))
+
+let%test_module "TestHashconsedMap_SmallNat" = (module TestImpl(MyHashedMap)(struct
   let to_int x = x
   let of_int x = x
   let test_id = true
+  let number_gen = QCheck.small_nat
+end))
+
+let%test_module "TestHashconsedMap_Int" = (module TestImpl(MyHashedMap)(struct
+  let to_int x = x
+  let of_int x = x
+  let test_id = true
+  let number_gen = QCheck.int
 end))
 
 let%test_module "TestWeak" = (module struct
