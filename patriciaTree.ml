@@ -754,41 +754,29 @@ module MakeCustomHeterogeneous
 
   let remove to_remove m = removeint (Key.to_int to_remove) m
 
-  (* This exception is triggered if an operation cannot be completed
-     because a weak key disappeared. Probably the simplest way to deal
-     with this operation is to "compact" (remove the dead keys) and
-     retry. *)
-  exception Disappeared
-
-  let rec pop_min_nonempty m = match NODE.view m with
-    | Leaf{key;value} -> KeyValue(key,value),empty
-    | Branch{prefix;branching_bit;tree0;tree1} ->
-      let res,tree0' = pop_min_nonempty tree0 in
-      let restree =
-        if tree0' == empty then tree1
-        else branch ~prefix ~branching_bit ~tree0:tree0' ~tree1
-      in (res,restree)
-    | Empty ->
-      (* Can only happen in weak sets and maps. *)
-      raise Disappeared
-  let pop_unsigned_minimum m = match NODE.view m with
+  let rec pop_unsigned_minimum m = match NODE.view m with
     | Empty -> None
-    | _ -> Some(pop_min_nonempty m)
-
-  let rec pop_max_nonempty m = match NODE.view m with
-    | Leaf{key;value} -> KeyValue(key,value),empty
+    | Leaf{key;value} -> Some (KeyValue(key,value),empty)
     | Branch{prefix;branching_bit;tree0;tree1} ->
-      let res,tree1' = pop_max_nonempty tree1 in
-      let restree =
-        if tree1' == empty then tree0
-        else branch ~prefix ~branching_bit ~tree0 ~tree1:tree1'
-      in (res,restree)
-      (* Can only happen in weak sets and maps. *)
-    | Empty -> raise Disappeared
+      match pop_unsigned_minimum tree0 with
+      | None -> pop_unsigned_minimum tree1
+      | Some(res,tree0') ->
+          let restree =
+            if is_empty tree0' then tree1
+            else branch ~prefix ~branching_bit ~tree0:tree0' ~tree1
+          in Some(res,restree)
 
-  let pop_unsigned_maximum m = match NODE.view m with
+  let rec pop_unsigned_maximum m = match NODE.view m with
     | Empty -> None
-    | _ -> Some(pop_max_nonempty m)
+    | Leaf{key;value} -> Some (KeyValue(key,value),empty)
+    | Branch{prefix;branching_bit;tree0;tree1} ->
+      match pop_unsigned_maximum tree1 with
+      | None -> pop_unsigned_maximum tree0
+      | Some(res,tree1') ->
+          let restree =
+            if is_empty tree1' then tree0
+            else branch ~prefix ~branching_bit ~tree0 ~tree1:tree1'
+          in Some(res,restree)
 
   let insert: type a map. a Key.t -> ((a,map) Value.t option -> (a,map) Value.t) -> map t -> map t =
     fun thekey f t ->
