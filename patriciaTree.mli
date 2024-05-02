@@ -196,14 +196,6 @@ module type HASH_CONSED_NODE = sig
 
   val fast_compare : 'a t -> 'a t -> int
   (** Constant time comparison using the node ids. *)
-
-  val cast : 'a t -> 'b t
-  (** This is a no-op, since hash-consed maps have a single imposed value type,
-      (the type [('key, 'map) value] doesn't depend on ['map]).
-      This means the ['map] parameter in ['map t] is phantom and unused. However,
-      since the type is opaque, this might not always be obvious to the typechecker
-
-      This cast is provided to solve any issues that might crop up with it. *)
 end
 
 (** {1 Map signatures} *)
@@ -825,29 +817,21 @@ end
 type (_, 'b) snd = Snd of 'b [@@unboxed]
 
 (** The signature for maps with a single type for keys and values,
-    a ['a map] binds [key] to ['a value].
-    This is slightly more generic than {!MAP}, which just binds to ['a].
-    It is used for maps that need to restrict their value type, namely hash-consed maps. *)
-module type MAP_WITH_VALUE = sig
+    a ['a map] binds [key] to ['a].
+
+    Most of this interface should be shared with {{: https://ocaml.org/api/Map.S.html}[Stdlib.Map.S]}. *)
+module type MAP = sig
   type key
   (** The type of keys. *)
 
   type 'a t
   (** A map from keys to values of type 'a.  *)
 
-  type 'a value
-  (** Type for values, this is a divergence from Stdlib's [Map],
-      but resolve itself when using annotation [MAP with type 'a value = 'a].
-      On the other hand, it allows defining maps with fixed values, which is useful
-      for hash-consing.
-
-      @since v0.10.0 *)
-
   (** Underlying basemap, for cross map/set operations *)
   module BaseMap : HETEROGENEOUS_MAP
    with type 'a t = 'a t
     and type _ key = key
-    and type ('a,'b) value = ('a,'b value) snd
+    and type ('a,'b) value = ('a,'b) snd
 
   (** {3 Basice functions} *)
 
@@ -857,29 +841,29 @@ module type MAP_WITH_VALUE = sig
   val is_empty : 'a t -> bool
   (** Test if a map is empty; O(1) complexity. *)
 
-  val unsigned_min_binding : 'a t -> (key * 'a value)
+  val unsigned_min_binding : 'a t -> (key * 'a)
   (** Returns the (key,value) where [Key.to_int key] is minimal (in the
       {{!unsigned_lt}unsigned representation} of integers); O(log n) complexity.
       @raises Not_found if the map is empty *)
 
-  val unsigned_max_binding : 'a t -> (key * 'a value)
+  val unsigned_max_binding : 'a t -> (key * 'a)
   (** Returns the (key,value) where [Key.to_int key] is maximal (in the
       {{!unsigned_lt}unsigned representation} of integers); O(log n) complexity.
       @raises Not_found if the map is empty *)
 
-  val singleton : key -> 'a value -> 'a t
+  val singleton : key -> 'a -> 'a t
   (** [singleton key value] creates a map with a single binding, O(1) complexity.  *)
 
   val cardinal : 'a t -> int
   (** The size of the map *)
 
-  val is_singleton : 'a t -> (key * 'a value) option
+  val is_singleton : 'a t -> (key * 'a) option
   (** [is_singleton m] is [Some (k,v)] iff [m] is [singleton k v] *)
 
-  val find : key -> 'a t -> 'a value
+  val find : key -> 'a t -> 'a
   (** Return an element in the map, or raise [Not_found], O(log(n)) complexity. *)
 
-  val find_opt : key -> 'a t -> 'a value option
+  val find_opt : key -> 'a t -> 'a option
   (** Return an element in the map, or [None], O(log(n)) complexity. *)
 
   val mem : key -> 'a t -> bool
@@ -889,17 +873,17 @@ module type MAP_WITH_VALUE = sig
   (** Returns a map with the element removed, O(log(n)) complexity.
       Returns a physically equal map if the element is absent. *)
 
-  val pop_unsigned_minimum : 'a t -> (key * 'a value * 'a t) option
+  val pop_unsigned_minimum : 'a t -> (key * 'a * 'a t) option
   (** [pop_unsigned_minimum m] returns [None] if [is_empty m], or [Some(key,value,m')] where
       [(key,value) = unsigned_min_binding m] and [m' = remove m key]. O(log(n)) complexity.
       Uses the {{!unsigned_lt}unsigned order} on [Key.to_int]. *)
 
-  val pop_unsigned_maximum : 'a t -> (key * 'a value * 'a t) option
+  val pop_unsigned_maximum : 'a t -> (key * 'a * 'a t) option
   (** [pop_unsigned_maximum m] returns [None] if [is_empty m], or [Some(key,value,m')] where
       [(key,value) = unsigned_max_binding m] and [m' = remove m key]. O(log(n)) complexity.
       Uses the {{!unsigned_lt}unsigned order} on [Key.to_int]. *)
 
-  val insert : key -> ('a value option -> 'a value) -> 'a t -> 'a t
+  val insert : key -> ('a option -> 'a) -> 'a t -> 'a t
   (** [insert key f map] modifies or insert an element of the map; [f]
       takes [None] if the value was not previously bound, and [Some old]
       where [old] is the previously bound value otherwise. The function
@@ -907,7 +891,7 @@ module type MAP_WITH_VALUE = sig
       complexity.
       Preserves physical equality if the new value is physically equal to the old. *)
 
-  val update : key -> ('a value option -> 'a value option) -> 'a t -> 'a t
+  val update : key -> ('a option -> 'a option) -> 'a t -> 'a t
   (** [update key f map] modifies, insert, or remove an element from
       the map; [f] takes [None] if the value was not previously bound, and
       [Some old] where [old] is the previously bound value otherwise. The
@@ -915,31 +899,31 @@ module type MAP_WITH_VALUE = sig
       None if the element should be removed O(log(n)) complexity.
       Preserves physical equality if the new value is physically equal to the old. *)
 
-  val add : key -> 'a value -> 'a t -> 'a t
+  val add : key -> 'a -> 'a t -> 'a t
   (** Unconditionally adds a value in the map (independently from
       whether the old value existed). O(log(n)) complexity.
       Preserves physical equality if the new value is physically equal to the old. *)
 
   (** {3 Iterators} *)
 
-  val split : key -> 'a t -> 'a t * 'a value option * 'a t
+  val split : key -> 'a t -> 'a t * 'a option * 'a t
   (** [split key map] splits the map into:
       - submap of [map] whose keys are smaller than [key]
       - value associated to [key] (if present)
       - submap of [map] whose keys are bigger than [key]
       Using the {{!unsigned_lt}unsigned order} is given by [Key.to_int]. *)
 
-  val iter : (key -> 'a value -> unit) -> 'a t -> unit
+  val iter : (key -> 'a -> unit) -> 'a t -> unit
   (** Iterate on each (key,value) pair of the map, in increasing {{!unsigned_lt}unsigned order} of keys. *)
 
-  val fold : (key -> 'a value -> 'acc -> 'acc) ->  'a t -> 'acc -> 'acc
+  val fold : (key -> 'a -> 'acc -> 'acc) ->  'a t -> 'acc -> 'acc
   (** Fold on each (key,value) pair of the map, in increasing {{!unsigned_lt}unsigned order} of keys. *)
 
-  val filter : (key -> 'a value -> bool) -> 'a t -> 'a t
+  val filter : (key -> 'a -> bool) -> 'a t -> 'a t
   (** Returns the submap containing only the key->value pairs satisfying the
       given predicate. [f] is called in increasing {{!unsigned_lt}unsigned order} of keys. *)
 
-  val for_all : (key -> 'a value -> bool) -> 'a t -> bool
+  val for_all : (key -> 'a -> bool) -> 'a t -> bool
   (** Returns true if the predicate holds on all map bindings. Short-circuiting.
       [f] is called in increasing {{!unsigned_lt}unsigned order} of keys. *)
 
@@ -949,7 +933,7 @@ module type MAP_WITH_VALUE = sig
       sharing the subtrees (using physical equality to detect
       sharing). *)
 
-  val map : ('a value -> 'a value) -> 'a t -> 'a t
+  val map : ('a -> 'a) -> 'a t -> 'a t
   (** [map f m] returns a map where the [value] bound to each [key] is
       replaced by [f value]. The subtrees for which the returned
       value is physically the same (i.e. [f key value == value] for
@@ -957,12 +941,12 @@ module type MAP_WITH_VALUE = sig
       equal to the original subtree. O(n) complexity.
       [f] is called in increasing {{!unsigned_lt}unsigned order} of keys. *)
 
-  val map_no_share : ('a value -> 'b value) -> 'a t -> 'b t
+  val map_no_share : ('a -> 'b) -> 'a t -> 'b t
   (** [map_no_share f m] returns a map where the [value] bound to each
       [key] is replaced by [f value]. O(n) complexity.
       [f] is called in increasing {{!unsigned_lt}unsigned order} of keys. *)
 
-  val mapi : (key -> 'a value -> 'a value) -> 'a t -> 'a t
+  val mapi : (key -> 'a -> 'a) -> 'a t -> 'a t
   (** [mapi f m] returns a map where the [value] bound to each [key] is
       replaced by [f key value]. The subtrees for which the returned
       value is physically the same (i.e. [f key value == value] for
@@ -970,12 +954,12 @@ module type MAP_WITH_VALUE = sig
       equal to the original subtree. O(n) complexity.
       [f] is called in increasing {{!unsigned_lt}unsigned order} of keys. *)
 
-  val mapi_no_share : (key -> 'a value -> 'b value) -> 'a t -> 'b t
+  val mapi_no_share : (key -> 'a -> 'b) -> 'a t -> 'b t
   (** [mapi_no_share f m] returns a map where the [value] bound to each
       [key] is replaced by [f key value]. O(n) complexity.
       [f] is called in increasing {{!unsigned_lt}unsigned order} of keys. *)
 
-  val filter_map : (key -> 'a value -> 'a value option) -> 'a t -> 'a t
+  val filter_map : (key -> 'a -> 'a option) -> 'a t -> 'a t
   (** [filter_map m f] returns a map where the [value] bound to each
       [key] is removed (if [f key value] returns [None]), or is
       replaced by [v] ((if [f key value] returns [Some v]). The
@@ -985,7 +969,7 @@ module type MAP_WITH_VALUE = sig
       original subtree. O(n) complexity.
       [f] is called in increasing {{!unsigned_lt}unsigned order} of keys. *)
 
-  val filter_map_no_share : (key -> 'a value -> 'b value option) -> 'a t -> 'b t
+  val filter_map_no_share : (key -> 'a -> 'b option) -> 'a t -> 'b t
   (** [filter_map m f] returns a map where the [value] bound to each
       [key] is removed (if [f key value] returns [None]), or is
       replaced by [v] ((if [f key value] returns [Some v]). O(n)
@@ -1011,7 +995,7 @@ module type MAP_WITH_VALUE = sig
       this subtree with Empty; hence we provide union and inter
       operations. *)
 
-  val reflexive_same_domain_for_all2 : (key -> 'a value -> 'a value -> bool) -> 'a t -> 'a t ->  bool
+  val reflexive_same_domain_for_all2 : (key -> 'a -> 'a -> bool) -> 'a t -> 'a t ->  bool
   (** [reflexive_same_domain_for_all2 f map1 map2] returns true if
       [map1] and [map2] have the same keys, and [f key value1 value2]
       returns true for each mapping pair of keys. We assume that [f]
@@ -1020,13 +1004,13 @@ module type MAP_WITH_VALUE = sig
       complexity is O(log(n)*Delta) where Delta is the number of
       different keys between [map1] and [map2]. *)
 
-  val nonreflexive_same_domain_for_all2 : (key -> 'a value -> 'b value -> bool) -> 'a t -> 'b t -> bool
+  val nonreflexive_same_domain_for_all2 : (key -> 'a -> 'b -> bool) -> 'a t -> 'b t -> bool
   (** [nonreflexive_same_domain_for_all2 f map1 map2] returns true if
       map1 and map2 have the same keys, and [f key value1 value2]
       returns true for each mapping pair of keys. The complexity is
       O(min(|map1|,|map2|)). *)
 
-  val reflexive_subset_domain_for_all2 : (key -> 'a value -> 'a value -> bool) -> 'a t -> 'a t -> bool
+  val reflexive_subset_domain_for_all2 : (key -> 'a -> 'a -> bool) -> 'a t -> 'a t -> bool
   (** [reflexive_subset_domain_for_all2 f map1 map2] returns true if
       all the keys of [map1] also are in [map2], and [f key (find map1
       key) (find map2 key)] returns [true] when both keys are present
@@ -1036,7 +1020,7 @@ module type MAP_WITH_VALUE = sig
       Delta is the number of different keys between [map1] and
       [map2]. *)
 
-  val idempotent_union : (key -> 'a value -> 'a value -> 'a value) -> 'a t -> 'a t -> 'a t
+  val idempotent_union : (key -> 'a -> 'a -> 'a) -> 'a t -> 'a t -> 'a t
   (** [idempotent_union f map1 map2] returns a map whose keys is the
       union of the keys of [map1] and [map2]. [f] is used to combine
       the values a key is mapped in both maps. We assume that [f] is
@@ -1048,7 +1032,7 @@ module type MAP_WITH_VALUE = sig
       [f] is called in increasing {{!unsigned_lt}unsigned order} of keys.
       [f] is never called on physically equal values. *)
 
-  val idempotent_inter : (key -> 'a value -> 'a value -> 'a value) -> 'a t -> 'a t -> 'a t
+  val idempotent_inter : (key -> 'a -> 'a -> 'a) -> 'a t -> 'a t -> 'a t
   (** [idempotent_inter f map1 map2] returns a map whose keys is the
       intersection of the keys of [map1] and [map2]. [f] is used to combine
       the values a key is mapped in both maps. We assume that [f] is
@@ -1060,7 +1044,7 @@ module type MAP_WITH_VALUE = sig
       [f] is called in increasing {{!unsigned_lt}unsigned order} of keys.
       [f] is never called on physically equal values. *)
 
-  val nonidempotent_inter_no_share : (key -> 'a value -> 'b value -> 'c value) -> 'a t -> 'b t -> 'c t
+  val nonidempotent_inter_no_share : (key -> 'a -> 'b -> 'c) -> 'a t -> 'b t -> 'c t
   (** [nonidempotent_inter_no_share f map1 map2] returns a map whose keys is
       the intersection of the keys of [map1] and [map2]. [f] is used
       to combine the values a key is mapped in both maps. [f] does not
@@ -1070,13 +1054,13 @@ module type MAP_WITH_VALUE = sig
       [f] is called in increasing {{!unsigned_lt}unsigned order} of keys.
       [f] is called on every shared binding. *)
 
-  val idempotent_inter_filter : (key -> 'a value -> 'a value -> 'a value option) -> 'a t -> 'a t -> 'a t
+  val idempotent_inter_filter : (key -> 'a -> 'a -> 'a option) -> 'a t -> 'a t -> 'a t
   (** [idempotent_inter_filter f m1 m2] is like {!idempotent_inter}
       (assuming idempotence, using and preserving physically
       equal subtrees), but it also removes the key->value bindings for
       which [f] returns [None]. *)
 
-  val slow_merge : (key -> 'a value option -> 'b value option -> 'c value option) -> 'a t -> 'b t -> 'c t
+  val slow_merge : (key -> 'a option -> 'b option -> 'c option) -> 'a t -> 'b t -> 'c t
   (** [slow_merge f m1 m2] returns a map whose keys are a subset of the
       keys of [m1] and [m2].  The [f] function is used to combine
       keys, similarly to the [Map.merge] function.  This funcion has
@@ -1089,17 +1073,17 @@ module type MAP_WITH_VALUE = sig
       [Map2] must use the same [Key.to_int] function. *)
   module WithForeign(Map2 : BASE_MAP with type _ key = key):sig
 
-    type ('b,'c) polyfilter_map_foreign = { f: 'a. key -> ('a,'b) Map2.value -> 'c value option } [@@unboxed]
+    type ('b,'c) polyfilter_map_foreign = { f: 'a. key -> ('a,'b) Map2.value -> 'c option } [@@unboxed]
     val filter_map_no_share : ('b, 'c) polyfilter_map_foreign -> 'b Map2.t ->  'c t
     (** Like [filter_map_no_share], but takes another map. *)
 
     type ('value,'map2) polyinter_foreign =
-      { f: 'a. 'a Map2.key -> 'value value-> ('a, 'map2) Map2.value -> 'value value } [@@unboxed]
+      { f: 'a. 'a Map2.key -> 'value-> ('a, 'map2) Map2.value -> 'value } [@@unboxed]
     val nonidempotent_inter : ('a, 'b) polyinter_foreign -> 'a t -> 'b Map2.t -> 'a t
     (** Like [nonidempotent_inter], but takes another map as an argument. *)
 
 
-    type ('map1,'map2) polyupdate_multiple = { f: 'a. key -> 'map1 value option -> ('a,'map2) Map2.value -> 'map1 value option } [@@unboxed]
+    type ('map1,'map2) polyupdate_multiple = { f: 'a. key -> 'map1 option -> ('a,'map2) Map2.value -> 'map1 option } [@@unboxed]
     val update_multiple_from_foreign : 'b Map2.t -> ('a,'b) polyupdate_multiple -> 'a t -> 'a t
     (** This is equivalent to multiple calls to {!update} (but more efficient)
         [update_multiple_from_foreign m_from f m_to] is the same as calling
@@ -1112,7 +1096,7 @@ module type MAP_WITH_VALUE = sig
         O(size(m_from) + size(m_to)) complexity. *)
 
 
-    type ('map1,'map2) polyupdate_multiple_inter = { f: 'a. key -> 'map1 value -> ('a,'map2) Map2.value -> 'map1 value option } [@@unboxed]
+    type ('map1,'map2) polyupdate_multiple_inter = { f: 'a. key -> 'map1 -> ('a,'map2) Map2.value -> 'map1 option } [@@unboxed]
     val update_multiple_from_inter_with_foreign: 'b Map2.t -> ('a,'b) polyupdate_multiple_inter -> 'a t -> 'a t
     (** [update_multiple_from_inter_with_foreign m_from f m_to] is the same as
         {!update_multiple_from_foreign}, except that instead of updating for all
@@ -1122,39 +1106,34 @@ module type MAP_WITH_VALUE = sig
 
   val pretty :
     ?pp_sep:(Format.formatter -> unit -> unit) ->
-    (Format.formatter -> key -> 'a value -> unit) ->
+    (Format.formatter -> key -> 'a -> unit) ->
     Format.formatter -> 'a t -> unit
   (** Pretty prints all bindings of the map.
       [pp_sep] is called once between each binding pair and defaults to [Format.pp_print_cut]. *)
 
   (** {3 Conversion functions} *)
 
-  val to_seq : 'a t -> (key * 'a value) Seq.t
+  val to_seq : 'a t -> (key * 'a) Seq.t
   (** [to_seq m] iterates the whole map, in increasing {{!unsigned_lt}unsigned order} of [Key.to_int] *)
 
-  val to_rev_seq : 'a t -> (key * 'a value) Seq.t
+  val to_rev_seq : 'a t -> (key * 'a) Seq.t
   (** [to_rev_seq m] iterates the whole map, in decreasing {{!unsigned_lt}unsigned order} of [Key.to_int] *)
 
-  val add_seq : (key * 'a value) Seq.t -> 'a t -> 'a t
+  val add_seq : (key * 'a) Seq.t -> 'a t -> 'a t
   (** [add_seq s m] adds all bindings of the sequence [s] to [m] in order. *)
 
-  val of_seq : (key * 'a value) Seq.t -> 'a t
+  val of_seq : (key * 'a) Seq.t -> 'a t
   (** [of_seq s] creates a new map from the bindings of [s].
       If a key is bound multiple times in [s], the latest binding is kept *)
 
-  val of_list : (key * 'a value) list -> 'a t
+  val of_list : (key * 'a) list -> 'a t
   (** [of_list l] creates a new map from the bindings of [l].
       If a key is bound multiple times in [l], the latest binding is kept *)
 
-  val to_list : 'a t -> (key * 'a value) list
+  val to_list : 'a t -> (key * 'a) list
   (** [to_list m] returns the bindings of [m] as a list,
       in increasing {{!unsigned_lt}unsigned order} of [Key.to_int] *)
 end
-
-(** The signature for maps with a single type for keys and values,
-    a ['a map] binds [key] to ['a].
-    Most of this interface should be shared with {{: https://ocaml.org/api/Map.S.html}[Stdlib.Map.S]}. *)
-module type MAP = MAP_WITH_VALUE with type 'a value = 'a
 
 (** {1 Keys} *)
 (** Keys are the functor arguments used to build the maps. *)
@@ -1250,12 +1229,10 @@ module MakeHeterogeneousMap(Key:HETEROGENEOUS_KEY)(Value:VALUE):HETEROGENEOUS_MA
     customizing the map values *)
 module MakeCustomMap
     (Key:KEY)
-    (Value:sig type 'a t end)
-    (Node:NODE with type 'a key = Key.t and type ('key,'map) value = ('key,'map Value.t) snd)
-  : MAP_WITH_VALUE
+    (Node:NODE with type 'a key = Key.t and type ('key,'map) value = ('key,'map) snd)
+  : MAP
     with type key = Key.t
      and type 'm t = 'm Node.t
-     and type 'a value = 'a Value.t
 
 
 (** Create a homogeneous set with a custom {!NODE}.
@@ -1311,8 +1288,8 @@ module MakeCustomHeterogeneousSet
     slightly slower constructors.
 
     @since v0.10.0 *)
-module MakeHashconsedMap(Key: KEY)(Value : sig type t end) : sig
-  include MAP_WITH_VALUE with type key = Key.t and type _ value = Value.t
+module MakeHashconsedMap(Key: KEY) : sig
+  include MAP with type key = Key.t
 
   val get_id : 'a t -> int
   (** Unique identifier for each node *)
@@ -1324,14 +1301,6 @@ module MakeHashconsedMap(Key: KEY)(Value : sig type t end) : sig
   (** Constant time comparison, the order is given by the nodes id, so nodes
       created earlier will be smaller. In particular, subterms will always be
       smaller than their superterms. *)
-
-  val cast : 'a t -> 'b t
-  (** This is a no-op, since hash-consed maps have a single imposed value type,
-      (the type [('key, 'map) value] doesn't depend on ['map]).
-      This means the ['map] parameter in ['map t] is phantom and unused. However,
-      since the type is opaque, this might not always be obvious to the typechecker
-
-      This cast is provided to solve any issues that might crop up with it. *)
 end
 
 (** Hash-consed version of {!SET}.
@@ -1388,10 +1357,10 @@ end
     slightly slower constructors.
 
     @since v0.10.0 *)
-module MakeHashconsedHeterogeneousMap(Key:HETEROGENEOUS_KEY)(Value:sig type 'a t end): sig
+module MakeHashconsedHeterogeneousMap(Key:HETEROGENEOUS_KEY)(Value:VALUE): sig
   include HETEROGENEOUS_MAP
       with type 'a key = 'a Key.t
-      and type ('k,'m) value = 'k Value.t
+      and type ('k,'m) value = ('k, 'm) Value.t
 
   val get_id : 'a t -> int
   (** Unique identifier for each node *)
@@ -1403,14 +1372,6 @@ module MakeHashconsedHeterogeneousMap(Key:HETEROGENEOUS_KEY)(Value:sig type 'a t
   (** Constant time comparison, the order is given by the nodes id, so nodes
       created earlier will be smaller. In particular, subterms will always be
       smaller than their superterms. *)
-
-  val cast : 'a t -> 'b t
-  (** This is a no-op, since hash-consed maps have a single imposed value type,
-      (the type [('key, 'map) value] doesn't depend on ['map]).
-      This means the ['map] parameter in ['map t] is phantom and unused. However,
-      since the type is opaque, this might not always be obvious to the typechecker
-
-      This cast is provided to solve any issues that might crop up with it. *)
 end
 
 
@@ -1463,9 +1424,9 @@ module WeakSetNode(Key : sig type 'k t end):NODE
     One limitation of hashconsing is that values are restricted to a single type
     ([('key,'map) value] doesn't depend on ['map]).
     @since v0.10.0 *)
-module HashconsedNode(Key : HETEROGENEOUS_KEY)(Value : sig type 'a t end) : HASH_CONSED_NODE
+module HashconsedNode(Key : HETEROGENEOUS_KEY)(Value : VALUE) : HASH_CONSED_NODE
   with type 'a key = 'a Key.t
-   and type ('key,_) value = 'key Value.t
+   and type ('key,'map) value = ('key, 'map) Value.t
 
 (** Both a {!HashconsedNode} and a {!SetNode}.
     @since v0.10.0 *)

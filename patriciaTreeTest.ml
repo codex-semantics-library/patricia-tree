@@ -268,9 +268,7 @@ end = struct
 end
 
 
-module TestImpl(MyMap : MAP_WITH_VALUE with type key = int)(Conv : sig
-  val to_int : int MyMap.value -> int
-  val of_int : int -> int MyMap.value
+module TestImpl(MyMap : MAP with type key = int)(Param : sig
   val test_id : bool
   val number_gen : int QCheck.arbitrary
   (* val get_id : 'a MyMap.t -> int option *)
@@ -281,7 +279,7 @@ end) = struct
     match alist with
     | [] -> mymap
     | (a,b)::rest ->
-      extend_map (MyMap.add a (Conv.of_int b) mymap) rest
+      extend_map (MyMap.add a b mymap) rest
 
   let rec remove_map mymap alist =
     match alist with
@@ -290,7 +288,7 @@ end) = struct
       remove_map (MyMap.remove a mymap) rest
 
   let intmap_of_mymap m =
-    MyMap.fold (fun key value acc -> IntMap.add key (Conv.to_int value) acc) m IntMap.empty
+    MyMap.fold (fun key value acc -> IntMap.add key value acc) m IntMap.empty
 
   let two_maps_from_three_lists (alist1,alist2,alist3) =
     let first = extend_map MyMap.empty alist1 in
@@ -298,7 +296,7 @@ end) = struct
     let third = extend_map first alist3 in
     (second,third)
 
-  let number_gen = Conv.number_gen
+  let number_gen = Param.number_gen
 
   let gen = QCheck.(triple
                       (small_list (pair number_gen number_gen))
@@ -336,7 +334,7 @@ end) = struct
           | None, Some _ | Some _, None -> false
           | None, None -> true
           | Some(key1,val1,m'), Some(key2,val2,model') ->
-            key1 = key2 && Conv.to_int val1 = val2 && IntMap.equal (=) (intmap_of_mymap m') model')
+            key1 = key2 && val1 = val2 && IntMap.equal (=) (intmap_of_mymap m') model')
   let () = QCheck.Test.check_exn test_pop_minimum
 
   let test_pop_maximum = QCheck.Test.make ~count:1000 ~name:"pop_unsigned_maximum"
@@ -347,7 +345,7 @@ end) = struct
           | None, Some _ | Some _, None -> false
           | None, None -> true
           | Some(key1,val1,m'), Some(key2,val2,model') ->
-            key1 = key2 && Conv.to_int val1 = val2 && IntMap.equal (=) (intmap_of_mymap m') model')
+            key1 = key2 && val1 = val2 && IntMap.equal (=) (intmap_of_mymap m') model')
   let () = QCheck.Test.check_exn test_pop_maximum
 
   (** Create a function to check calls are made in increasing order *)
@@ -385,11 +383,9 @@ end) = struct
           let chk_calls2 = check_increases () in
           let f k x = if (x mod 3 == 0) then None else Some (x - k + 1) in
           let res1 = intmap_of_mymap @@ MyMap.filter_map (
-              fun k v -> chk_calls1 k;
-              Option.map Conv.of_int (f k (Conv.to_int v))) m1 in
+              fun k v -> chk_calls1 k; f k v) m1 in
           let res2 = intmap_of_mymap @@ MyMap.filter_map_no_share (
-              fun k v -> chk_calls2 k;
-              Option.map Conv.of_int (f k (Conv.to_int v))) m1 in
+              fun k v -> chk_calls2 k; f k v) m1 in
           let modelres = IntMap.filter_map f model1 in
           IntMap.equal (=) res1 modelres &&
           IntMap.equal (=) res2 modelres)
@@ -421,12 +417,11 @@ end) = struct
           let f key (a:int) b = if key mod 2 == 0 then min a b else max a b in
           let chk_calls = check_increases_and_neq () in
           let myres = intmap_of_mymap @@ MyMap.idempotent_union
-            (fun k a b -> chk_calls k (Conv.to_int a) (Conv.to_int b);
-             Conv.of_int (f k (Conv.to_int a) (Conv.to_int b))) m1 m2 in
+            (fun k a b -> chk_calls k a b; f k a b) m1 m2 in
           let modelres = IntMap.union (fun key a b -> Some (f key a b)) model1 model2 in
           (* dump_test model1 model2 myres modelres;           *)
           IntMap.equal (=) modelres myres)
-  let () = QCheck.Test.check_exn test_idempotent_union;;
+  let () = QCheck.Test.check_exn test_idempotent_union
 
 
   let test_idempotent_inter = QCheck.Test.make ~count:1000 ~name:"idempotent_inter"
@@ -435,8 +430,7 @@ end) = struct
           let f key (a:int) b = if key mod 2 == 0 then min a b else max a b in
           let chk_calls = check_increases_and_neq () in
           let myres = intmap_of_mymap @@ MyMap.idempotent_inter
-            (fun k a b -> chk_calls k (Conv.to_int a) (Conv.to_int b);
-            Conv.of_int (f k (Conv.to_int a) (Conv.to_int b))) m1 m2 in
+            (fun k a b -> chk_calls k a b; f k a b) m1 m2 in
           let modelres = IntMap.inter model1 model2 f in
           (* dump_test model1 model2 myres modelres;           *)
           IntMap.equal (=) modelres myres)
@@ -450,8 +444,7 @@ end) = struct
           let f key (a:int) b = sdbm3 key a b in
           let chk_calls = check_increases () in
           let myres = intmap_of_mymap @@ MyMap.nonidempotent_inter_no_share
-            (fun k a b -> chk_calls k;
-             Conv.of_int (f k (Conv.to_int a) (Conv.to_int b))) m1 m2 in
+            (fun k a b -> chk_calls k; f k a b) m1 m2 in
           let modelres = IntMap.inter model1 model2 f in
           (* dump_test model1 model2 myres modelres; *)
           IntMap.equal (=) modelres myres)
@@ -465,7 +458,7 @@ end) = struct
           let chk_calls = check_increases () in
           let f : int -> int -> int -> int = fun key (a:int) b -> chk_calls key; orig_f key a b in
           let myres = intmap_of_mymap @@ Foreign.nonidempotent_inter {f=
-            fun k v (Snd v2) -> Conv.of_int (f k (Conv.to_int v) (Conv.to_int v2)) } m1 m2 in
+            fun k v (Snd v2) -> f k v v2 } m1 m2 in
           let modelres = IntMap.inter model1 model2 orig_f in
           (* dump_test model1 model2 myres modelres; *)
           IntMap.equal (=) modelres myres)
@@ -484,7 +477,7 @@ end) = struct
           let chk_calls = check_increases () in
           let f = fun key a b -> chk_calls key; orig_f key a b in
           let myres = intmap_of_mymap @@ Foreign.update_multiple_from_foreign m2 {f=
-            fun k v (Snd v') -> Option.map Conv.of_int (f k (Option.map Conv.to_int v) (Conv.to_int v')) } m1 in
+            fun k v (Snd v') -> f k v v' } m1 in
           let modelres = IntMap.update_multiple_from_foreign model1 model2 orig_f in
           (* dump_test model1 model2 myres modelres; *)
           IntMap.equal (=) modelres myres)
@@ -500,7 +493,7 @@ end) = struct
           let chk_calls = check_increases () in
           let f key (a:int) b = chk_calls key; orig_f key a b in
           let myres = intmap_of_mymap @@ Foreign.update_multiple_from_inter_with_foreign m2 {f=
-            fun k v (Snd v') -> Option.map Conv.of_int (f k (Conv.to_int v) (Conv.to_int v')) } m1 in
+            fun k v (Snd v') -> f k v v' } m1 in
           let modelres = IntMap.update_multiple_from_inter_with_foreign model1 model2 orig_f in
           (* dump_test model1 model2 myres modelres; *)
           IntMap.equal (=) modelres myres)
@@ -516,8 +509,7 @@ end) = struct
           in
           let chk_calls = check_increases_and_neq () in
           let myres = intmap_of_mymap @@ MyMap.idempotent_inter_filter
-            (fun k a b -> chk_calls k (Conv.to_int a) (Conv.to_int b);
-            Option.map Conv.of_int @@ f k (Conv.to_int a) (Conv.to_int b)) m1 m2 in
+            (fun k a b -> chk_calls k a b; f k a b) m1 m2 in
           let modelres = IntMap.inter_filter model1 model2 f in
           (* dump_test model1 model2 myres modelres;           *)
           IntMap.equal (=) modelres myres)
@@ -534,7 +526,7 @@ end) = struct
             | None, None -> assert false
           in
           let myres = intmap_of_mymap @@ MyMap.slow_merge (fun key a b ->
-            Option.map Conv.of_int @@ f key (Option.map Conv.to_int a) (Option.map Conv.to_int b)
+            f key a b
            ) m1 m2 in
           let modelres = IntMap.merge f model1 model2 in
           (* dump_test model1 model2 myres modelres; *)
@@ -553,12 +545,12 @@ end) = struct
   let () = QCheck.Test.check_exn test_disjoint
 
   let%test "negative_keys" =
-    let map = MyMap.add 0 (Conv.of_int 0) MyMap.empty in
+    let map = MyMap.add 0 0 MyMap.empty in
     let _pp_l fmt = Format.pp_print_list ~pp_sep:(fun fmt () -> Format.fprintf fmt "; ")
       (fun fmt (k,l) -> Format.fprintf fmt "(%x, %x)" k l) fmt in
-    let map2 = MyMap.add min_int (Conv.of_int 5) map in
-    let map3 = MyMap.add max_int (Conv.of_int 8) map2 in
-    let map4 = MyMap.add 25 (Conv.of_int 8) map2 in
+    let map2 = MyMap.add min_int 5 map in
+    let map3 = MyMap.add max_int 8 map2 in
+    let map4 = MyMap.add 25 8 map2 in
     let map5 = MyMap.idempotent_inter_filter (fun _ _ _ -> None) map3 map4 in
     (* Format.printf "[%a]@." pp_l (MyMap.to_list  map3);
     Format.printf "[%a]@." pp_l (MyMap.to_list  map4);
@@ -567,10 +559,10 @@ end) = struct
       | Branch{prefix; branching_bit; _} -> Format.printf "%x : %x@." (Obj.magic prefix) (Obj.magic branching_bit)
       | _ -> ()
     ); *)
-    MyMap.to_list map = [(0, Conv.of_int 0)] &&
-    MyMap.to_list map2 = [(0,Conv.of_int 0); (min_int,Conv.of_int 5)] &&
-    MyMap.to_list map3 = [(0,Conv.of_int 0); (max_int,Conv.of_int 8); (min_int,Conv.of_int 5)] &&
-    MyMap.to_list map4 = [(0,Conv.of_int 0); (25,Conv.of_int 8); (min_int,Conv.of_int 5)] &&
+    MyMap.to_list map = [(0, 0)] &&
+    MyMap.to_list map2 = [(0,0); (min_int,5)] &&
+    MyMap.to_list map3 = [(0,0); (max_int,8); (min_int,5)] &&
+    MyMap.to_list map4 = [(0,0); (25,8); (min_int,5)] &&
     MyMap.to_list map5 = MyMap.to_list map2
 
   let test_id_unique = QCheck.Test.make ~count:1000 ~name:"unique_hashcons_id"
@@ -588,36 +580,28 @@ end) = struct
       m == remove_map (extend_map m two) two &&
       MyMap.empty == remove_map m one
       )
-  let () = if Conv.test_id then QCheck.Test.check_exn test_id_unique
+  let () = if Param.test_id then QCheck.Test.check_exn test_id_unique
 end
 
 module MyMap = MakeMap(HIntKey)
-module MyHashedMap = MakeHashconsedMap(HIntKey)(Int)
+module MyHashedMap = MakeHashconsedMap(HIntKey)
 
 let%test_module "TestMap_SmallNat" = (module TestImpl(MyMap)(struct
-  let to_int x = x
-  let of_int x = x
   let test_id = false
   let number_gen = QCheck.small_nat
 end))
 
 let%test_module "TestMap_Int" = (module TestImpl(MyMap)(struct
-  let to_int x = x
-  let of_int x = x
   let test_id = false
   let number_gen = QCheck.int
 end))
 
 let%test_module "TestHashconsedMap_SmallNat" = (module TestImpl(MyHashedMap)(struct
-  let to_int x = x
-  let of_int x = x
   let test_id = true
   let number_gen = QCheck.small_nat
 end))
 
 let%test_module "TestHashconsedMap_Int" = (module TestImpl(MyHashedMap)(struct
-  let to_int x = x
-  let of_int x = x
   let test_id = true
   let number_gen = QCheck.int
 end))
@@ -630,7 +614,7 @@ let%test_module "TestWeak" = (module struct
   end
 
   module Node = WeakNode(struct type 'a t = MyKey.t end)(WrappedHomogeneousValue)
-  module Map = MakeCustomMap(MyKey)(struct type 'a t = 'a end)(Node)
+  module Map = MakeCustomMap(MyKey)(Node)
   open Map
 
   let _m1 = singleton (MyKey.Block 7) "seven"
