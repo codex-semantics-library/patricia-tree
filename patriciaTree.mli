@@ -92,6 +92,10 @@ val unsigned_lt : int -> int -> bool
     - bool : false
     ]}
 
+    Using this unsigned order helps avoid a bug described in
+    {{: https://www.cs.tufts.edu/comp/150FP/archive/jan-midtgaard/qc-patricia.pdf}{i QuickChecking Patricia Trees}}
+    by Jan Mitgaard.
+
     @since 0.10.0 *)
 
 (**/**)
@@ -366,7 +370,7 @@ module type BASE_MAP = sig
   (** [reflexive_same_domain_for_all2 f m1 m2] is true if and only if
       - [m1] and [m2] have the same domain (set of keys)
       - for all bindings [(k, v1)] in [m1] and [(k, v2)] in [m2], [f.f k v1 v2] holds
-      @assumes [f.f] is reflexive, i.e. [f.f k v v = true] to skip calls to equal subtrees.
+      {b Assumes} [f.f] is reflexive, i.e. [f.f k v v = true] to skip calls to equal subtrees.
       Calls [f.f] in ascending {{!unsigned_lt}unsigned order} of [Key.to_int].
       Exits early if the domains mismatch.
 
@@ -390,7 +394,7 @@ module type BASE_MAP = sig
   (** [reflexive_subset_domain_for_all2 f m1 m2] is true if and only if
       - [m1]'s domain is a subset of [m2]'s. (all keys defined in [m1] are also defined in [m2])
       - for all bindings [(k, v1)] in [m1] and [(k, v2)] in [m2], [f.f k v1 v2] holds
-      @assumes [f.f] is reflexive, i.e. [f.f k v v = true] to skip calls to equal subtrees.
+      {b Assumes} [f.f] is reflexive, i.e. [f.f k v v = true] to skip calls to equal subtrees.
       Calls [f.f] in ascending {{!unsigned_lt}unsigned order} of [Key.to_int].
       Exits early if the domains mismatch. *)
 
@@ -400,7 +404,7 @@ module type BASE_MAP = sig
   (** [idempotent_union f map1 map2] returns a map whose keys is the
       union of the keys of [map1] and [map2]. [f.f] is used to combine
       the values of keys mapped in both maps.
-      @assumes [f.f] idempotent (i.e. [f key value value == value])
+      {b Assumes} [f.f] idempotent (i.e. [f key value value == value])
       [f.f] is called in the {{!unsigned_lt}unsigned order} of [Key.to_int].
       [f.f] is never called on physically equal values.
       Preserves physical equality as much as possible.
@@ -414,7 +418,7 @@ module type BASE_MAP = sig
   (** [idempotent_inter f map1 map2] returns a map whose keys is the
       intersection of the keys of [map1] and [map2]. [f.f] is used to combine
       the values a key is mapped in both maps.
-      @assumes [f.f] idempotent (i.e. [f key value value == value])
+      {b Assumes} [f.f] idempotent (i.e. [f key value value == value])
       [f.f] is called in the {{!unsigned_lt}unsigned order} of [Key.to_int].
       [f.f] is never called on physically equal values.
       Preserves physical equality as much as possible.
@@ -811,6 +815,7 @@ end
 (** The typechecker struggles with forall quantification on values if they
     don't depend on the first parameter, this wrapping allows our code to pass
     typechecking by forbidding overly eager simplification.
+    Since the type is unboxed, it doesn't introduce any performance overhead.
 
     This is due to a bug in the typechecker, more info on
     {{: https://discuss.ocaml.org/t/weird-behaviors-with-first-order-polymorphism/13783} the OCaml discourse post}. *)
@@ -1141,14 +1146,17 @@ end
 (** The signature of keys when they are all of the same type.  *)
 module type KEY = sig
   type t
-  (** The type of keys *)
+  (** The type of keys.
+      If keys are mutable,
+      {b any mutations to keys must preserve {!to_int}}. Failing to do so will
+      break the patricia trees' invariants. *)
 
   (** A unique identifier for values of the type. Usually, we use a
       fresh counter that is increased to give a unique id to each
       object. Correctness of the operations requires that different
       values in a tree correspond to different integers.
 
-      Must be injective, and ideally fast.
+      {b Must be injective, and ideally fast.}
 
       Note that since Patricia Trees use {{!unsigned_lt}unsigned order}, negative
       keys are seen as bigger than positive keys.
@@ -1165,7 +1173,10 @@ type (_, _) cmp = Eq : ('a, 'a) cmp | Diff : ('a, 'b) cmp
 (** The signature of heterogeneous keys.  *)
 module type HETEROGENEOUS_KEY = sig
   type 'key t
-  (** The type of generic/heterogeneous keys *)
+  (** The type of generic/heterogeneous keys.
+      If keys are mutable,
+      {b any mutations to keys must preserve {!to_int}}. Failing to do so will
+      break the patricia trees' invariants.  *)
 
 
   val to_int : 'key t -> int
@@ -1174,7 +1185,7 @@ module type HETEROGENEOUS_KEY = sig
       object. Correctness of the operations requires that different
       values in a tree correspond to different integers.
 
-      Must be injective, and ideally fast.
+      {b Must be injective, and ideally fast.}
 
       Note that since Patricia Trees use {{!unsigned_lt}unsigned order}, negative
       keys are seen as bigger than positive keys.
@@ -1216,14 +1227,16 @@ module MakeHeterogeneousMap(Key:HETEROGENEOUS_KEY)(Value:VALUE):HETEROGENEOUS_MA
    and type ('k,'m) value = ('k,'m) Value.t
 
 
-(** {2 Maps with custom representation of Nodes} *)
+(** {2 Maps and sets with custom nodes} *)
 (** We can also customize the representation and creation of nodes, to
     gain space or time.
 
     Possibitities include having weak key and/or values, hash-consing,
     giving unique number to nodes or keeping them in sync with the
     disk, lazy evaluation and/or caching, adding size information for
-    constant time [cardinal] functions, etc. *)
+    constant time [cardinal] functions, etc.
+
+    See {!node_impl} for the provided implementations of {!NODE}, or create your own. *)
 
 (** Create a homogeneous map with a custom {!NODE}. Also allows
     customizing the map values *)
@@ -1288,7 +1301,7 @@ module MakeCustomHeterogeneousSet
     slightly slower constructors.
 
     @since v0.10.0 *)
-module MakeHashconsedMap(Key: KEY) : sig
+module MakeHashconsedMap(Key: KEY)() : sig
   include MAP with type key = Key.t
 
   val get_id : 'a t -> int
@@ -1311,7 +1324,7 @@ end
     slightly slower constructors.
 
     @since v0.10.0 *)
-module MakeHashconsedSet(Key: KEY) : sig
+module MakeHashconsedSet(Key: KEY)() : sig
   include SET with type elt = Key.t
 
   val get_id : t -> int
@@ -1334,7 +1347,7 @@ end
     slightly slower constructors.
 
     @since v0.10.0 *)
-module MakeHashconsedHeterogeneousSet(Key:HETEROGENEOUS_KEY):sig
+module MakeHashconsedHeterogeneousSet(Key:HETEROGENEOUS_KEY)():sig
   include HETEROGENEOUS_SET with type 'a elt = 'a Key.t
 
   val get_id : t -> int
@@ -1357,7 +1370,7 @@ end
     slightly slower constructors.
 
     @since v0.10.0 *)
-module MakeHashconsedHeterogeneousMap(Key:HETEROGENEOUS_KEY)(Value:VALUE): sig
+module MakeHashconsedHeterogeneousMap(Key:HETEROGENEOUS_KEY)(Value:VALUE)(): sig
   include HETEROGENEOUS_MAP
       with type 'a key = 'a Key.t
       and type ('k,'m) value = ('k, 'm) Value.t
@@ -1375,16 +1388,22 @@ module MakeHashconsedHeterogeneousMap(Key:HETEROGENEOUS_KEY)(Value:VALUE): sig
 end
 
 
-(** {1 Some implementations of NODE} *)
+(** {1:node_impl Some implementations of NODE} *)
+(** We provide a few different implementations of {!NODE}, they can be used with
+    the {!MakeCustomMap}, {!MakeCustomSet}, {!MakeCustomHeterogeneousMap} and
+    {!MakeCustomHeterogeneousSet} functors. *)
 
-(** This module is such that ['map t = 'map view].  *)
-module SimpleNode(Key : sig type 'k t end)(Value : VALUE):NODE
+(** {2 Basic nodes} *)
+
+(** This module is such that ['map t = 'map view].
+    This is the node used in {!MakeHeterogeneousMap} and {!MakeMap}. *)
+module SimpleNode(Key: sig type 'k t end)(Value: VALUE) : NODE
   with type 'a key = 'a Key.t
    and type ('key,'map) value = ('key,'map) Value.t
 
 (** Here, nodes also contain a unique id, e.g. so that they can be
     used as keys of maps or hashtables. *)
-module NodeWithId(Key : sig type 'k t end)(Value:VALUE):NODE_WITH_ID
+module NodeWithId(Key: sig type 'k t end)(Value: VALUE) : NODE_WITH_ID
   with type 'a key = 'a Key.t
    and type ('key,'map) value = ('key,'map) Value.t
 
@@ -1395,23 +1414,28 @@ module NodeWithId(Key : sig type 'k t end)(Value:VALUE):NODE_WITH_ID
 
 (** An optimized representation for sets, i.e. maps to unit: we do not
     store a reference to unit (note that you can further optimize when
-    you know the representation of the key). *)
-module SetNode(Key : sig type 'k t end):NODE
+    you know the representation of the key).
+    This is the node used in {!MakeHeterogeneousSet} and {!MakeSet}. *)
+module SetNode(Key: sig type 'k t end) : NODE
   with type 'a key = 'a Key.t
    and type ('key,'map) value = unit
 
+(** {2 Weak nodes} *)
 
 (** NODE used to implement weak key hashes (the key-binding pair is an
     Ephemeron, the reference to the key is weak, and if the key is
     garbage collected, the binding disappears from the map *)
-module WeakNode(Key : sig type 'k t end)(Value : VALUE):NODE
+module WeakNode(Key: sig type 'k t end)(Value: VALUE) : NODE
   with type 'a key = 'a Key.t
    and type ('key,'map) value = ('key,'map) Value.t
 
 (** Both a {!WeakNode} and a {!SetNode}, useful to implement Weak sets.  *)
-module WeakSetNode(Key : sig type 'k t end):NODE
+module WeakSetNode(Key: sig type 'k t end) : NODE
   with type 'a key = 'a Key.t
    and type ('key,'map) value = unit
+
+
+(** {2 Hashconsed nodes} *)
 
 (** Gives a unique number to each node like {!NodeWithId},
     but also performs hash-consing. So two maps with the same bindings will
@@ -1424,13 +1448,13 @@ module WeakSetNode(Key : sig type 'k t end):NODE
     One limitation of hashconsing is that values are restricted to a single type
     ([('key,'map) value] doesn't depend on ['map]).
     @since v0.10.0 *)
-module HashconsedNode(Key : HETEROGENEOUS_KEY)(Value : VALUE) : HASH_CONSED_NODE
+module HashconsedNode(Key: HETEROGENEOUS_KEY)(Value: VALUE)() : HASH_CONSED_NODE
   with type 'a key = 'a Key.t
    and type ('key,'map) value = ('key, 'map) Value.t
 
 (** Both a {!HashconsedNode} and a {!SetNode}.
     @since v0.10.0 *)
-module HashconsedSetNode(Key : HETEROGENEOUS_KEY) : HASH_CONSED_NODE
+module HashconsedSetNode(Key: HETEROGENEOUS_KEY)() : HASH_CONSED_NODE
   with type 'a key = 'a Key.t
    and type ('key,'map) value = unit
 

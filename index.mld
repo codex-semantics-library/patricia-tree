@@ -70,7 +70,7 @@ dune build @doc
   by Jan Mitgaard.
 
   It also affects functions like {{!PatriciaTree.BASE_MAP.unsigned_min_binding}[unsigned_min_binding]}
-  and {{!PatriciaTree.BASE_MAP.pop_unsigned_minimum}[pop_unsigned_minimum}. They will return the smallest
+  and {{!PatriciaTree.BASE_MAP.pop_unsigned_minimum}[pop_unsigned_minimum]}. They will return the smallest
   positive integer of both positive and negative keys are present; and not the smallest negative,
   as one might expect.}
 {li Supports generic maps and sets: a ['m map] that maps ['k key] to [('k, 'm) value].
@@ -98,7 +98,7 @@ The functors used to build maps and sets are the following:
 {li For homogeneous (non-generic) maps and sets: {{!PatriciaTree.MakeMap}[MakeMap]} and
     {{!PatriciaTree.MakeSet}[MakeSet]}. These are similar to the standard library's maps and sets.
     {[
-      module MakeMap(Key: KEY) : MAP with type key = Key.t and type 'a value = 'a
+      module MakeMap(Key: KEY) : MAP with type key = Key.t
       module MakeSet(Key: KEY) : SET with type elt = Key.t
     ]}}
 {li For Heterogeneous (generic) maps and sets: {{!PatriciaTree.MakeHeterogeneousMap}[MakeHeterogeneousMap]}
@@ -121,7 +121,8 @@ The functors used to build maps and sets are the following:
   - constructors are slightly slower, as they now require a hash-table lookup;
   - memory usage is increased: node store their tags inside themselves, and
     a global hash-table of all built nodes must be maintained;
-  - hash-consed maps must have a fixed value.}
+  - hash-consed maps assume their values are immutable.
+  - Some clash of ids}
 }
 
 {2 Interfaces}
@@ -139,11 +140,6 @@ Here is a brief overview of the various module types of our library:
   {li {{!PatriciaTree.HETEROGENEOUS_MAP}[HETEROGENEOUS_MAP]} for heterogeneous maps (this is just {{!PatriciaTree.BASE_MAP}[BASE_MAP]} with a
     [WithForeign] functor).}
   {li {{!PatriciaTree.MAP}[MAP]} for homogeneous maps, this interface is close to {{: https://ocaml.org/api/Map.S.html}[Stdlib.Map.S]}.}
-  {li {{!PatriciaTree.MAP_WITH_VALUE}[MAP_WITH_VALUE]}: variant of {{!PatriciaTree.MAP}[MAP]}
-    that uses a type ['a value] instead of just ['a].
-    Used to restrict the values a map can have (such as in {{!PatriciaTree.MakeHashconsedMap}[MakeHashconsedMap]},
-    ['a value] is set to a non-generic user-supplied type).
-  }
   {li {{!PatriciaTree.HETEROGENEOUS_SET}[HETEROGENEOUS_SET]} for heterogeneous sets (sets of ['a elt]). These are just
     maps to [unit], but with a custom node representation to avoid storing [unit] in
     nodes.}

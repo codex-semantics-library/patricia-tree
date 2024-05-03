@@ -575,7 +575,7 @@ end
 let sdbm x y = y + (x lsl 16) + (x lsl 6) - x
 (** Combine two numbers into a new hash *)
 
-module HashconsedNode(Key:HETEROGENEOUS_KEY)(Value:VALUE)
+module HashconsedNode(Key:HETEROGENEOUS_KEY)(Value:VALUE)()
 (* : HASH_CONSED_NODE
   with type 'key key = 'key Key.t
    and type ('key, 'map) value = ('key, 'map) Value.t *)
@@ -1775,8 +1775,8 @@ end
 
 module MakeSet(Key: KEY) = MakeCustomSet(Key)(SetNode(HeterogeneousKeyFromKey(Key)))
 
-module MakeHashconsedHeterogeneousMap(Key:HETEROGENEOUS_KEY)(Value:VALUE) = struct
-  module Node = HashconsedNode(Key)(Value)
+module MakeHashconsedHeterogeneousMap(Key:HETEROGENEOUS_KEY)(Value:VALUE)() = struct
+  module Node = HashconsedNode(Key)(Value)()
   include MakeCustomHeterogeneousMap(Key)(Value)(Node)
 
   let equal = Node.fast_equal
@@ -1801,8 +1801,8 @@ module MakeHashconsedSet(Key : KEY) = struct
   let get_id = Node.get_id
 end
 
-module MakeHashconsedMap(Key: KEY) = struct
-  module Node = HashconsedNode(HeterogeneousKeyFromKey(Key))(WrappedHomogeneousValue)
+module MakeHashconsedMap(Key: KEY)() = struct
+  module Node = HashconsedNode(HeterogeneousKeyFromKey(Key))(WrappedHomogeneousValue)()
   include MakeCustomMap(Key)(Node)
 
   let equal = Node.fast_equal
