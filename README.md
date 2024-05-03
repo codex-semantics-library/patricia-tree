@@ -114,7 +114,7 @@ module MakeSet(Key: KEY) : SET with type elt = Key.t
 
 module MakeHeterogeneousSet(Key: HETEROGENEOUS_KEY) : HETEROGENEOUS_SET
   with type 'a elt = 'a Key.t
-module MakeHeterogeneousMap(Key: HETEROGENEOUS_KEY)(Value: VALUE) : HETEROGENEOUS_MAP
+module MakeHeterogeneousMap(Key: HETEROGENEOUS_KEY)(Value: HETEROGENEOUS_VALUE) : HETEROGENEOUS_MAP
   with type 'a key = 'a Key.t
    and type ('k,'m) value = ('k,'m) Value.t
 ```
@@ -151,7 +151,7 @@ Here is a brief overview of the various module types of our library:
   These just consist of a type, a (polymorphic) equality function, and an
   injective `to_int` coercion.
 
-  The heterogeneous map functor also has a `VALUE` parameter to specify the
+  The heterogeneous map functor also has a `HETEROGENEOUS_VALUE` parameter to specify the
   `('a, 'b) value` type
 - The internal representations of our tree can be customized to use different
   internal `NODE`. Each node come with its own private constructors and destructors,

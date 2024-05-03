@@ -11,7 +11,6 @@
 - Renamed `MakeCustom` to `MakeCustomMap`, added new functor `MakeCustomSet`.
 - Renamed `MakeCustomHeterogeneous` to `MakeCustomHeterogeneousMap`, added new functor
   `MakeCustomHeterogeneousSet`.
-- Added `MAP_WITH_VALUE` interface, similar to `MAP` but replaces `'a` with `'a value`
 - `MakeCustomMap` changed to take a new argument to specify the `'a value` type.
 - Added `HashconsedNode`, `HashconsedSetNode` as well as four functors to create
   hash-consed heterogeneous/homogeneous maps/sets: `MakeHashconsedMap`, `MakeHashconsedSet`,

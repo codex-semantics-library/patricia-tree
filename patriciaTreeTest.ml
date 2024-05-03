@@ -584,7 +584,7 @@ end) = struct
 end
 
 module MyMap = MakeMap(HIntKey)
-module MyHashedMap = MakeHashconsedMap(HIntKey)
+module MyHashedMap = MakeHashconsedMap(HIntKey)(HashedValue)()
 
 let%test_module "TestMap_SmallNat" = (module TestImpl(MyMap)(struct
   let test_id = false
@@ -614,7 +614,7 @@ let%test_module "TestWeak" = (module struct
   end
 
   module Node = WeakNode(struct type 'a t = MyKey.t end)(WrappedHomogeneousValue)
-  module Map = MakeCustomMap(MyKey)(Node)
+  module Map = MakeCustomMap(MyKey)(Value)(Node)
   open Map
 
   let _m1 = singleton (MyKey.Block 7) "seven"
