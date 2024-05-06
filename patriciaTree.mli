@@ -37,17 +37,20 @@
       i.e. it is a space-efficient prefix trie over the big-endian representation of
       the key's integer identifier.
 
-      Example patricia tree containing four numbers: 0 [0b0000], 1 [0b0001],
-      5 [0b0101] and 7 [0b0111]:
+      Example 5-bit patricia tree containing five numbers: 0 [0b0000], 1 [0b0001],
+      5 [0b0101] and 7 [0b0111] and -8 [0b1111]:
       {v
-                     Node
-                 prefix=0b0?__
+                              Branch
+                          (prefix=0b?___)
+                          /             \
+                    Branch               Leaf(-8)
+                (prefix=0b0?__)          0b1111
                 /             \
-           Node              Node
-       prefix=0b000?      prefix=0b01?_
-        |       |          |       |
-       Leaf    Leaf       Leaf    Leaf
-      0b0000  0b0001     0b0101  0b0111
+           Branch             Branch
+       (prefix=0b000?)     (prefix=0b01?_)
+         |        |          |       |
+      Leaf(0)  Leaf(1)    Leaf(5)  Leaf(7)
+      0b0000   0b0001     0b0101   0b0111
       v}
 
 
@@ -111,11 +114,11 @@ val unsigned_lt : int -> int -> bool
     @since 0.10.0 *)
 
 
-type intkey
+type intkey = private int
 (** Private type used to represent prefix stored in nodes.
     These are integers with all bits after branching bit (included) set to zero *)
 
-type mask
+type mask = private int
 (** Private type: integers with a single bit set. *)
 
 (**/**)
@@ -216,7 +219,7 @@ module type NODE_WITH_ID = sig
 end
 
 (** Hash-consed nodes also associate a unique number to each node,
-    Unlike {!NODE_WITH_ID}, they also check before instanciating the node wether
+    Unlike {!NODE_WITH_ID}, they also check before instanciating the node whether
     a similar node already exists. This results in slightly slower constructors
     (they perform an extra hash-table lookup), but allows for constant time
     equality and comparison.
@@ -231,26 +234,28 @@ module type HASH_CONSED_NODE = sig
   (** Returns the {{!hash_consed}hash-consed} id of the map.
       Unlike {!NODE_WITH_ID.get_id}, hash-consing ensures that maps
       which contain the same keys (compared by {!KEY.to_int}) and values (compared
-      by {!HETEROGENEOUS_HASHED_VALUE.polyeq}) will always be physically equal
+      by {!HASHED_VALUE.polyeq}) will always be physically equal
       and have the same identifier.
 
-  *)
+      Note that when using physical equality as {!HASHED_VALUE.polyeq}, some
+      maps of different types [a t] and [b t] may be given the same identifier.
+      See the end of the documentation of {!HASHED_VALUE.polyeq} for details. *)
 
-  val fast_equal : 'a t -> 'a t -> bool
+  val equal : 'a t -> 'a t -> bool
   (** Constant time equality using the {{!hash_consed}hash-consed} nodes identifiers.
       This is equivalent to physical equality.
       Two nodes are equal if their trees contain the same bindings,
       where keys are compare by {!KEY.to_int} and values are compared by
-      {!HETEROGENEOUS_HASHED_VALUE.polyeq}. *)
+      {!HASHED_VALUE.polyeq}. *)
 
-  val fast_compare : 'a t -> 'a t -> int
+  val compare : 'a t -> 'a t -> int
   (** Constant time comparison using the {{!hash_consed}hash-consed} node identifiers.
       This order is fully arbitrary, but it is total and can be used to sort nodes.
       It is based on node ids which depend on the order in which the nodes where created
       (older nodes having smaller ids).
 
       One useful property of this order is that
-      child nodes will always have a smaller identifier than their parents.  *)
+      child nodes will always have a smaller identifier than their parents. *)
 end
 
 (** {1 Map signatures} *)
@@ -493,7 +498,7 @@ module type BASE_MAP = sig
   type ('map1, 'map2, 'map3) polymerge = {
     f : 'a. 'a key -> ('a, 'map1) value option -> ('a, 'map2) value option -> ('a, 'map3) value  option; } [@@unboxed]
   val slow_merge : ('map1, 'map2, 'map3) polymerge -> 'map1 t -> 'map2 t -> 'map3 t
-  (** This is the same as {{: https://ocaml.org/manual/5.1/api/Map.S.html#VALmerge}Stdlib.Map.S.merge} *)
+  (** This is the same as {{: https://ocaml.org/api/Map.S.html#VALmerge}Stdlib.Map.S.merge} *)
 
   val disjoint : 'a t -> 'a t -> bool
   (** [disjoint m1 m2] is [true] iff [m1] and [m2] have disjoint domains *)
@@ -1282,14 +1287,17 @@ end
     This is the case in {!MakeMap}.
     However, for maps like {!hash_consed}, it can be useful to restrict the type
     of values in order to implement [hash] and [polyeq] functions on values.
-    See the {!HASHED_VALUE} module type for more details. *)
+    See the {!HASHED_VALUE} module type for more details.
+
+    @since 0.10.0 *)
 module type VALUE = sig
     type 'a t
     (** The type of values. A ['map map] maps [key] to ['map value].
     Can be mutable if desired, unless it is being used in {!hash_consed}. *)
 end
 
-(** Default implementation of {!VALUE}, used in {!MakeMap}. *)
+(** Default implementation of {!VALUE}, used in {!MakeMap}.
+    @since 0.10.0 *)
 module Value : VALUE with type 'a t = 'a
 
 (** The module type of values, which can be heterogeneous.
@@ -1313,45 +1321,183 @@ module HomogeneousValue : HETEROGENEOUS_VALUE with type ('a,'map) t = 'map
     {{: https://discuss.ocaml.org/t/weird-behaviors-with-first-order-polymorphism/13783} the OCaml discourse post}. *)
 module WrappedHomogeneousValue : HETEROGENEOUS_VALUE with type ('a,'map) t = ('a,'map) snd
 
-(** {!VALUE} paremeter for {!hash_consed}, as hash-consing requires hashing and comparing values. *)
+(** {!VALUE} parameter for {!hash_consed}, as hash-consing requires hashing and comparing values.
+
+    This is the parameter type for homogeneous maps, used in {!MakeHashconsedMap}.
+    A default implementation is provided in {!HashedValue}, using
+    {{: https://ocaml.org/api/Hashtbl.html#VALhash}[Hashtbl.hash]}
+    as [hash] function and physical equality as [polyeq].
+
+    @since 0.10.0 *)
 module type HASHED_VALUE = sig
-  include VALUE
- (* TODO *)
+  type 'a t
+  (** The type of values for a hash-consed maps.
+
+      Unlike {!VALUE.t}, {b hash-consed values should be immutable}.
+      Or, if they do mutate, they must not change their {!hash} value, and
+      still be equal to the same values via {!polyeq} *)
+
   val hash : 'map t -> int
+  (** [hash v] should return an integer hash for the value [v].
+      It is used for {{!hash_consed}hash-consing}.
+
+      Hashing should be fast, avoid mapping too many values to the same integer
+      and compatible with {!polyeq} (equal values must have the same hash:
+      [polyeq v1 v2 = true ==> hash v1 = hash v2]). *)
+
   val polyeq : 'a t -> 'b t -> bool
+  (** Polymorphic equality on values.
+
+     {b WARNING: if [polyeq a b] is true, then casting [b] to the type of [a]
+        (and [a] to the type of [b]) must be type-safe.} Eg. if [a : t1 t] and [b : t2 t]
+     yield [polyeq a b = true], then [let a' : t2 t = Obj.magic a] and
+     [let b' : t1 t = Obj.magic b] must be safe.
+
+     Examples of safe implementations include:
+     {ul
+     {li Having a type ['a t] which doesn't depend on ['a], in which case casting
+         form ['a t] to ['b t] is always safe:
+         {[
+          type _ t = foo
+          let cast : type a b. a t -> b t = fun x -> x
+          let polyeq : type a b. a t -> b t -> bool = fun x y -> x = y
+         ]}}
+     {li Using a GADT type and examining its constructors to only return [true]
+         when the constructors are equal:
+         {[
+            type _ t =
+                | T_Int : int -> int t
+                | T_Bool : bool -> bool t
+            let polyeq : type a b. a t -> b t -> bool = fun x y ->
+                match x, y with
+                | T_Int i, T_Int j -> i = j (* Here type a = b = int, we can return true *)
+                | T_Bool i, T_Bool j -> i && j (* same here, but with a = b = bool *)
+                | _ -> false (* never return true on heterogeneous cases. *)
+         ]}}
+     {li Using physical equality:
+         {[
+            let polyeq a b = a == Obj.magic b
+         ]}
+         While this contains an [Obj.magic], it is still type safe (OCaml just compares
+         the immediate values) and we can safely cast values from one type to the
+         other if they satisfy this (since they are already physically equal).
+
+         This is the implementation used in {!HashedValue}. Note however that
+         using this function can lead to {b identifiers no longer being unique across
+         types}. They will still be unique and behave as expected within a certain type,
+         but since some values of different types can physically equal, we may have
+         identifer clashes:
+         {[
+            let _ = 97 == Obj.magic 'a' (* This is true *)
+
+            module HMap = MakeHashconsedMap(Int)(HashedValue)
+
+            let m1 = HMap.singleton 5 97 (* int HMap.t *)
+            let m2 = HMap.singleton 5 'a' (* char HMap.t *)
+            let _ = HMap.get_id m1 = HMap.get_id m2 (* This is also true. *)
+         ]}
+         This can cause problems if you wish to use identifiers of different map
+         types together:
+         {[
+            module MapOfMaps = MakeMap(struct
+              type t = Any : 'a HMap.t -> t
+              let to_int (Any x) = Node.get_id x
+            end)
+
+           let m3 = MapOfMaps.of_list [ (m1, "foo"); (m2, "bar") ]
+           (* m3 has cardinal 1, the m1->foo binding has been overwritten. *)
+         ]}
+         This issue does not happen with the two previous variants, since they
+         both only return true on the same types.}} *)
 end
 
 (** In order to build {!hash_consed}, we need to be able to hash and compare values.
 
     This is the heterogeneous version of {!HASHED_VALUE}, used to specify a value
-    for heterogeneous maps (in {!MakeHashconsedHeterogeneousMap}). *)
+    for heterogeneous maps (in {!MakeHashconsedHeterogeneousMap}).
+    A default implementation is provided in {!HeterogeneousHashedValue}, using
+    {{: https://ocaml.org/api/Hashtbl.html#VALhash}[Hashtbl.hash]}
+    as [hash] function and physical equality as [polyeq].
+
+    @since 0.10.0 *)
 module type HETEROGENEOUS_HASHED_VALUE = sig
-  include HETEROGENEOUS_VALUE
+    type ('key, 'map) t
+    (** The type of values for a hash-consed maps.
 
-  val hash : ('a, 'b) t -> int
-  (** [hash v] should return an integer hash for the value [v].
-      It is used for {{!hash_consed}hash-consing}?
-      Hashing should be fast, avoid mapping to many values to the same intege
-      and compatible with {!polyeq} (equal values must have the same hash:
-      [polyeq v1 v2 = Eq ==> hash v1 = hash v2]). *)
+        Unlike {!HETEROGENEOUS_VALUE.t}, {b hash-consed values should be immutable}.
+        Or, if they do mutate, they must not change their {!hash} value, and
+        still be equal to the same values via {!polyeq} *)
 
-  val polyeq : ('a, 'b) t -> ('a, 'c) t -> bool
-  (** [polyeq v1 v2] is polymorphic comparison on values used for {{!hash_consed}hash-consing}.
+    val hash : ('key, 'map) t -> int
+    (** [hash v] should return an integer hash for the value [v].
+        It is used for {{!hash_consed}hash-consing}.
 
-      Hashconsed maps whose bindings are equal (same keys according to {!KEY.to_int}, and same
-      values according to this function) will always be physically equal, and have the same
-      identifer ({!HASH_CONSED_NODE.get_id}).
-      {b WARNING: This can result in unsafe type casts} if [polyeq a b] is true when [a] and [b]
-      are of a different type. *)
+        Hashing should be fast, avoid mapping too many values to the same integer
+        and compatible with {!polyeq} (equal values must have the same hash:
+        [polyeq v1 v2 = true ==> hash v1 = hash v2]). *)
+
+    val polyeq : ('key, 'map_a) t -> ('key, 'map_b) t -> bool
+    (** Polymorphic equality on values.
+
+       {b WARNING: if [polyeq a b] is true, then casting [b] to the type of [a]
+          (and [a] to the type of [b]) must be type-safe.} Eg. if [a : (k, t1) t] and [b : (k, t2) t]
+       yield [polyeq a b = true], then [let a' : (k,t2) t = Obj.magic a] and
+       [let b' : (k,t1) t = Obj.magic b] must be safe.
+
+       Examples of safe implementations include:
+       {ul
+       {li Having a type [('key, 'map) t] which doesn't depend on ['map] (i can depend on ['key]), in which case casting
+           form [('key, 'a) t] to [('key, 'b) t] is always safe:
+           {[
+            type ('k, _) t = 'k list
+            let cast : type a b. ('k, a) t -> ('k, b) t = fun x -> x
+            let polyeq : type a b. ('k, a) t -> ('k, b) t -> bool = fun x y -> x = y
+           ]}}
+       {li Using a GADT type and examining its constructors to only return [true]
+           when the constructors are equal:
+           {[
+              type (_, _) t =
+                  | T_Int : int -> (unit, int) t
+                  | T_Bool : bool -> (unit, bool) t
+              let polyeq : type k a b. (k, a) t -> (k, b) t -> bool = fun x y ->
+                  match x, y with
+                  | T_Int i, T_Int j -> i = j (* Here type a = b = int, we can return true *)
+                  | T_Bool i, T_Bool j -> i && j (* same here, but with a = b = bool *)
+                  | _ -> false (* never return true on heterogeneous cases. *)
+           ]}}
+       {li Using physical equality:
+           {[
+              let polyeq a b = a == Obj.magic b
+           ]}
+           While this contains an [Obj.magic], it is still type safe (OCaml just compares
+           the immediate values) and we can safely cast values from one type to the
+           other if they satisfy this (since they are already physically equal).
+
+           This is the implementation used in {!HeterogeneousHashedValue}. Note however that
+           using this function can lead to {b identifiers no longer being unique across
+           types}. See {!HASHED_VALUE.polyeq} for more information on this.}} *)
 end
 
-module HeterogeneousHashedValueFromHashedValue(Value: HASHED_VALUE) : HETEROGENEOUS_HASHED_VALUE
-  with type ('a, 'map) t = ('a, 'map Value.t) snd
-
 module HashedValue : HASHED_VALUE with type 'a t = 'a
+(** Generic implementation of {!HASHED_VALUE}.
+    Uses {{: https://ocaml.org/api/Hashtbl.html#VALhash}[Hashtbl.hash]} for hashing
+    and physical equality for equality.
+    Note that this may lead to maps of different types having the same identifier
+    ({!MakeHashconsedMap.get_id}), see the documentation of {!HASHED_VALUE.polyeq}
+    for details on this. *)
+
 module HeterogeneousHashedValue : HETEROGENEOUS_HASHED_VALUE with type ('k, 'm) t = 'm
+(** Generic implementation of {!HETEROGENEOUS_HASHED_VALUE}.
+    Uses {{: https://ocaml.org/api/Hashtbl.html#VALhash}[Hashtbl.hash]} for hashing
+    and physical equality for equality.
+    Note that this may lead to maps of different types having the same identifier
+    ({!MakeHashconsedHeterogeneousMap.get_id}), see the documentation of
+    {!HASHED_VALUE.polyeq} for details on this. *)
+
 
 (** {1 Functors} *)
+(** This section presents the functors which can be used to build patricia tree
+    maps and sets. *)
 
 (** {2 Homogeneous maps and sets} *)
 (** These are homogeneous maps and set, their keys/elements are a single
@@ -1429,111 +1575,167 @@ module MakeCustomHeterogeneousSet
 (** Hash-consed maps and sets uniquely number each of their nodes.
     Upon creation, they check whether a similar node has been created before,
     if so they return it, else they return a new node with a new number.
+    With this unique numbering:
+    - [equal] and [compare] become constant time operations;
+    - two maps with the same bindings (where keys compared by {!KEY.to_int} and
+      values by {!HASHED_VALUE.polyeq}) will always be physically equal;
+    - functions that benefit from sharing, like {!BASE_MAP.idempotent_union} and
+      {!BASE_MAP.idempotent_inter} will see improved performance;
+    - constructors are slightly slower, as they now require a hash-table lookup;
+    - memory usage is increased: nodes store their tags inside themselves, and
+      a global hash-table of all built nodes must be maintained;
+    - hash-consed maps assume their values are immutable;
+    - {b WARNING:} when using physical equality as {!HASHED_VALUE.polyeq}, some
+      {b maps of different types may be given the same identifier}. See the end of
+      the documentation of {!HASHED_VALUE.polyeq} for details.
+      Note that this is the case in the default implementations {!HashedValue}
+      and {!HeterogeneousHashedValue}.
 
-    This places a slight overhead on the constructors (Hashtable lookup),
-    but allows for constant time [equal] and [compare] operations.
-    Furthermore, it guarantees that two maps/sets with the same bindings/elements
-    will always be physically equal, even if they don't come from a common ancestor.
-    This further improves the functions that benefit from sharing like
-    {!BASE_MAP.idempotent_union} and {!BASE_MAP.idempotent_inter}.
+    All hash-consing functors are {b generative}, since each functor call will
+    create a new hashtable to store the created nodes. Calling a functor
+    twice with same arguments will lead to two numbering systems for identifiers,
+    and thus the types should not be considered compatible.  *)
 
-    Note however, that hashconsed maps must have a fixed value type: the
-    [('key,'map) value] can only depend on ['key]. This avoids hash-consing
-    together different map types, and potential conflict if two separate types
-    have equal representations. *)
-
-(** Hash-consed version of {!MAP}.
-
-    Each node is given a unique identifier. Node with the same contents
-    will always be physically equal and have the same identifier.
-    This allows for constant time [equal] and [compare], at the cost of
-    slightly slower constructors.
+(** Hash-consed version of {!MAP}. See {!hash_consed} for the differences between
+    hash-consed and non hash-consed maps.
 
     @since v0.10.0 *)
 module MakeHashconsedMap(Key: KEY)(Value: HASHED_VALUE)() : sig
-  include MAP_WITH_VALUE with type key = Key.t and type 'a value = 'a Value.t
+  include MAP_WITH_VALUE with type key = Key.t and type 'a value = 'a Value.t (** @closed *)
 
   val get_id : 'a t -> int
-  (** Unique identifier for each node *)
+  (** Returns the {{!hash_consed}hash-consed} id of the map.
+      Unlike {!NODE_WITH_ID.get_id}, hash-consing ensures that maps
+      which contain the same keys (compared by {!KEY.to_int}) and values (compared
+      by {!HASHED_VALUE.polyeq}) will always be physically equal
+      and have the same identifier.
+
+      Note that when using physical equality as {!HASHED_VALUE.polyeq}, some
+      maps of different types [a t] and [b t] may be given the same identifier.
+      See the end of the documentation of {!HASHED_VALUE.polyeq} for details. *)
 
   val equal : 'a t -> 'a t -> bool
-  (** Constant time equality *)
+  (** Constant time equality using the {{!hash_consed}hash-consed} nodes identifiers.
+      This is equivalent to physical equality.
+      Two nodes are equal if their trees contain the same bindings,
+      where keys are compare by {!KEY.to_int} and values are compared by
+      {!HASHED_VALUE.polyeq}. *)
 
   val compare : 'a t -> 'a t -> int
-  (** Constant time comparison, the order is given by the nodes id, so nodes
-      created earlier will be smaller. In particular, subterms will always be
-      smaller than their superterms. *)
+  (** Constant time comparison using the {{!hash_consed}hash-consed} node identifiers.
+      This order is fully arbitrary, but it is total and can be used to sort nodes.
+      It is based on node ids which depend on the order in which the nodes where created
+      (older nodes having smaller ids).
+
+      One useful property of this order is that
+      child nodes will always have a smaller identifier than their parents. *)
 end
 
-(** Hash-consed version of {!SET}.
-
-    Each node is given a unique identifier. Node with the same contents
-    will always be physically equal and have the same identifier.
-    This allows for constant time [equal] and [compare], at the cost of
-    slightly slower constructors.
+(** Hash-consed version of {!SET}. See {!hash_consed} for the differences between
+    hash-consed and non hash-consed sets.
 
     @since v0.10.0 *)
 module MakeHashconsedSet(Key: KEY)() : sig
-  include SET with type elt = Key.t
+  include SET with type elt = Key.t (** @closed *)
 
   val get_id : t -> int
-  (** Unique identifier for each node *)
+  (** Returns the {{!hash_consed}hash-consed} id of the map.
+      Unlike {!NODE_WITH_ID.get_id}, hash-consing ensures that maps
+      which contain the same keys (compared by {!KEY.to_int}) and values (compared
+      by {!HASHED_VALUE.polyeq}) will always be physically equal
+      and have the same identifier.
+
+      Note that when using physical equality as {!HASHED_VALUE.polyeq}, some
+      maps of different types [a t] and [b t] may be given the same identifier.
+      See the end of the documentation of {!HASHED_VALUE.polyeq} for details. *)
 
   val equal : t -> t -> bool
-  (** Constant time equality *)
+  (** Constant time equality using the {{!hash_consed}hash-consed} nodes identifiers.
+      This is equivalent to physical equality.
+      Two nodes are equal if their trees contain the same bindings,
+      where keys are compare by {!KEY.to_int} and values are compared by
+      {!HASHED_VALUE.polyeq}. *)
 
   val compare : t -> t -> int
-  (** Constant time comparison, the order is given by the nodes id, so nodes
-      created earlier will be smaller. In particular, subterms will always be
-      smaller than their superterms. *)
+  (** Constant time comparison using the {{!hash_consed}hash-consed} node identifiers.
+      This order is fully arbitrary, but it is total and can be used to sort nodes.
+      It is based on node ids which depend on the order in which the nodes where created
+      (older nodes having smaller ids).
+
+      One useful property of this order is that
+      child nodes will always have a smaller identifier than their parents. *)
 end
 
-(** Hash-consed version of {!HETEROGENEOUS_SET}.
-
-    Each node is given a unique identifier. Node with the same contents
-    will always be physically equal and have the same identifier.
-    This allows for constant time [equal] and [compare], at the cost of
-    slightly slower constructors.
+(** Hash-consed version of {!HETEROGENEOUS_SET}.  See {!hash_consed} for the differences between
+    hash-consed and non hash-consed sets.
 
     @since v0.10.0 *)
 module MakeHashconsedHeterogeneousSet(Key: HETEROGENEOUS_KEY)() : sig
-  include HETEROGENEOUS_SET with type 'a elt = 'a Key.t
+  include HETEROGENEOUS_SET with type 'a elt = 'a Key.t (** @closed *)
 
   val get_id : t -> int
-  (** Unique identifier for each node *)
+  (** Returns the {{!hash_consed}hash-consed} id of the map.
+      Unlike {!NODE_WITH_ID.get_id}, hash-consing ensures that maps
+      which contain the same keys (compared by {!KEY.to_int}) and values (compared
+      by {!HASHED_VALUE.polyeq}) will always be physically equal
+      and have the same identifier.
+
+      Note that when using physical equality as {!HASHED_VALUE.polyeq}, some
+      maps of different types [a t] and [b t] may be given the same identifier.
+      See the end of the documentation of {!HASHED_VALUE.polyeq} for details. *)
 
   val equal : t -> t -> bool
-  (** Constant time equality *)
+  (** Constant time equality using the {{!hash_consed}hash-consed} nodes identifiers.
+      This is equivalent to physical equality.
+      Two nodes are equal if their trees contain the same bindings,
+      where keys are compare by {!KEY.to_int} and values are compared by
+      {!HASHED_VALUE.polyeq}. *)
 
   val compare : t -> t -> int
-  (** Constant time comparison, the order is given by the nodes id, so nodes
-      created earlier will be smaller. In particular, subterms will always be
-      smaller than their superterms. *)
+  (** Constant time comparison using the {{!hash_consed}hash-consed} node identifiers.
+      This order is fully arbitrary, but it is total and can be used to sort nodes.
+      It is based on node ids which depend on the order in which the nodes where created
+      (older nodes having smaller ids).
+
+      One useful property of this order is that
+      child nodes will always have a smaller identifier than their parents. *)
 end
 
-(** Hash-consed version of {!HETEROGENEOUS_MAP}.
-
-    Each node is given a unique identifier. Node with the same contents
-    will always be physically equal and have the same identifier.
-    This allows for constant time [equal] and [compare], at the cost of
-    slightly slower constructors.
+(** Hash-consed version of {!HETEROGENEOUS_MAP}.  See {!hash_consed} for the differences between
+    hash-consed and non hash-consed maps.
 
     @since v0.10.0 *)
 module MakeHashconsedHeterogeneousMap(Key: HETEROGENEOUS_KEY)(Value: HETEROGENEOUS_HASHED_VALUE)() : sig
   include HETEROGENEOUS_MAP
       with type 'a key = 'a Key.t
-      and type ('k,'m) value = ('k, 'm) Value.t
+      and type ('k,'m) value = ('k, 'm) Value.t (** @closed *)
 
   val get_id : 'a t -> int
-  (** Unique identifier for each node *)
+  (** Returns the {{!hash_consed}hash-consed} id of the map.
+      Unlike {!NODE_WITH_ID.get_id}, hash-consing ensures that maps
+      which contain the same keys (compared by {!KEY.to_int}) and values (compared
+      by {!HASHED_VALUE.polyeq}) will always be physically equal
+      and have the same identifier.
+
+      Note that when using physical equality as {!HASHED_VALUE.polyeq}, some
+      maps of different types [a t] and [b t] may be given the same identifier.
+      See the end of the documentation of {!HASHED_VALUE.polyeq} for details. *)
 
   val equal : 'a t -> 'a t -> bool
-  (** Constant time equality *)
+  (** Constant time equality using the {{!hash_consed}hash-consed} nodes identifiers.
+      This is equivalent to physical equality.
+      Two nodes are equal if their trees contain the same bindings,
+      where keys are compare by {!KEY.to_int} and values are compared by
+      {!HASHED_VALUE.polyeq}. *)
 
   val compare : 'a t -> 'a t -> int
-  (** Constant time comparison, the order is given by the nodes id, so nodes
-      created earlier will be smaller. In particular, subterms will always be
-      smaller than their superterms. *)
+  (** Constant time comparison using the {{!hash_consed}hash-consed} node identifiers.
+      This order is fully arbitrary, but it is total and can be used to sort nodes.
+      It is based on node ids which depend on the order in which the nodes where created
+      (older nodes having smaller ids).
+
+      One useful property of this order is that
+      child nodes will always have a smaller identifier than their parents. *)
 end
 
 
@@ -1588,14 +1790,11 @@ module WeakSetNode(Key: sig type 'k t end) : NODE
 
 (** Gives a unique number to each node like {!NodeWithId},
     but also performs hash-consing. So two maps with the same bindings will
-    always be physically equal.
+    always be physically equal. See {!hash_consed} for more details on this.
 
-    This makes constructors a bit slower, but comparison much faster.
-    It can also speed up quite a few operations on map pairs, as these use
-    physical equality test to skip uneccessary work.
+    Using these nodes with multiple {!MakeCustomMap} functors will result in
+    all those maps being hash-consed (stored in the same hash table, same numbering system).
 
-    One limitation of hashconsing is that values are restricted to a single type
-    ([('key,'map) value] doesn't depend on ['map]).
     @since v0.10.0 *)
 module HashconsedNode(Key: HETEROGENEOUS_KEY)(Value: HETEROGENEOUS_HASHED_VALUE)() : HASH_CONSED_NODE
   with type 'a key = 'a Key.t

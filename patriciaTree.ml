@@ -55,8 +55,8 @@ end
 
 module type HASH_CONSED_NODE = sig
   include NODE_WITH_ID
-  val fast_equal : 'a t -> 'a t -> bool
-  val fast_compare : 'a t -> 'a t -> int
+  val equal : 'a t -> 'a t -> bool
+  val compare : 'a t -> 'a t -> int
 end
 
 module type BASE_MAP = sig
@@ -679,8 +679,8 @@ module HashconsedNode(Key:HETEROGENEOUS_KEY)(Value:HETEROGENEOUS_HASHED_VALUE)()
     | x, NEmpty -> x
     | _ -> try_find (NBranch{prefix;branching_bit;tree0;tree1;id=(!count)})
 
-  let fast_equal x y = Int.equal (get_id x) (get_id y)
-  let fast_compare x y = Int.compare (get_id x) (get_id y)
+  let equal x y = Int.equal (get_id x) (get_id y)
+  let compare x y = Int.compare (get_id x) (get_id y)
 end
 
 module HashconsedSetNode(Key:HETEROGENEOUS_KEY)(): HASH_CONSED_NODE
@@ -755,8 +755,8 @@ module HashconsedSetNode(Key:HETEROGENEOUS_KEY)(): HASH_CONSED_NODE
     | x, NEmpty -> x
     | _ -> try_find (NBranch{prefix;branching_bit;tree0;tree1;id=(!count)})
 
-  let fast_equal x y = Int.equal (get_id x) (get_id y)
-  let fast_compare x y = Int.compare (get_id x) (get_id y)
+  let equal x y = Int.equal (get_id x) (get_id y)
+  let compare x y = Int.compare (get_id x) (get_id y)
 end
 
 (** {1 Keys and values} *)
@@ -1819,8 +1819,8 @@ module MakeHashconsedHeterogeneousMap(Key:HETEROGENEOUS_KEY)(Value:HETEROGENEOUS
   module Node = HashconsedNode(Key)(Value)()
   include MakeCustomHeterogeneousMap(Key)(Value)(Node)
 
-  let equal = Node.fast_equal
-  let compare = Node.fast_compare
+  let equal = Node.equal
+  let compare = Node.compare
   let get_id = Node.get_id
 end
 
@@ -1828,16 +1828,16 @@ module MakeHashconsedHeterogeneousSet(Key:HETEROGENEOUS_KEY)() = struct
   module Node = HashconsedSetNode(Key)()
   include MakeCustomHeterogeneousSet(Key)(Node)
 
-  let equal = Node.fast_equal
-  let compare = Node.fast_compare
+  let equal = Node.equal
+  let compare = Node.compare
   let get_id = Node.get_id
 end
 
 module MakeHashconsedSet(Key : KEY)() = struct
   module Node = HashconsedSetNode(HeterogeneousKeyFromKey(Key))()
   include MakeCustomSet(Key)(Node)
-  let equal = Node.fast_equal
-  let compare = Node.fast_compare
+  let equal = Node.equal
+  let compare = Node.compare
   let get_id = Node.get_id
 end
 
@@ -1846,7 +1846,7 @@ module MakeHashconsedMap(Key: KEY)(Value: HASHED_VALUE)() = struct
   module Node = HashconsedNode(HeterogeneousKeyFromKey(Key))(HetValue)()
   include MakeCustomMap(Key)(Value)(Node)
 
-  let equal = Node.fast_equal
-  let compare = Node.fast_compare
+  let equal = Node.equal
+  let compare = Node.compare
   let get_id = Node.get_id
 end
