@@ -427,6 +427,7 @@ module type BASE_MAP = sig
   (** [reflexive_same_domain_for_all2 f m1 m2] is true if and only if
       - [m1] and [m2] have the same domain (set of keys)
       - for all bindings [(k, v1)] in [m1] and [(k, v2)] in [m2], [f.f k v1 v2] holds
+
       {b Assumes} [f.f] is reflexive, i.e. [f.f k v v = true] to skip calls to equal subtrees.
       Calls [f.f] in ascending {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
       Exits early if the domains mismatch or if [f.f] returns false.
@@ -451,6 +452,7 @@ module type BASE_MAP = sig
   (** [reflexive_subset_domain_for_all2 f m1 m2] is true if and only if
       - [m1]'s domain is a subset of [m2]'s. (all keys defined in [m1] are also defined in [m2])
       - for all bindings [(k, v1)] in [m1] and [(k, v2)] in [m2], [f.f k v1 v2] holds
+
       {b Assumes} [f.f] is reflexive, i.e. [f.f k v v = true] to skip calls to equal subtrees.
       Calls [f.f] in ascending {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
       Exits early if the domains mismatch. *)
@@ -461,6 +463,7 @@ module type BASE_MAP = sig
   (** [idempotent_union f map1 map2] returns a map whose keys is the
       union of the keys of [map1] and [map2]. [f.f] is used to combine
       the values of keys mapped in both maps.
+
       {b Assumes} [f.f] idempotent (i.e. [f key value value == value])
       [f.f] is called in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
       [f.f] is never called on physically equal values.
@@ -475,6 +478,7 @@ module type BASE_MAP = sig
   (** [idempotent_inter f map1 map2] returns a map whose keys is the
       intersection of the keys of [map1] and [map2]. [f.f] is used to combine
       the values a key is mapped in both maps.
+
       {b Assumes} [f.f] idempotent (i.e. [f key value value == value])
       [f.f] is called in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
       [f.f] is never called on physically equal values.
