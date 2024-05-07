@@ -81,6 +81,12 @@ module type BASE_MAP = sig
   type ('acc,'map) polyfold = { f: 'a. 'a key -> ('a,'map) value -> 'acc -> 'acc } [@@unboxed]
   val fold : ('acc,'map) polyfold -> 'map t -> 'acc -> 'acc
 
+  type ('acc,'map) polyfold2 = { f: 'a. 'a key -> ('a,'map) value -> ('a,'map) value -> 'acc -> 'acc } [@@unboxed]
+  val fold_on_nonequal_inter : ('acc,'map) polyfold2 -> 'map t -> 'map t -> 'acc -> 'acc
+
+  type ('acc,'map) polyfold2_union = { f: 'a. 'a key -> ('a,'map) value option -> ('a,'map) value option -> 'acc -> 'acc } [@@unboxed]
+  val fold_on_nonequal_union : ('acc,'map) polyfold2_union -> 'map t -> 'map t -> 'acc -> 'acc
+
   type 'map polypredicate = { f: 'a. 'a key -> ('a,'map) value -> bool; } [@@unboxed]
   val filter : 'map polypredicate -> 'map t -> 'map t
   val for_all : 'map polypredicate -> 'map t -> bool
@@ -1172,6 +1178,112 @@ module MakeCustomHeterogeneous
       let acc = fold f tree0 acc in
       fold f tree1 acc
 
+
+  type ('acc,'map) polyfold2 = { f: 'a. 'a key -> ('a,'map) value -> ('a,'map) value -> 'acc -> 'acc } [@@unboxed]  
+  let rec fold_on_nonequal_inter f ta tb acc =
+    if ta == tb then acc
+    else match NODE.view ta,NODE.view tb with
+      | Empty, _ | _, Empty -> acc
+      | Leaf{key;value},_ ->
+        (try let valueb = find key tb in
+           if valueb == value then acc else
+             f.f key value valueb acc
+         with Not_found -> acc)
+      | _,Leaf{key;value} ->
+        (try let valuea = find key ta in
+           if valuea == value then acc else
+             f.f key valuea value acc
+         with Not_found -> acc)
+      | Branch{prefix=pa;branching_bit=ma;tree0=ta0;tree1=ta1},
+        Branch{prefix=pb;branching_bit=mb;tree0=tb0;tree1=tb1} ->
+        if ma == mb && pa == pb
+        (* Same prefix: fold on each subtrees *)
+        then
+          let acc = fold_on_nonequal_inter f ta0 tb0 acc in
+          let acc = fold_on_nonequal_inter f ta1 tb1 acc in
+          acc
+        else if ma > mb && match_prefix pb pa ma
+        then if ma land pb == 0
+          then fold_on_nonequal_inter f ta0 tb acc
+          else fold_on_nonequal_inter f ta1 tb acc
+        else if ma < mb && match_prefix pa pb mb
+        then if mb land pa == 0
+          then fold_on_nonequal_inter f ta tb0 acc
+          else fold_on_nonequal_inter f ta tb1 acc
+        else acc
+
+
+  type ('acc,'map) polyfold2_union = { f: 'a. 'a key -> ('a,'map) value option -> ('a,'map) value option -> 'acc -> 'acc } [@@unboxed]    
+  let rec fold_on_nonequal_union: 'm 'acc. ('acc,'m) polyfold2_union -> 'm t -> 'm t -> 'acc -> 'acc = 
+    fun (type m) (type acc) (f:(acc,m) polyfold2_union) (ta:m t) (tb:m t) (acc:acc) ->
+    if ta == tb then acc
+    else
+      let fleft:(_,_) polyfold = {f=fun key value acc -> f.f key (Some value) None acc} in
+      let fright:(_,_)polyfold = {f=fun key value acc -> f.f key None (Some value) acc} in
+      match NODE.view ta,NODE.view tb with
+      | Empty, _ -> fold fright tb acc
+      | _, Empty -> fold fleft ta acc
+      | Leaf{key;value},_ ->
+        let g (type a) (type b) (keya: a key) (keyb:b key) (valuea:(a,m) value) (valueb:(b,m) value) acc =
+          match Key.polyeq keya keyb with
+          | Eq ->
+            if valuea == valueb then acc
+            else  f.f keya (Some valuea) (Some valueb) acc
+          | Diff -> f.f keyb None (Some valueb) acc
+        in
+        fold{f=fun keyb valueb acc -> g key keyb value valueb acc} tb acc
+      | _,Leaf{key;value} ->
+        let g (type a) (type b) (keya: a key) (keyb:b key) (valuea:(a,m) value) (valueb:(b,m) value) acc =
+          match Key.polyeq keya keyb with
+          | Eq ->
+            if valuea == valueb then acc
+            else  f.f keya (Some valuea) (Some valueb) acc
+          | Diff -> f.f keya (Some valuea) None acc
+        in
+        fold{f=fun keya valuea acc -> g keya key valuea value acc} ta acc
+      | Branch{prefix=pa;branching_bit=ma;tree0=ta0;tree1=ta1},
+        Branch{prefix=pb;branching_bit=mb;tree0=tb0;tree1=tb1} ->
+        if ma == mb && pa == pb
+        (* Same prefix: merge the subtrees *)
+        then
+          let acc = fold_on_nonequal_union f ta0 tb0 acc in
+          let acc = fold_on_nonequal_union f ta1 tb1 acc in
+          acc
+        else if ma > mb && match_prefix pb pa ma
+        then if ma land pb == 0
+          then
+            let acc = fold_on_nonequal_union f ta0 tb acc in
+            let acc = fold fleft ta1 acc in
+            acc
+          else
+            let acc = fold fleft ta0 acc in
+            let acc = fold_on_nonequal_union f ta1 tb acc in
+            acc
+        else if ma < mb && match_prefix pa pb mb
+        then if mb land pa == 0
+          then
+            let acc = fold_on_nonequal_union f ta tb0 acc in
+            let acc = fold fright tb1 acc in
+            acc
+          else
+            let acc = fold fright tb0 acc in
+            let acc = fold_on_nonequal_union f ta tb1 acc in
+            acc
+        else
+          (* The keys are completely disjoing, but in which order
+             should I do them? *)
+        if ma > mb || ma == mb && pa <= pb then
+          let acc = fold fleft ta acc in
+          let acc = fold fright tb acc in
+          acc
+        else
+          let acc = fold fright tb acc in
+          let acc = fold fleft ta acc in
+          acc
+  ;;
+
+
+  
   type 'map polypredicate = { f: 'a. 'a key -> ('a,'map) value -> bool; } [@@unboxed]
   let filter f m = filter_map {f = fun k v -> if f.f k v then Some v else None } m
   let rec for_all f m = match NODE.view m with
