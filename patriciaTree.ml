@@ -1270,6 +1270,7 @@ module MakeCustomHeterogeneous
             let acc = fold_on_nonequal_union f ta tb1 acc in
             acc
         else
+        (* Distinct subtrees: process them in increasing order of keys. *)
         if unsigned_lt pa pb then
           let acc = fold fleft ta acc in
           let acc = fold fright tb acc in
