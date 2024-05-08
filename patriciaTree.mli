@@ -917,6 +917,19 @@ module type MAP = sig
   val fold : (key -> 'a -> 'acc -> 'acc) ->  'a t -> 'acc -> 'acc
   (** Fold on each (key,value) pair of the map, in increasing {{!unsigned_lt}unsigned order} of keys. *)
 
+  val fold_on_nonequal_inter : (key -> 'a -> 'a -> 'acc -> 'acc) ->
+    'a t -> 'a t -> 'acc -> 'acc
+  (** Fold on each (key,value) pair in the intersection of the two
+      maps whose values are not physically equal, in increasing
+      {{!unsigned_lt}unsigned order} of keys. *)
+
+  val fold_on_nonequal_union: (key -> 'a option -> 'a option -> 'acc -> 'acc) ->
+    'a t -> 'a t -> 'acc -> 'acc
+  (** Fold on each (key,value) pair in the union of the two maps whose
+      values are not physically equal (where None means that the value
+      was absent), in increasing {{!unsigned_lt}unsigned order} of
+      keys. *)
+
   val filter : (key -> 'a -> bool) -> 'a t -> 'a t
   (** Returns the submap containing only the key->value pairs satisfying the
       given predicate. [f] is called in increasing {{!unsigned_lt}unsigned order} of keys. *)

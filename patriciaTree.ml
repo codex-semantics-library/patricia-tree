@@ -305,6 +305,11 @@ module type MAP = sig
   val split : key -> 'a t -> 'a t * 'a option * 'a t
   val iter : (key -> 'a -> unit) -> 'a t -> unit
   val fold : (key -> 'a -> 'acc -> 'acc) ->  'a t -> 'acc -> 'acc
+  val fold_on_nonequal_inter : (key -> 'a -> 'a -> 'acc -> 'acc) ->
+    'a t -> 'a t -> 'acc -> 'acc
+  val fold_on_nonequal_union :
+    (key -> 'a option -> 'a option -> 'acc -> 'acc) ->
+    'a t -> 'a t -> 'acc -> 'acc
   val filter : (key -> 'a -> bool) -> 'a t -> 'a t
   val for_all : (key -> 'a -> bool) -> 'a t -> bool
   val map : ('a -> 'a) -> 'a t -> 'a t
@@ -1631,6 +1636,16 @@ module MakeCustom
   let slow_merge (f : key -> 'a option -> 'b option -> 'c option) a b = BaseMap.slow_merge {f=fun k v1 v2 -> snd_opt (f k (opt_snd v1) (opt_snd v2))} a b
   let iter (f: key -> 'a -> unit) a = BaseMap.iter {f=fun k (Snd v) -> f k v} a
   let fold (f: key -> 'a -> 'acc) m acc = BaseMap.fold {f=fun k (Snd v) acc -> f k v acc} m acc
+  let fold_on_nonequal_inter (f: key -> 'a -> 'b -> 'acc) ma mb acc =
+    let f k (Snd va) (Snd vb) acc = f k va vb acc in
+    BaseMap.fold_on_nonequal_inter {f} ma mb acc
+  let fold_on_nonequal_union
+      (f: key -> 'a option -> 'b option -> 'acc) ma mb acc =
+    let f k va vb acc =
+      let va = Option.map (fun (Snd v) -> v) va in
+      let vb = Option.map (fun (Snd v) -> v) vb in
+      f k va vb acc in
+    BaseMap.fold_on_nonequal_union {f} ma mb acc
 
   let pretty ?pp_sep (f: Format.formatter -> key -> 'a -> unit) fmt m =
     BaseMap.pretty ?pp_sep {f=fun fmt k (Snd v) -> f fmt k v} fmt m
