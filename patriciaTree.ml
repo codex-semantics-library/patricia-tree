@@ -1213,18 +1213,25 @@ module MakeCustomHeterogeneous
         else acc
 
 
-  type ('acc,'map) polyfold2_union = { f: 'a. 'a key -> ('a,'map) value option -> ('a,'map) value option -> 'acc -> 'acc } [@@unboxed]    
-  let rec fold_on_nonequal_union: 'm 'acc. ('acc,'m) polyfold2_union -> 'm t -> 'm t -> 'acc -> 'acc = 
-    fun (type m) (type acc) (f:(acc,m) polyfold2_union) (ta:m t) (tb:m t) (acc:acc) ->
+  type ('acc,'map) polyfold2_union =
+    { f: 'a. 'a key -> ('a,'map) value option -> ('a,'map) value option ->
+        'acc -> 'acc } [@@unboxed]
+  let rec fold_on_nonequal_union:
+    'm 'acc. ('acc,'m) polyfold2_union -> 'm t -> 'm t -> 'acc -> 'acc =
+    fun (type m) f (ta:m t) (tb:m t) acc ->
     if ta == tb then acc
     else
-      let fleft:(_,_) polyfold = {f=fun key value acc -> f.f key (Some value) None acc} in
-      let fright:(_,_)polyfold = {f=fun key value acc -> f.f key None (Some value) acc} in
+      let fleft:(_,_) polyfold =
+        {f=fun key value acc -> f.f key (Some value) None acc} in
+      let fright:(_,_)polyfold =
+        {f=fun key value acc -> f.f key None (Some value) acc} in
       match NODE.view ta,NODE.view tb with
       | Empty, _ -> fold fright tb acc
       | _, Empty -> fold fleft ta acc
       | Leaf{key;value},_ ->
-        let g (type a) (type b) (keya: a key) (keyb:b key) (valuea:(a,m) value) (valueb:(b,m) value) acc =
+        (* We need to pass keya and valuea to the function to specify their types. *)
+        let g (type a) (type b) (keya: a key) (keyb:b key)
+            (valuea:(a,m) value) (valueb:(b,m) value) acc =
           match Key.polyeq keya keyb with
           | Eq ->
             if valuea == valueb then acc
@@ -1233,7 +1240,8 @@ module MakeCustomHeterogeneous
         in
         fold{f=fun keyb valueb acc -> g key keyb value valueb acc} tb acc
       | _,Leaf{key;value} ->
-        let g (type a) (type b) (keya: a key) (keyb:b key) (valuea:(a,m) value) (valueb:(b,m) value) acc =
+        let g (type a) (type b) (keya: a key) (keyb:b key)
+            (valuea:(a,m) value) (valueb:(b,m) value) acc =
           match Key.polyeq keya keyb with
           | Eq ->
             if valuea == valueb then acc
