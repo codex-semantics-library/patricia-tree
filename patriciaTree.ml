@@ -1202,7 +1202,7 @@ module MakeCustomHeterogeneous
           let acc = fold_on_nonequal_inter f ta0 tb0 acc in
           let acc = fold_on_nonequal_inter f ta1 tb1 acc in
           acc
-        else if ma > mb && match_prefix pb pa ma
+        else if unsigned_lt mb ma && match_prefix pb pa ma
         then if ma land pb == 0
           then fold_on_nonequal_inter f ta0 tb acc
           else fold_on_nonequal_inter f ta1 tb acc
