@@ -1270,9 +1270,7 @@ module MakeCustomHeterogeneous
             let acc = fold_on_nonequal_union f ta tb1 acc in
             acc
         else
-          (* The keys are completely disjoing, but in which order
-             should I do them? *)
-        if ma > mb || ma == mb && pa <= pb then
+        if unsigned_lt pa pb then
           let acc = fold fleft ta acc in
           let acc = fold fright tb acc in
           acc
