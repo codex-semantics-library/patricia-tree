@@ -1249,7 +1249,7 @@ module MakeCustomHeterogeneous
           let acc = fold_on_nonequal_union f ta0 tb0 acc in
           let acc = fold_on_nonequal_union f ta1 tb1 acc in
           acc
-        else if ma > mb && match_prefix pb pa ma
+        else if unsigned_lt mb ma && match_prefix pb pa ma
         then if ma land pb == 0
           then
             let acc = fold_on_nonequal_union f ta0 tb acc in
@@ -1259,7 +1259,7 @@ module MakeCustomHeterogeneous
             let acc = fold fleft ta0 acc in
             let acc = fold_on_nonequal_union f ta1 tb acc in
             acc
-        else if ma < mb && match_prefix pa pb mb
+        else if unsigned_lt ma mb && match_prefix pa pb mb
         then if mb land pa == 0
           then
             let acc = fold_on_nonequal_union f ta tb0 acc in
