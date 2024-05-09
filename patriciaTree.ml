@@ -1234,26 +1234,52 @@ module MakeCustomHeterogeneous
       | Empty, _ -> fold fright tb acc
       | _, Empty -> fold fleft ta acc
       | Leaf{key;value},_ ->
+        let ida = Key.to_int key in
+        (* Fold on the rest, knowing that ida may or may not be in b. So we fold and use
+           did_a to remember if we already did the call to a. *)
         (* We need to pass keya and valuea to the function to specify their types. *)
         let g (type a) (type b) (keya: a key) (keyb:b key)
-            (valuea:(a,m) value) (valueb:(b,m) value) acc =
-          match Key.polyeq keya keyb with
-          | Eq ->
-            if valuea == valueb then acc
-            else  f.f keya (Some valuea) (Some valueb) acc
-          | Diff -> f.f keyb None (Some valueb) acc
+            (valuea:(a,m) value) (valueb:(b,m) value) (acc,did_a) =
+          let default() = (f.f keyb None (Some valueb) acc,did_a) in
+          if did_a then default()
+          else
+            let idb = Key.to_int keyb in
+            if unsigned_lt idb ida then default()
+            else if unsigned_lt ida idb then
+              let acc = f.f keya (Some valuea) None acc in
+              let acc = f.f keyb None (Some valueb) acc in
+              (acc,true)
+            else match Key.polyeq keya keyb with
+              | Eq ->
+                if valuea == valueb then (acc,true)
+                else (f.f keya (Some valuea) (Some valueb) acc,true)
+              | Diff -> assert false (* Same id should be equal. *)
         in
-        fold{f=fun keyb valueb acc -> g key keyb value valueb acc} tb acc
+        let (acc,found) = fold{f=fun keyb valueb acc -> g key keyb value valueb acc} tb (acc,false) in
+        if found then acc
+        else f.f key (Some value) None acc
       | _,Leaf{key;value} ->
+        let idb = Key.to_int key in
         let g (type a) (type b) (keya: a key) (keyb:b key)
-            (valuea:(a,m) value) (valueb:(b,m) value) acc =
-          match Key.polyeq keya keyb with
-          | Eq ->
-            if valuea == valueb then acc
-            else  f.f keya (Some valuea) (Some valueb) acc
-          | Diff -> f.f keya (Some valuea) None acc
+            (valuea:(a,m) value) (valueb:(b,m) value) (acc,did_b) =
+          let default() = (f.f keya (Some valuea) None acc,did_b) in
+          if did_b then default()
+          else
+            let ida = Key.to_int keya in
+            if unsigned_lt ida idb then default()
+            else if unsigned_lt idb ida then
+              let acc = f.f keyb None (Some valueb) acc in
+              let acc = f.f keya (Some valuea) None acc in
+              (acc,true)
+            else match Key.polyeq keya keyb with
+              | Eq ->
+                if valuea == valueb then (acc,true)
+                else (f.f keya (Some valuea) (Some valueb) acc,true)
+              | Diff -> assert false
         in
-        fold{f=fun keya valuea acc -> g keya key valuea value acc} ta acc
+        let (acc,found) = fold{f=fun keya valuea acc -> g keya key valuea value acc} ta (acc,false) in
+        if found then acc
+        else f.f key None (Some value) acc
       | Branch{prefix=pa;branching_bit=ma;tree0=ta0;tree1=ta1},
         Branch{prefix=pb;branching_bit=mb;tree0=tb0;tree1=tb1} ->
         if ma == mb && pa == pb
