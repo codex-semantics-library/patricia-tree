@@ -1251,7 +1251,8 @@ module MakeCustomHeterogeneous
               | Eq ->
                 if value == valueb then (acc,true)
                 else (f.f key (Some value) (Some valueb) acc,true)
-              | Diff -> assert false (* Same id should be equal. *)
+              | Diff ->
+                raise (Invalid_argument "Keys with same to_int value are not equal by polyeq")
         in
         let (acc,found) = fold{f=fun keyb valueb acc -> g keyb valueb acc} tb (acc,false) in
         if found then acc
@@ -1272,7 +1273,8 @@ module MakeCustomHeterogeneous
               | Eq ->
                 if valuea == value then (acc,true)
                 else (f.f keya (Some valuea) (Some value) acc,true)
-              | Diff -> assert false
+              | Diff ->
+                raise (Invalid_argument "Keys with same to_int value are not equal by polyeq")
         in
         let (acc,found) = fold{f=fun keya valuea acc -> g keya valuea acc} ta (acc,false) in
         if found then acc
