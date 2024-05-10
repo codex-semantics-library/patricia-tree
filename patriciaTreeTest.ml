@@ -241,6 +241,27 @@ let%test_module _ = (module struct
           | None, _ | _, None -> None
           | Some a, Some b -> (f key a b)) m1 m2
 
+    let fold_on_nonequal_inter f m1 m2 acc =
+      let racc = ref acc in
+      ignore @@ M.merge (fun key a b ->
+          match a,b with
+          | None, _ | _, None -> None
+          | Some a, Some b ->
+            if a != b
+            then racc := f key a b !racc;
+            None) m1 m2;
+      !racc
+
+    let fold_on_nonequal_union f ma mb acc =
+      let union = M.merge (fun _key a b ->
+          match a,b with
+          | None, None -> assert false
+          | Some a, Some b when a == b -> None
+          | None, Some _ | Some _, None | Some _, Some _ -> Some(a,b)) ma mb in
+      let elts = M.bindings union in
+      let elts = List.sort (fun (key1,_val1) (key2,_val2) -> unsigned_compare key1 key2) elts in
+      List.fold_left (fun acc (key,(val1,val2)) -> f key val1 val2 acc) acc elts
+
     let pop_unsigned_minimum m =
       match M.min_binding m with
       | exception Not_found -> None
@@ -528,6 +549,38 @@ let%test_module _ = (module struct
       (* Printf.printf "res is %b\n%!" @@ IntMap.equal (=) modelres myres; *)
       modelres == myres)
   let () = QCheck.Test.check_exn test_disjoint
+
+  let test_fold_on_nonequal_inter = QCheck.Test.make ~count:1000 ~name:"fold_on_nonequal_inter"
+  gen (fun x ->
+      let (m1,model1,m2,model2) = model_from_gen x in
+      let orig_f key v1 v2 acc = sdbm key @@ sdbm v1 @@ sdbm v2 acc in
+      let chk_calls = check_increases () in
+      let f key v1 v2 acc =
+        chk_calls key;
+        orig_f key v1 v2 acc
+      in
+      let myres = MyMap.fold_on_nonequal_inter f m1 m2 117 in
+      let modelres = IntMap.fold_on_nonequal_inter orig_f model1 model2 117 in
+      modelres == myres)
+  let () = QCheck.Test.check_exn test_fold_on_nonequal_inter
+
+  let test_fold_on_nonequal_union = QCheck.Test.make ~count:1000 ~name:"fold_on_nonequal_union"
+  gen (fun x ->
+      let (m1,model1,m2,model2) = model_from_gen x in
+      let orig_f key v1 v2 acc =
+        (* Printf.printf "Calling f key=%d v1=%s v2=%s acc=%d\n%!" *)
+        (*   key (match v1 with None -> "None" | Some v -> string_of_int v) *)
+        (*   (match v2 with None -> "None" | Some v -> string_of_int v) acc; *)
+        (* chk_calls key; *)
+        let v1 = match v1 with None -> 421 | Some v -> v in
+        let v2 = match v2 with None -> 567 | Some v -> v in
+        sdbm key @@ sdbm v1 @@ sdbm v2 acc in
+      let chk_calls = check_increases () in
+      let f key v1 v2 acc = chk_calls key; orig_f key v1 v2 acc in
+      let myres = MyMap.fold_on_nonequal_union f m1 m2 117 in
+      let modelres = IntMap.fold_on_nonequal_union orig_f model1 model2 117 in
+      modelres == myres)
+  let () = QCheck.Test.check_exn test_fold_on_nonequal_union
 
   let%test "negative_keys" =
     let map = MyMap.add 0 0 MyMap.empty in

@@ -291,6 +291,24 @@ module type BASE_MAP = sig
       where [(key_1, value_1) ... (key_n, value_n)] are the bindings of [m], in
       the {{!unsigned_lt}unsigned order} on [Key.to_int]. *)
 
+  type ('acc,'map) polyfold2 = { f: 'a. 'a key -> ('a,'map) value -> ('a,'map) value -> 'acc -> 'acc } [@@unboxed]
+  val fold_on_nonequal_inter : ('acc,'map) polyfold2 -> 'map t -> 'map t -> 'acc -> 'acc
+  (** [fold_on_nonequal_inter f m1 m2 acc] returns
+      [f.f key_n value1_n value2n (... (f.f key_1 value1_1 value2_1 acc))] where
+      [(key_1, value1_1, value2_1) ... (key_n, value1_n, value2_n)] are the
+      bindings that exist in both maps ([m1 ∩ m2]) whose values are physically different.
+      Calls to [f.f] are performed in the {{!unsigned_lt}unsigned order} of [Key.to_int]. *)
+
+
+  type ('acc,'map) polyfold2_union = { f: 'a. 'a key -> ('a,'map) value option -> ('a,'map) value option -> 'acc -> 'acc } [@@unboxed]
+  val fold_on_nonequal_union : ('acc,'map) polyfold2_union -> 'map t -> 'map t -> 'acc -> 'acc
+  (** [fold_on_nonequal_union f m1 m2 acc] returns
+      [f.f key_n value1_n value2n (... (f.f key_1 value1_1 value2_1 acc))] where
+      [(key_1, value1_1, value2_1) ... (key_n, value1_n, value2_n)] are the
+      bindings that exists in either map ([m1 ∪ m2]) whose values are physically
+      different.
+      Calls to [f.f] are performed in the {{!unsigned_lt}unsigned order} of [Key.to_int]. *)
+
   type 'map polypredicate = { f: 'a. 'a key -> ('a,'map) value -> bool; } [@@unboxed]
   val filter : 'map polypredicate -> 'map t -> 'map t
   (** [filter f m] returns the submap of [m] containing the bindings [k->v]
@@ -899,6 +917,23 @@ module type MAP = sig
   val fold : (key -> 'a -> 'acc -> 'acc) ->  'a t -> 'acc -> 'acc
   (** Fold on each (key,value) pair of the map, in increasing {{!unsigned_lt}unsigned order} of keys. *)
 
+  val fold_on_nonequal_inter : (key -> 'a -> 'a -> 'acc -> 'acc) ->
+    'a t -> 'a t -> 'acc -> 'acc
+  (** [fold_on_nonequal_inter f m1 m2 acc] returns
+      [f key_n value1_n value2n (... (f key_1 value1_1 value2_1 acc))] where
+      [(key_1, value1_1, value2_1) ... (key_n, value1_n, value2_n)] are the
+      bindings that exist in both maps ([m1 ∩ m2]) whose values are physically different.
+      Calls to [f] are performed in the {{!unsigned_lt}unsigned order} of [Key.to_int]. *)
+
+  val fold_on_nonequal_union: (key -> 'a option -> 'a option -> 'acc -> 'acc) ->
+    'a t -> 'a t -> 'acc -> 'acc
+  (** [fold_on_nonequal_union f m1 m2 acc] returns
+      [f key_n value1_n value2n (... (f key_1 value1_1 value2_1 acc))] where
+      [(key_1, value1_1, value2_1) ... (key_n, value1_n, value2_n)] are the
+      bindings that exists in either map ([m1 ∪ m2]) whose values are physically
+      different.
+      Calls to [f.f] are performed in the {{!unsigned_lt}unsigned order} of [Key.to_int]. *)
+
   val filter : (key -> 'a -> bool) -> 'a t -> 'a t
   (** Returns the submap containing only the key->value pairs satisfying the
       given predicate. [f] is called in increasing {{!unsigned_lt}unsigned order} of keys. *)
@@ -1114,7 +1149,6 @@ module type MAP = sig
   (** [to_list m] returns the bindings of [m] as a list,
       in increasing {{!unsigned_lt}unsigned order} of [Key.to_int] *)
 end
-
 
 (** {1 Keys} *)
 (** Keys are the functor arguments used to build the maps. *)
