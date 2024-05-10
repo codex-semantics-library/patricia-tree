@@ -1150,8 +1150,6 @@ module type MAP = sig
       in increasing {{!unsigned_lt}unsigned order} of [Key.to_int] *)
 end
 
-exception Not_found
-
 (** {1 Keys} *)
 (** Keys are the functor arguments used to build the maps. *)
 
