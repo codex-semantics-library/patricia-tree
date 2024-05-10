@@ -1184,7 +1184,7 @@ module MakeCustomHeterogeneous
       fold f tree1 acc
 
 
-  type ('acc,'map) polyfold2 = { f: 'a. 'a key -> ('a,'map) value -> ('a,'map) value -> 'acc -> 'acc } [@@unboxed]  
+  type ('acc,'map) polyfold2 = { f: 'a. 'a key -> ('a,'map) value -> ('a,'map) value -> 'acc -> 'acc } [@@unboxed]
   let rec fold_on_nonequal_inter f ta tb acc =
     if ta == tb then acc
     else match NODE.view ta,NODE.view tb with
@@ -1211,7 +1211,7 @@ module MakeCustomHeterogeneous
         then if ma land pb == 0
           then fold_on_nonequal_inter f ta0 tb acc
           else fold_on_nonequal_inter f ta1 tb acc
-        else if ma < mb && match_prefix pa pb mb
+        else if unsigned_lt ma mb && match_prefix pa pb mb
         then if mb land pa == 0
           then fold_on_nonequal_inter f ta tb0 acc
           else fold_on_nonequal_inter f ta tb1 acc
@@ -1321,7 +1321,7 @@ module MakeCustomHeterogeneous
   ;;
 
 
-  
+
   type 'map polypredicate = { f: 'a. 'a key -> ('a,'map) value -> bool; } [@@unboxed]
   let filter f m = filter_map {f = fun k v -> if f.f k v then Some v else None } m
   let rec for_all f m = match NODE.view m with
