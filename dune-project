@@ -1,4 +1,4 @@
-(lang dune 2.7)
+(lang dune 3.8)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;  This file is part of the Codex semantics library                      ;;
@@ -24,6 +24,8 @@
 (name patricia-tree)
 
 (version 0.10.0)
+
+(using mdx 0.4)
 
 (maintainers "Dorian Lesbre <dorian.lesbre@cea.fr>")
 
