@@ -15,9 +15,10 @@ bug-reports:
   "https://github.com/codex-semantics-library/patricia-tree/issues"
 depends: [
   "ocaml" {>= "4.14"}
-  "dune" {>= "3.8"}
+  "dune" {>= "3.0"}
   "qcheck-core" {>= "0.21.2" & with-test}
   "ppx_inline_test" {>= "v0.16.0" & with-test}
+  "mdx" {>= "2.4.1" & with-test}
   "odoc" {>= "2.4.0" & with-doc}
   "sherlodoc" {with-doc}
 ]

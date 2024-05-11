@@ -1,4 +1,4 @@
-(lang dune 3.8)
+(lang dune 3.0)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;  This file is part of the Codex semantics library                      ;;
@@ -25,7 +25,7 @@
 
 (version 0.10.0)
 
-(using mdx 0.4)
+(using mdx 0.2)
 
 (maintainers "Dorian Lesbre <dorian.lesbre@cea.fr>")
 
@@ -62,6 +62,10 @@
   (ppx_inline_test
    (and
     (>= "v0.16.0")
+    :with-test))
+  (mdx
+   (and
+    (>="2.4.1")
     :with-test))
   (odoc
    (and
