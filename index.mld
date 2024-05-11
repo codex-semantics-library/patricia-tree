@@ -104,7 +104,8 @@ The functors used to build maps and sets are the following:
 {li For Heterogeneous (generic) maps and sets: {{!PatriciaTree.MakeHeterogeneousMap}[MakeHeterogeneousMap]}
     and {{!PatriciaTree.MakeHeterogeneousSet}[MakeHeterogeneousSet]}.
     {[
-      module MakeHeterogeneousMap(Key: HETEROGENEOUS_KEY)(Value: HETEROGENEOUS_VALUE) : HETEROGENEOUS_MAP
+      module MakeHeterogeneousMap(Key: HETEROGENEOUS_KEY)(Value: HETEROGENEOUS_VALUE) :
+        HETEROGENEOUS_MAP
         with type 'a key = 'a Key.t
          and type ('k,'m) value = ('k,'m) Value.t
       module MakeHeterogeneousSet(Key: HETEROGENEOUS_KEY) : HETEROGENEOUS_SET
@@ -117,7 +118,7 @@ The functors used to build maps and sets are the following:
   These uniquely number their nodes, and ensures {b nodes with the same contents are
   always physically equal}. With this unique numbering:
   - [equal] and [compare] become constant time operations;
-  - two maps with the same bindings (where keys compared by {{!PatriciaTree.KEY.to_int}[KEY.to_int]} and
+  - two maps with the same bindings (where keys are compared by {{!PatriciaTree.KEY.to_int}[KEY.to_int]} and
     values by {{!PatriciaTree.HASHED_VALUE.polyeq}[HASHED_VALUE.polyeq]}) will always be physically equal;
   - functions that benefit from sharing will see improved performance;
   - constructors are slightly slower, as they now require a hash-table lookup;

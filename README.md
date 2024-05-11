@@ -114,7 +114,8 @@ module MakeSet(Key: KEY) : SET with type elt = Key.t
 
 module MakeHeterogeneousSet(Key: HETEROGENEOUS_KEY) : HETEROGENEOUS_SET
   with type 'a elt = 'a Key.t
-module MakeHeterogeneousMap(Key: HETEROGENEOUS_KEY)(Value: HETEROGENEOUS_VALUE) : HETEROGENEOUS_MAP
+module MakeHeterogeneousMap(Key: HETEROGENEOUS_KEY)(Value: HETEROGENEOUS_VALUE) :
+  HETEROGENEOUS_MAP
   with type 'a key = 'a Key.t
    and type ('k,'m) value = ('k,'m) Value.t
 ```
@@ -125,8 +126,8 @@ of these four functors: `MakeHashconsedMap`, `MakeHashconsedSet`,
 These uniquely number their nodes, and ensure nodes with the same contents are
 always physically equal. With this unique numbering:
 - `equal` and `compare` become constant time operations;
-- two maps with the same bindings (where keys compared by `KEY.to_int` and
-  values by `HASHED_VALUE.polyeq` will always be physically equal;
+- two maps with the same bindings (where keys are compared by `KEY.to_int` and
+  values by `HASHED_VALUE.polyeq`) will always be physically equal;
 - functions that benefit from sharing will see improved performance;
 - constructors are slightly slower, as they now require a hash-table lookup;
 - memory usage is increased: nodes store their tags inside themselves, and
