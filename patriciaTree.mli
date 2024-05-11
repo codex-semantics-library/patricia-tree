@@ -264,7 +264,7 @@ module type HASH_CONSED_NODE = sig
   (** Constant time equality using the {{!hash_consed}hash-consed} nodes identifiers.
       This is equivalent to physical equality.
       Two nodes are equal if their trees contain the same bindings,
-      where keys are compare by {!KEY.to_int} and values are compared by
+      where keys are compared by {!KEY.to_int} and values are compared by
       {!HASHED_VALUE.polyeq}. *)
 
   val compare : 'a t -> 'a t -> int
@@ -1653,7 +1653,7 @@ module MakeCustomHeterogeneousSet
     if so they return it, else they return a new node with a new number.
     With this unique numbering:
     - [equal] and [compare] become constant time operations;
-    - two maps with the same bindings (where keys compared by {!KEY.to_int} and
+    - two maps with the same bindings (where keys are compared by {!KEY.to_int} and
       values by {!HASHED_VALUE.polyeq}) will always be physically equal;
     - functions that benefit from sharing, like {!BASE_MAP.idempotent_union} and
       {!BASE_MAP.idempotent_inter} will see improved performance;
@@ -1694,7 +1694,7 @@ module MakeHashconsedMap(Key: KEY)(Value: HASHED_VALUE)() : sig
   (** Constant time equality using the {{!hash_consed}hash-consed} nodes identifiers.
       This is equivalent to physical equality.
       Two nodes are equal if their trees contain the same bindings,
-      where keys are compare by {!KEY.to_int} and values are compared by
+      where keys are compared by {!KEY.to_int} and values are compared by
       {!HASHED_VALUE.polyeq}. *)
 
   val compare : 'a t -> 'a t -> int
@@ -1729,7 +1729,7 @@ module MakeHashconsedSet(Key: KEY)() : sig
   (** Constant time equality using the {{!hash_consed}hash-consed} nodes identifiers.
       This is equivalent to physical equality.
       Two nodes are equal if their trees contain the same bindings,
-      where keys are compare by {!KEY.to_int} and values are compared by
+      where keys are compared by {!KEY.to_int} and values are compared by
       {!HASHED_VALUE.polyeq}. *)
 
   val compare : t -> t -> int
@@ -1764,7 +1764,7 @@ module MakeHashconsedHeterogeneousSet(Key: HETEROGENEOUS_KEY)() : sig
   (** Constant time equality using the {{!hash_consed}hash-consed} nodes identifiers.
       This is equivalent to physical equality.
       Two nodes are equal if their trees contain the same bindings,
-      where keys are compare by {!KEY.to_int} and values are compared by
+      where keys are compared by {!KEY.to_int} and values are compared by
       {!HASHED_VALUE.polyeq}. *)
 
   val compare : t -> t -> int
@@ -1801,7 +1801,7 @@ module MakeHashconsedHeterogeneousMap(Key: HETEROGENEOUS_KEY)(Value: HETEROGENEO
   (** Constant time equality using the {{!hash_consed}hash-consed} nodes identifiers.
       This is equivalent to physical equality.
       Two nodes are equal if their trees contain the same bindings,
-      where keys are compare by {!KEY.to_int} and values are compared by
+      where keys are compared by {!KEY.to_int} and values are compared by
       {!HASHED_VALUE.polyeq}. *)
 
   val compare : 'a t -> 'a t -> int

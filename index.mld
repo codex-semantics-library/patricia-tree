@@ -115,8 +115,7 @@ The functors used to build maps and sets are the following:
   There are also {{: https://en.wikipedia.org/wiki/Hash_consing}hash-consed} versions
   of these four functors: {{!PatriciaTree.MakeHashconsedMap}[MakeHashconsedMap]}, {{!PatriciaTree.MakeHashconsedSet}[MakeHashconsedSet]},
   {{!PatriciaTree.MakeHashconsedHeterogeneousMap}[MakeHashconsedHeterogeneousMap]} and {{!PatriciaTree.MakeHashconsedHeterogeneousSet}[MakeHashconsedHeterogeneousSet]}.
-  These uniquely number their nodes, and ensures {b nodes with the same contents are
-  always physically equal}. With this unique numbering:
+  These uniquely number their nodes, which means:
   - [equal] and [compare] become constant time operations;
   - two maps with the same bindings (where keys are compared by {{!PatriciaTree.KEY.to_int}[KEY.to_int]} and
     values by {{!PatriciaTree.HASHED_VALUE.polyeq}[HASHED_VALUE.polyeq]}) will always be physically equal;

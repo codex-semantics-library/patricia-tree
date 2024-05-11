@@ -123,8 +123,7 @@ module MakeHeterogeneousMap(Key: HETEROGENEOUS_KEY)(Value: HETEROGENEOUS_VALUE) 
 There are also [hash-consed](https://en.wikipedia.org/wiki/Hash_consing) versions
 of these four functors: `MakeHashconsedMap`, `MakeHashconsedSet`,
 `MakeHashconsedHeterogeneousMap` and `MakeHashconsedHeterogeneousSet`.
-These uniquely number their nodes, and ensure nodes with the same contents are
-always physically equal. With this unique numbering:
+These uniquely number their nodes, which means:
 - `equal` and `compare` become constant time operations;
 - two maps with the same bindings (where keys are compared by `KEY.to_int` and
   values by `HASHED_VALUE.polyeq`) will always be physically equal;
