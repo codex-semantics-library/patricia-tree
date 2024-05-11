@@ -1250,7 +1250,7 @@ end
 (** The signature for maps with a single type for keys and values,
     a ['a map] binds [key] to ['a].
     Most of this interface should be shared with {{: https://ocaml.org/api/Map.S.html}[Stdlib.Map.S]}. *)
-module type MAP = MAP_WITH_VALUE with type 'a value := 'a
+module type MAP = MAP_WITH_VALUE with type 'a value = 'a
 
 (** {1 Keys} *)
 (** Keys are the functor arguments used to build the maps. *)

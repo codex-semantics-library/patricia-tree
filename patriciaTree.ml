@@ -362,9 +362,7 @@ module type MAP_WITH_VALUE = sig
   val to_list : 'a t -> (key * 'a value) list
 end
 
-(** We can use [:=] or [=] here interchangeably, but [:=] leads to a more legible
-    interface documentation, as it removes all ['a value] and replaces them with ['a]. *)
-module type MAP = MAP_WITH_VALUE with type 'a value := 'a
+module type MAP = MAP_WITH_VALUE with type 'a value = 'a
 
 (** {2 Keys and Value} *)
 
