@@ -395,7 +395,7 @@ module type BASE_MAP = sig
       [f.f key_n value1_n value2n (... (f.f key_1 value1_1 value2_1 acc))] where
       [(key_1, value1_1, value2_1) ... (key_n, value1_n, value2_n)] are the
       bindings that exist in both maps ([m1 ∩ m2]) whose values are physically different.
-      Calls to [f.f] are performed in the {{!unsigned_lt}unsigned order} of [Key.to_int]. *)
+      Calls to [f.f] are performed in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
 
 
   type ('acc,'map) polyfold2_union = { f: 'a. 'a key -> ('a,'map) value option -> ('a,'map) value option -> 'acc -> 'acc } [@@unboxed]
@@ -405,7 +405,7 @@ module type BASE_MAP = sig
       [(key_1, value1_1, value2_1) ... (key_n, value1_n, value2_n)] are the
       bindings that exists in either map ([m1 ∪ m2]) whose values are physically
       different.
-      Calls to [f.f] are performed in the {{!unsigned_lt}unsigned order} of [Key.to_int]. *)
+      Calls to [f.f] are performed in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
 
   type 'map polypredicate = { f: 'a. 'a key -> ('a,'map) value -> bool; } [@@unboxed]
   val filter : 'map polypredicate -> 'map t -> 'map t
@@ -1042,7 +1042,7 @@ module type MAP_WITH_VALUE = sig
       [f key_n value1_n value2n (... (f key_1 value1_1 value2_1 acc))] where
       [(key_1, value1_1, value2_1) ... (key_n, value1_n, value2_n)] are the
       bindings that exist in both maps ([m1 ∩ m2]) whose values are physically different.
-      Calls to [f] are performed in the {{!unsigned_lt}unsigned order} of [Key.to_int]. *)
+      Calls to [f] are performed in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
 
   val fold_on_nonequal_union: (key -> 'a value option -> 'a value option -> 'acc -> 'acc) ->
     'a t -> 'a t -> 'acc -> 'acc
@@ -1051,7 +1051,7 @@ module type MAP_WITH_VALUE = sig
       [(key_1, value1_1, value2_1) ... (key_n, value1_n, value2_n)] are the
       bindings that exists in either map ([m1 ∪ m2]) whose values are physically
       different.
-      Calls to [f.f] are performed in the {{!unsigned_lt}unsigned order} of [Key.to_int]. *)
+      Calls to [f.f] are performed in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
 
   val filter : (key -> 'a value -> bool) -> 'a t -> 'a t
   (** Returns the submap containing only the key->value pairs satisfying the
