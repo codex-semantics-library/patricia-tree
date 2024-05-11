@@ -31,7 +31,7 @@
  (package patricia-tree))
 
 (mdx
- (files *.mld)
+ (files *.mld *.mli)
  (libraries patricia-tree))
 
 ;; For test purposes only.

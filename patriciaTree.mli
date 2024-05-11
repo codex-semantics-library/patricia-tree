@@ -85,6 +85,26 @@
     informative; log(n) corresponds to the real complexity in usual
     distributions. *)
 
+(**/**)
+(** mdx requires opening PatriciaTree, but we don't want that to appear in the doc.
+    also contains some quick placeholder code:
+{[
+    open PatriciaTree
+
+    type foo
+
+    module IntKey = struct
+        type 'a t = int
+        let to_int x = x
+        let polyeq : type a b. a t -> b t -> (a, b) cmp = fun a b ->
+            if a == Obj.magic b then Obj.magic Eq else Diff
+    end
+    module MyValue = Int
+    module MyMap = MakeHeterogeneousMap(IntKey)(struct type ('a,'b) t = int end)
+]}
+*)
+(**/**)
+
 val unsigned_lt : int -> int -> bool
 (** All integers comparisons in this library are done according to their
     {b unsigned representation}. This is the same as signed comparison for same
@@ -92,19 +112,19 @@ val unsigned_lt : int -> int -> bool
     This means [-1] is the greatest possible number, and [0] is the smallest.
     {[
     # unsigned_lt 2 (-1);;
-    - bool : true
+    - : bool = true
     # unsigned_lt max_int min_int;;
-    - bool : true
+    - : bool = true
     # unsigned_lt 3 2;;
-    - bool : false
+    - : bool = false
     # unsigned_lt 2 3;;
-    - bool : true
+    - : bool = true
     # unsigned_lt (-2) (-3);;
-    - bool : false
+    - : bool = false
     # unsigned_lt (-4) (-3);;
-    - bool : true
+    - : bool = true
     # unsigned_lt 0 0;;
-    - bool : false
+    - : bool = false
     ]}
 
     Using this unsigned order helps avoid a bug described in
@@ -452,8 +472,8 @@ module type BASE_MAP = sig
 
       It is useful to implement equality on maps:
       {[
-        let equal m1 m2 = reflexive_same_domain_for_all2
-          { f = fun _ v1 v2 -> Value.equal v1 v2}
+        let equal m1 m2 = MyMap.reflexive_same_domain_for_all2
+          { f = fun _ v1 v2 -> MyValue.equal v1 v2}
           m1 m2
       ]}
       *)
@@ -1429,24 +1449,39 @@ module type HASHED_VALUE = sig
          but since some values of different types can physically equal, we may have
          identifer clashes:
          {[
-            let _ = 97 == Obj.magic 'a' (* This is true *)
-
-            module HMap = MakeHashconsedMap(Int)(HashedValue)
-
-            let m1 = HMap.singleton 5 97 (* int HMap.t *)
-            let m2 = HMap.singleton 5 'a' (* char HMap.t *)
-            let _ = HMap.get_id m1 = HMap.get_id m2 (* This is also true. *)
+            # 97 == Obj.magic 'a';;
+            - : bool = true
+         ]}
+         {[
+            module HMap = MakeHashconsedMap(struct
+                type t = int
+                let to_int x = x
+            end)(HashedValue)()
+         ]}
+         {[
+            # let m1 = HMap.singleton 5 97;;
+            val m1 : int HMap.t = <abstr>
+            # let m2 = HMap.singleton 5 'a';;
+            val m2 : char HMap.t = <abstr>
+            # HMap.get_id m1 = HMap.get_id m2;;
+            - : bool = true
          ]}
          This can cause problems if you wish to use identifiers of different map
          types together:
          {[
+            type any = Any : 'a HMap.t -> any
             module MapOfMaps = MakeMap(struct
-              type t = Any : 'a HMap.t -> t
-              let to_int (Any x) = Node.get_id x
+              type t = any
+              let to_int (Any x) = HMap.get_id x
             end)
-
-           let m3 = MapOfMaps.of_list [ (m1, "foo"); (m2, "bar") ]
-           (* m3 has cardinal 1, the m1->foo binding has been overwritten. *)
+         ]}
+         Using this can lead to unexpected behaviors:
+         in the following [m3] has cardinal 1, the [m1->"foo"] binding has been overwritten
+         {[
+           # let m3 = MapOfMaps.of_list [ (Any m1, "foo"); (Any m2, "bar") ]
+           val m3 : string MapOfMaps.t = <abstr>
+           # MapOfMaps.to_list m3
+           - : (any * string) list = [(Any <abstr>, "bar")]
          ]}
          This issue does not happen with the two previous variants, since they
          both only return true on the same types.}} *)
