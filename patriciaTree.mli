@@ -928,7 +928,7 @@ module type MAP_WITH_VALUE = sig
     and type _ key = key
     and type ('a,'b) value = ('a,'b value) snd
 
-  (** {3 Basice functions} *)
+  (** {3 Basic functions} *)
 
   val empty : 'a t
   (** The empty map. *)
