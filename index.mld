@@ -373,7 +373,7 @@ away as we would like a bit more time using this library before doing so.
 There is a bug in the OCaml typechecker which prevents us from directly
 defining non-generic maps as instances of generic maps. To avoid this, non-generic maps
 use a separate value type (instead of just using ['b])
-{@python[
+{[
 type (_, 'b) snd = Snd of 'b [@@unboxed]
 ]}
 It should not incur any extra performance cost as it is unboxed, but can appear
