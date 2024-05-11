@@ -87,6 +87,12 @@ module type BASE_MAP = sig
   type ('acc,'map) polyfold = { f: 'a. 'a key -> ('a,'map) value -> 'acc -> 'acc } [@@unboxed]
   val fold : ('acc,'map) polyfold -> 'map t -> 'acc -> 'acc
 
+  type ('acc,'map) polyfold2 = { f: 'a. 'a key -> ('a,'map) value -> ('a,'map) value -> 'acc -> 'acc } [@@unboxed]
+  val fold_on_nonequal_inter : ('acc,'map) polyfold2 -> 'map t -> 'map t -> 'acc -> 'acc
+
+  type ('acc,'map) polyfold2_union = { f: 'a. 'a key -> ('a,'map) value option -> ('a,'map) value option -> 'acc -> 'acc } [@@unboxed]
+  val fold_on_nonequal_union : ('acc,'map) polyfold2_union -> 'map t -> 'map t -> 'acc -> 'acc
+
   type 'map polypredicate = { f: 'a. 'a key -> ('a,'map) value -> bool; } [@@unboxed]
   val filter : 'map polypredicate -> 'map t -> 'map t
   val for_all : 'map polypredicate -> 'map t -> bool
@@ -305,6 +311,11 @@ module type MAP_WITH_VALUE = sig
   val split : key -> 'a t -> 'a t * 'a value option * 'a t
   val iter : (key -> 'a value -> unit) -> 'a t -> unit
   val fold : (key -> 'a value -> 'acc -> 'acc) ->  'a t -> 'acc -> 'acc
+  val fold_on_nonequal_inter : (key -> 'a value -> 'a value -> 'acc -> 'acc) ->
+    'a t -> 'a t -> 'acc -> 'acc
+  val fold_on_nonequal_union :
+    (key -> 'a value option -> 'a value option -> 'acc -> 'acc) ->
+    'a t -> 'a t -> 'acc -> 'acc
   val filter : (key -> 'a value -> bool) -> 'a t -> 'a t
   val for_all : (key -> 'a value -> bool) -> 'a t -> bool
   val map : ('a value -> 'a value) -> 'a t -> 'a t
@@ -798,17 +809,6 @@ module MakeCustomHeterogeneousMap
                        and type ('key,'map) value = ('key,'map) Value.t
                        and type 'a t = 'a NODE.t
 = struct
-
-  (* We provide two versions: with or without hash-consing. Hash-consing
-     allows faster implementations for the fold_on_diff* operations.
-     Benchmarks seems to indicate that hashconsing and the more complex
-     fold_on_diff are not very useful in practice (perhaps they would on
-     huge structures?) *)
-
-  (* With hash-consing of interior nodes: slower node construction, but
-     faster comparison with fold_on_diff. *)
-
-  (* module NODE = TNoHashCons;; *)
   include NODE
 
   type 'map key_value_pair = KeyValue: 'a Key.t * ('a,'map) value -> 'map key_value_pair
@@ -976,41 +976,29 @@ module MakeCustomHeterogeneousMap
 
   let remove to_remove m = removeint (Key.to_int to_remove) m
 
-  (* This exception is triggered if an operation cannot be completed
-     because a weak key disappeared. Probably the simplest way to deal
-     with this operation is to "compact" (remove the dead keys) and
-     retry. *)
-  exception Disappeared
-
-  let rec pop_min_nonempty m = match NODE.view m with
-    | Leaf{key;value} -> KeyValue(key,value),empty
-    | Branch{prefix;branching_bit;tree0;tree1} ->
-      let res,tree0' = pop_min_nonempty tree0 in
-      let restree =
-        if tree0' == empty then tree1
-        else branch ~prefix ~branching_bit ~tree0:tree0' ~tree1
-      in (res,restree)
-    | Empty ->
-      (* Can only happen in weak sets and maps. *)
-      raise Disappeared
-  let pop_unsigned_minimum m = match NODE.view m with
+  let rec pop_unsigned_minimum m = match NODE.view m with
     | Empty -> None
-    | _ -> Some(pop_min_nonempty m)
-
-  let rec pop_max_nonempty m = match NODE.view m with
-    | Leaf{key;value} -> KeyValue(key,value),empty
+    | Leaf{key;value} -> Some (KeyValue(key,value),empty)
     | Branch{prefix;branching_bit;tree0;tree1} ->
-      let res,tree1' = pop_max_nonempty tree1 in
-      let restree =
-        if tree1' == empty then tree0
-        else branch ~prefix ~branching_bit ~tree0 ~tree1:tree1'
-      in (res,restree)
-      (* Can only happen in weak sets and maps. *)
-    | Empty -> raise Disappeared
+      match pop_unsigned_minimum tree0 with
+      | None -> pop_unsigned_minimum tree1
+      | Some(res,tree0') ->
+          let restree =
+            if is_empty tree0' then tree1
+            else branch ~prefix ~branching_bit ~tree0:tree0' ~tree1
+          in Some(res,restree)
 
-  let pop_unsigned_maximum m = match NODE.view m with
+  let rec pop_unsigned_maximum m = match NODE.view m with
     | Empty -> None
-    | _ -> Some(pop_max_nonempty m)
+    | Leaf{key;value} -> Some (KeyValue(key,value),empty)
+    | Branch{prefix;branching_bit;tree0;tree1} ->
+      match pop_unsigned_maximum tree1 with
+      | None -> pop_unsigned_maximum tree0
+      | Some(res,tree1') ->
+          let restree =
+            if is_empty tree1' then tree0
+            else branch ~prefix ~branching_bit ~tree0 ~tree1:tree1'
+          in Some(res,restree)
 
   let insert: type a map. a Key.t -> ((a,map) Value.t option -> (a,map) Value.t) -> map t -> map t =
     fun thekey f t ->
@@ -1406,6 +1394,144 @@ module MakeCustomHeterogeneousMap
       let acc = fold f tree0 acc in
       fold f tree1 acc
 
+
+  type ('acc,'map) polyfold2 = { f: 'a. 'a key -> ('a,'map) value -> ('a,'map) value -> 'acc -> 'acc } [@@unboxed]
+  let rec fold_on_nonequal_inter f ta tb acc =
+    if ta == tb then acc
+    else match NODE.view ta,NODE.view tb with
+      | Empty, _ | _, Empty -> acc
+      | Leaf{key;value},_ ->
+        (try let valueb = find key tb in
+           if valueb == value then acc else
+             f.f key value valueb acc
+         with Not_found -> acc)
+      | _,Leaf{key;value} ->
+        (try let valuea = find key ta in
+           if valuea == value then acc else
+             f.f key valuea value acc
+         with Not_found -> acc)
+      | Branch{prefix=pa;branching_bit=ma;tree0=ta0;tree1=ta1},
+        Branch{prefix=pb;branching_bit=mb;tree0=tb0;tree1=tb1} ->
+        if ma == mb && pa == pb
+        (* Same prefix: fold on each subtrees *)
+        then
+          let acc = fold_on_nonequal_inter f ta0 tb0 acc in
+          let acc = fold_on_nonequal_inter f ta1 tb1 acc in
+          acc
+        else if unsigned_lt mb ma && match_prefix pb pa ma
+        then if ma land pb == 0
+          then fold_on_nonequal_inter f ta0 tb acc
+          else fold_on_nonequal_inter f ta1 tb acc
+        else if unsigned_lt ma mb && match_prefix pa pb mb
+        then if mb land pa == 0
+          then fold_on_nonequal_inter f ta tb0 acc
+          else fold_on_nonequal_inter f ta tb1 acc
+        else acc
+
+
+  type ('acc,'map) polyfold2_union =
+    { f: 'a. 'a key -> ('a,'map) value option -> ('a,'map) value option ->
+        'acc -> 'acc } [@@unboxed]
+  let rec fold_on_nonequal_union:
+    'm 'acc. ('acc,'m) polyfold2_union -> 'm t -> 'm t -> 'acc -> 'acc =
+    fun (type m) f (ta:m t) (tb:m t) acc ->
+    if ta == tb then acc
+    else
+      let fleft:(_,_) polyfold =
+        {f=fun key value acc -> f.f key (Some value) None acc} in
+      let fright:(_,_)polyfold =
+        {f=fun key value acc -> f.f key None (Some value) acc} in
+      match NODE.view ta,NODE.view tb with
+      | Empty, _ -> fold fright tb acc
+      | _, Empty -> fold fleft ta acc
+      | Leaf{key;value},_ ->
+        let ida = Key.to_int key in
+        (* Fold on the rest, knowing that ida may or may not be in b. So we fold and use
+           did_a to remember if we already did the call to a. *)
+        let g (type b) (keyb:b key) (valueb:(b,m) value) (acc,did_a) =
+          let default() = (f.f keyb None (Some valueb) acc,did_a) in
+          if did_a then default()
+          else
+            let idb = Key.to_int keyb in
+            if unsigned_lt idb ida then default()
+            else if unsigned_lt ida idb then
+              let acc = f.f key (Some value) None acc in
+              let acc = f.f keyb None (Some valueb) acc in
+              (acc,true)
+            else match Key.polyeq key keyb with
+              | Eq ->
+                if value == valueb then (acc,true)
+                else (f.f key (Some value) (Some valueb) acc,true)
+              | Diff ->
+                raise (Invalid_argument "Keys with same to_int value are not equal by polyeq")
+        in
+        let (acc,found) = fold{f=fun keyb valueb acc -> g keyb valueb acc} tb (acc,false) in
+        if found then acc
+        else f.f key (Some value) None acc
+      | _,Leaf{key;value} ->
+        let idb = Key.to_int key in
+        let g (type a) (keya: a key) (valuea:(a,m) value) (acc,did_b) =
+          let default() = (f.f keya (Some valuea) None acc,did_b) in
+          if did_b then default()
+          else
+            let ida = Key.to_int keya in
+            if unsigned_lt ida idb then default()
+            else if unsigned_lt idb ida then
+              let acc = f.f key None (Some value) acc in
+              let acc = f.f keya (Some valuea) None acc in
+              (acc,true)
+            else match Key.polyeq keya key with
+              | Eq ->
+                if valuea == value then (acc,true)
+                else (f.f keya (Some valuea) (Some value) acc,true)
+              | Diff ->
+                raise (Invalid_argument "Keys with same to_int value are not equal by polyeq")
+        in
+        let (acc,found) = fold{f=fun keya valuea acc -> g keya valuea acc} ta (acc,false) in
+        if found then acc
+        else f.f key None (Some value) acc
+      | Branch{prefix=pa;branching_bit=ma;tree0=ta0;tree1=ta1},
+        Branch{prefix=pb;branching_bit=mb;tree0=tb0;tree1=tb1} ->
+        if ma == mb && pa == pb
+        (* Same prefix: merge the subtrees *)
+        then
+          let acc = fold_on_nonequal_union f ta0 tb0 acc in
+          let acc = fold_on_nonequal_union f ta1 tb1 acc in
+          acc
+        else if unsigned_lt mb ma && match_prefix pb pa ma
+        then if ma land pb == 0
+          then
+            let acc = fold_on_nonequal_union f ta0 tb acc in
+            let acc = fold fleft ta1 acc in
+            acc
+          else
+            let acc = fold fleft ta0 acc in
+            let acc = fold_on_nonequal_union f ta1 tb acc in
+            acc
+        else if unsigned_lt ma mb && match_prefix pa pb mb
+        then if mb land pa == 0
+          then
+            let acc = fold_on_nonequal_union f ta tb0 acc in
+            let acc = fold fright tb1 acc in
+            acc
+          else
+            let acc = fold fright tb0 acc in
+            let acc = fold_on_nonequal_union f ta tb1 acc in
+            acc
+        else
+        (* Distinct subtrees: process them in increasing order of keys. *)
+        if unsigned_lt pa pb then
+          let acc = fold fleft ta acc in
+          let acc = fold fright tb acc in
+          acc
+        else
+          let acc = fold fright tb acc in
+          let acc = fold fleft ta acc in
+          acc
+  ;;
+
+
+
   type 'map polypredicate = { f: 'a. 'a key -> ('a,'map) value -> bool; } [@@unboxed]
   let filter f m = filter_map {f = fun k v -> if f.f k v then Some v else None } m
   let rec for_all f m = match NODE.view m with
@@ -1722,6 +1848,16 @@ module MakeCustomMap
   let slow_merge (f : key -> 'a value option -> 'b value option -> 'c value option) a b = BaseMap.slow_merge {f=fun k v1 v2 -> snd_opt (f k (opt_snd v1) (opt_snd v2))} a b
   let iter (f: key -> 'a value -> unit) a = BaseMap.iter {f=fun k (Snd v) -> f k v} a
   let fold (f: key -> 'a value -> 'acc -> 'acc) m acc = BaseMap.fold {f=fun k (Snd v) acc -> f k v acc} m acc
+  let fold_on_nonequal_inter (f: key -> 'a value -> 'a value -> 'acc -> 'acc) ma mb acc =
+    let f k (Snd va) (Snd vb) acc = f k va vb acc in
+    BaseMap.fold_on_nonequal_inter {f} ma mb acc
+  let fold_on_nonequal_union
+      (f: key -> 'a value option -> 'a value option -> 'acc -> 'acc) ma mb acc =
+    let f k va vb acc =
+      let va = Option.map (fun (Snd v) -> v) va in
+      let vb = Option.map (fun (Snd v) -> v) vb in
+      f k va vb acc in
+    BaseMap.fold_on_nonequal_union {f} ma mb acc
 
   let pretty ?pp_sep (f: Format.formatter -> key -> 'a value -> unit) fmt m =
     BaseMap.pretty ?pp_sep {f=fun fmt k (Snd v) -> f fmt k v} fmt m
