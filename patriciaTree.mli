@@ -37,7 +37,7 @@
       i.e. it is a space-efficient prefix trie over the big-endian representation of
       the key's integer identifier.
 
-      Example 5-bit patricia tree containing five numbers: 0 [0b0000], 1 [0b0001],
+      Example of a 5-bit patricia tree containing five numbers: 0 [0b0000], 1 [0b0001],
       5 [0b0101] and 7 [0b0111] and -8 [0b1111]:
       {v
                               Branch
@@ -52,7 +52,6 @@
       Leaf(0)  Leaf(1)    Leaf(5)  Leaf(7)
       0b0000   0b0001     0b0101   0b0111
       v}
-
 
       The main benefit of Patricia Tree is that their representation
       is stable (contrary to maps, inserting nodes in any order will
@@ -472,9 +471,10 @@ module type BASE_MAP = sig
 
       It is useful to implement equality on maps:
       {[
-        let equal m1 m2 = MyMap.reflexive_same_domain_for_all2
+        # let equal m1 m2 = MyMap.reflexive_same_domain_for_all2
           { f = fun _ v1 v2 -> MyValue.equal v1 v2}
-          m1 m2
+          m1 m2;;
+        val equal : 'a MyMap.t -> 'a MyMap.t -> bool = <fun>
       ]}
       *)
 
