@@ -33,7 +33,7 @@ cd patricia-tree
 dune build
 dune install
 # To build documentation
-opam install odoc
+opam install . --deps-only --with-doc
 dune build @doc
 ]}
 
