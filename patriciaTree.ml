@@ -1150,7 +1150,7 @@ module MakeCustomHeterogeneousMap
           if (branching_bit land searched == 0)
           then search (NODE.view tree0)
           else search (NODE.view tree1)
-        | Empty -> assert false (* We already saw that tb is not empty. *)
+        | Empty -> false (* Can only happen on weak nodes. *)
       in search viewb
     | Branch{prefix=pa;branching_bit=ma;tree0=ta0;tree1=ta1},
       Branch{prefix=pb;branching_bit=mb;tree0=tb0;tree1=tb1} ->
@@ -1526,9 +1526,6 @@ module MakeCustomHeterogeneousMap
           let acc = fold fright tb acc in
           let acc = fold fleft ta acc in
           acc
-  ;;
-
-
 
   type 'map polypredicate = { f: 'a. 'a key -> ('a,'map) value -> bool; } [@@unboxed]
   let filter f m = filter_map {f = fun k v -> if f.f k v then Some v else None } m
