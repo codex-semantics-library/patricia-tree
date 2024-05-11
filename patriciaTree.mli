@@ -937,23 +937,23 @@ module type MAP_WITH_VALUE = sig
   (** Test if a map is empty; O(1) complexity. *)
 
   val unsigned_min_binding : 'a t -> (key * 'a value)
-  (** Returns the (key,value) where [Key.to_int key] is minimal (in the
+  (** Returns the [(key,value)] pair where [Key.to_int key] is minimal (in the
       {{!unsigned_lt}unsigned representation} of integers); O(log n) complexity.
-      @raises Not_found if the map is empty *)
+      @raises Not_found if the map is empty. *)
 
   val unsigned_max_binding : 'a t -> (key * 'a value)
-  (** Returns the (key,value) where [Key.to_int key] is maximal (in the
+  (** Returns the [(key,value)] pair where [Key.to_int key] is maximal (in the
       {{!unsigned_lt}unsigned representation} of integers); O(log n) complexity.
-      @raises Not_found if the map is empty *)
+      @raises Not_found if the map is empty. *)
 
   val singleton : key -> 'a value -> 'a t
   (** [singleton key value] creates a map with a single binding, O(1) complexity.  *)
 
   val cardinal : 'a t -> int
-  (** The size of the map. O(n) complexity *)
+  (** The size of the map. O(n) complexity. *)
 
   val is_singleton : 'a t -> (key * 'a value) option
-  (** [is_singleton m] is [Some (k,v)] iff [m] is [singleton k v] *)
+  (** [is_singleton m] is [Some (k,v)] iff [m] is [singleton k v]. *)
 
   val find : key -> 'a t -> 'a value
   (** Return an element in the map, or raise [Not_found], O(log(n)) complexity. *)
@@ -962,7 +962,8 @@ module type MAP_WITH_VALUE = sig
   (** Return an element in the map, or [None], O(log(n)) complexity. *)
 
   val mem : key -> 'a t -> bool
-  (** [mem key map] returns [true] iff [key] is bound in [map], O(log(n)) complexity. *)
+  (** [mem key map] returns [true] if and only if [key] is bound in [map].
+      O(log(n)) complexity. *)
 
   val remove : key -> 'a t -> 'a t
   (** Returns a map with the element removed, O(log(n)) complexity.
@@ -1006,13 +1007,14 @@ module type MAP_WITH_VALUE = sig
       - submap of [map] whose keys are smaller than [key]
       - value associated to [key] (if present)
       - submap of [map] whose keys are bigger than [key]
-      Using the {{!unsigned_lt}unsigned order} is given by {!KEY.to_int}. *)
+
+      Uses the {{!unsigned_lt}unsigned order} on {!KEY.to_int}. *)
 
   val iter : (key -> 'a value -> unit) -> 'a t -> unit
-  (** Iterate on each (key,value) pair of the map, in increasing {{!unsigned_lt}unsigned order} of keys. *)
+  (** Iterate on each [(key,value)] pair of the map, in increasing {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
 
   val fold : (key -> 'a value -> 'acc -> 'acc) ->  'a t -> 'acc -> 'acc
-  (** Fold on each (key,value) pair of the map, in increasing {{!unsigned_lt}unsigned order} of keys. *)
+  (** Fold on each [(key,value)] pair of the map, in increasing {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
 
   val fold_on_nonequal_inter : (key -> 'a value -> 'a value -> 'acc -> 'acc) ->
     'a t -> 'a t -> 'acc -> 'acc
@@ -1033,11 +1035,11 @@ module type MAP_WITH_VALUE = sig
 
   val filter : (key -> 'a value -> bool) -> 'a t -> 'a t
   (** Returns the submap containing only the key->value pairs satisfying the
-      given predicate. [f] is called in increasing {{!unsigned_lt}unsigned order} of keys. *)
+      given predicate. [f] is called in increasing {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
 
   val for_all : (key -> 'a value -> bool) -> 'a t -> bool
   (** Returns true if the predicate holds on all map bindings. Short-circuiting.
-      [f] is called in increasing {{!unsigned_lt}unsigned order} of keys. *)
+      [f] is called in increasing {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
 
   (** In the following, the *no_share function allows taking arguments
       of different types (but cannot share subtrees of the map), while
@@ -1051,12 +1053,12 @@ module type MAP_WITH_VALUE = sig
       value is physically the same (i.e. [f key value == value] for
       all the keys in the subtree) are guaranteed to be physically
       equal to the original subtree. O(n) complexity.
-      [f] is called in increasing {{!unsigned_lt}unsigned order} of keys. *)
+      [f] is called in increasing {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
 
   val map_no_share : ('a value -> 'b value) -> 'a t -> 'b t
   (** [map_no_share f m] returns a map where the [value] bound to each
       [key] is replaced by [f value]. O(n) complexity.
-      [f] is called in increasing {{!unsigned_lt}unsigned order} of keys. *)
+      [f] is called in increasing {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
 
   val mapi : (key -> 'a value -> 'a value) -> 'a t -> 'a t
   (** [mapi f m] returns a map where the [value] bound to each [key] is
@@ -1064,12 +1066,12 @@ module type MAP_WITH_VALUE = sig
       value is physically the same (i.e. [f key value == value] for
       all the keys in the subtree) are guaranteed to be physically
       equal to the original subtree. O(n) complexity.
-      [f] is called in increasing {{!unsigned_lt}unsigned order} of keys. *)
+      [f] is called in increasing {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
 
   val mapi_no_share : (key -> 'a value -> 'b value) -> 'a t -> 'b t
   (** [mapi_no_share f m] returns a map where the [value] bound to each
       [key] is replaced by [f key value]. O(n) complexity.
-      [f] is called in increasing {{!unsigned_lt}unsigned order} of keys. *)
+      [f] is called in increasing {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
 
   val filter_map : (key -> 'a value -> 'a value option) -> 'a t -> 'a t
   (** [filter_map m f] returns a map where the [value] bound to each
@@ -1079,14 +1081,14 @@ module type MAP_WITH_VALUE = sig
       (i.e. [f key value = Some v] with [value == v] for all the keys
       in the subtree) are guaranteed to be physically equal to the
       original subtree. O(n) complexity.
-      [f] is called in increasing {{!unsigned_lt}unsigned order} of keys. *)
+      [f] is called in increasing {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
 
   val filter_map_no_share : (key -> 'a value -> 'b value option) -> 'a t -> 'b t
   (** [filter_map m f] returns a map where the [value] bound to each
       [key] is removed (if [f key value] returns [None]), or is
       replaced by [v] ((if [f key value] returns [Some v]). O(n)
       complexity.
-      [f] is called in increasing {{!unsigned_lt}unsigned order} of keys. *)
+      [f] is called in increasing {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
 
 
   (** {3 Operations on pairs of maps} *)
@@ -1108,10 +1110,10 @@ module type MAP_WITH_VALUE = sig
       operations. *)
 
   val reflexive_same_domain_for_all2 : (key -> 'a value -> 'a value -> bool) -> 'a t -> 'a t ->  bool
-  (** [reflexive_same_domain_for_all2 f map1 map2] returns true if
+  (** [reflexive_same_domain_for_all2 f map1 map2] returns [true] if
       [map1] and [map2] have the same keys, and [f key value1 value2]
       returns true for each mapping pair of keys. We assume that [f]
-      is reflexive (i.e. [f key value value] returns true) to avoid
+      is reflexive (i.e. [f key value value] returns [true]) to avoid
       visiting physically equal subtrees of [map1] and [map2]. The
       complexity is O(log(n)*Delta) where Delta is the number of
       different keys between [map1] and [map2]. *)
@@ -1141,7 +1143,7 @@ module type MAP_WITH_VALUE = sig
       preserve physical equality of the subtreess in that case.  The
       complexity is O(log(n)*Delta) where Delta is the number of
       different keys between [map1] and [map2].
-      [f] is called in increasing {{!unsigned_lt}unsigned order} of keys.
+      [f] is called in increasing {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
       [f] is never called on physically equal values. *)
 
   val idempotent_inter : (key -> 'a value -> 'a value -> 'a value) -> 'a t -> 'a t -> 'a t
@@ -1153,7 +1155,7 @@ module type MAP_WITH_VALUE = sig
       preserve physical equality of the subtrees in that case.  The
       complexity is O(log(n)*Delta) where Delta is the number of
       different keys between [map1] and [map2].
-      [f] is called in increasing {{!unsigned_lt}unsigned order} of keys.
+      [f] is called in increasing {{!unsigned_lt}unsigned order} of {!KEY.to_int}!.
       [f] is never called on physically equal values. *)
 
   val nonidempotent_inter_no_share : (key -> 'a value -> 'b value -> 'c value) -> 'a t -> 'b t -> 'c t
@@ -1163,7 +1165,7 @@ module type MAP_WITH_VALUE = sig
       need to be idempotent, which imply that we have to visit
       physically equal subtrees of [map1] and [map2].  The complexity
       is O(log(n)*min(|map1|,|map2|)).
-      [f] is called in increasing {{!unsigned_lt}unsigned order} of keys.
+      [f] is called in increasing {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
       [f] is called on every shared binding. *)
 
   val idempotent_inter_filter : (key -> 'a value -> 'a value -> 'a value option) -> 'a t -> 'a t -> 'a t
