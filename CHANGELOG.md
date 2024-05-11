@@ -2,7 +2,8 @@
 
 ## Main changes
 
-- Added hash-consed nodes and functors to build hash-consed maps and sets
+- Added hash-consed nodes and functors to build hash-consed maps and sets.
+- Added new functions `fold_on_nonequal_inter` and `fold_on_nonequal_union` to maps.
 - Now support using negative keys, removed `zarith` dependency.
 - Fixed some bugs
 
@@ -26,11 +27,14 @@
   `pop_unsigned_minimum`, `pop_unsigned_maximum`, `unsigned_min_elt`
   and `unsigned_max_elt` respectively, to clarify that these functions consider
   negative numbers as larger than positive ones.
+- Added new functions `fold_on_nonequal_inter` and `fold_on_nonequal_union` to maps.
 - Fixed a bug where `NodeWithId` wasn't incrementing ids properly
 - `zarith` is no longer a dependency, used GCC's `__builtin_clz` as a faster
   method of finding an integer's highest bit.
 - Fixed a bug where `pop_minimum` and `pop_maximum` could throw a private exception
   `Dissappeared` when using `WeakNode`.
+- Fixed a possible assertion error when using `idempotent_subset_domain_forall2`
+  with `WeakNode`.
 
 # v0.9.0 - 2024-04-18
 
