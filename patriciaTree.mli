@@ -31,7 +31,7 @@
     {- The required signature for keys is different, in that we require
       each key to be mapped to a unique integer identifier.}
 
-    {- The implementation uses Patricia Tree, as described in Oksasaki
+    {- The implementation uses Patricia Tree, as described in Okasaki
       and Gill's 1998 paper
       {{: https://www.semanticscholar.org/paper/Fast-Mergeable-Integer-Maps-Okasaki-Gill/23003be706e5f586f23dd7fa5b2a410cc91b659d}{i Fast mergeable integer maps}},
       i.e. it is a space-efficient prefix trie over the big-endian representation of
