@@ -96,7 +96,8 @@ dune build @doc
 - hash-consed versions of heterogeneous/homogeneous maps/sets are
   available. These provide constant time equality and comparison, and ensure
   maps/set with the same constants are always physically equal. It comes at the cost
-  of more memory usage a slightly slower constructors.
+  of a constant overhead in memory usage (at worst, as hash-consing may allow memory gains) and constant time overhead
+  when calling constructors.
 
 ## Quick overview
 
