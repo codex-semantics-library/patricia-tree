@@ -82,7 +82,7 @@ let%test_module "TestHeterogeneous" = (module struct
   end
 
 
-  module Map = MakeCustomHeterogeneous(MyKey)(MyValue)(SimpleNode(MyKey)(MyValue))
+  module Map = MakeCustomHeterogeneousMap(MyKey)(MyValue)(SimpleNode(MyKey)(MyValue))
   open Map
 
   let _m1 = singleton (MyKey.Int 7) (MyValue.AString "seven")
@@ -139,7 +139,7 @@ let%test_module "TestHeterogeneous" = (module struct
       | _ -> NBranch{prefix;branching_bit;tree0;tree1}
   end
 
-  module Map2 = MakeCustomHeterogeneous(MyKey)(MyValue)(SimpleNode(MyKey)(MyValue))
+  module Map2 = MakeCustomHeterogeneousMap(MyKey)(MyValue)(SimpleNode(MyKey)(MyValue))
   open Map2
 
   let _m1 = singleton (MyKey.Int 7) (MyValue.AString "seven")
@@ -179,119 +179,121 @@ let unsigned_compare x y =
   if unsigned_lt x y then -1
   else if x = y then 0 else 1
 
-let%test_module _ = (module struct
+module HIntKey : sig
+  type t = int
+  val to_int : t -> int
+end = struct
+  type t = int
+  let to_int x = x
+end
 
-  (* A model. *)
-  module IntMap = struct
-    module M = Map.Make(struct
-      type t = int
-      let compare = unsigned_compare
-    end)
-    include M
-    let subset_domain_for_all_2 m1 m2 f =
-      let exception False in
-      try
-        let res = M.merge (fun key v1 v2 -> match v1,v2 with
-            | None, None -> assert false
-            | Some _, None -> raise False
-            | None, Some _ -> None
-            | Some v1, Some v2 ->
-              if f key v1 v2 then None else raise False) m1 m2 in
-        assert (M.is_empty res);
-        true
-      with False -> false
-
-    let same_domain_for_all_2 m1 m2 f =
-      let exception False in
-      try
-        let res = M.merge (fun key v1 v2 -> match v1,v2 with
-            | None, None -> assert false
-            | Some _, None -> raise False
-            | None, Some _ -> raise False
-            | Some v1, Some v2 ->
-              if f key v1 v2 then None else raise False) m1 m2 in
-        assert (M.is_empty res);
-        true
-      with False -> false
-
-    let inter m1 m2 f =
-      M.merge (fun key a b ->
-          match a,b with
-          | None, _ | _, None -> None
-          | Some a, Some b -> Some (f key a b)) m1 m2
-
-    let update_multiple_from_foreign m1 m2 f =
-      M.merge (fun key a b ->
-          match a, b with
-          | a, None -> a
-          | a, Some b -> f key a b) m1 m2
-
-    let update_multiple_from_inter_with_foreign m1 m2 f =
-      M.fold (fun key value acc ->
-          match M.find key acc with
-          | exception Not_found -> acc
-          | v -> begin match f key v value with
-              | None -> M.remove key acc
-              | Some v' -> M.add key v' acc
-            end) m2 m1
-
-    let inter_filter m1 m2 f =
-      M.merge (fun key a b ->
-          match a,b with
-          | None, _ | _, None -> None
-          | Some a, Some b -> (f key a b)) m1 m2
-
-    let fold_on_nonequal_inter f m1 m2 acc =
-      let racc = ref acc in
-      ignore @@ M.merge (fun key a b ->
-          match a,b with
-          | None, _ | _, None -> None
-          | Some a, Some b ->
-            if a != b
-            then racc := f key a b !racc;
-            None) m1 m2;
-      !racc
-
-    let fold_on_nonequal_union f ma mb acc =
-      let union = M.merge (fun _key a b ->
-          match a,b with
+(* A model. *)
+module IntMap = struct
+  module M = Map.Make(struct
+    type t = int
+    let compare = unsigned_compare
+  end)
+  include M
+  let subset_domain_for_all_2 m1 m2 f =
+    let exception False in
+    try
+      let res = M.merge (fun key v1 v2 -> match v1,v2 with
           | None, None -> assert false
-          | Some a, Some b when a == b -> None
-          | None, Some _ | Some _, None | Some _, Some _ -> Some(a,b)) ma mb in
-      let elts = M.bindings union in
-      let elts = List.sort (fun (key1,_val1) (key2,_val2) -> unsigned_compare key1 key2) elts in
-      List.fold_left (fun acc (key,(val1,val2)) -> f key val1 val2 acc) acc elts
+          | Some _, None -> raise False
+          | None, Some _ -> None
+          | Some v1, Some v2 ->
+            if f key v1 v2 then None else raise False) m1 m2 in
+      assert (M.is_empty res);
+      true
+    with False -> false
 
-    let pop_unsigned_minimum m =
-      match M.min_binding m with
-      | exception Not_found -> None
-      | (key,value) -> Some(key,value,M.remove key m)
+  let same_domain_for_all_2 m1 m2 f =
+    let exception False in
+    try
+      let res = M.merge (fun key v1 v2 -> match v1,v2 with
+          | None, None -> assert false
+          | Some _, None -> raise False
+          | None, Some _ -> raise False
+          | Some v1, Some v2 ->
+            if f key v1 v2 then None else raise False) m1 m2 in
+      assert (M.is_empty res);
+      true
+    with False -> false
 
-    let pop_unsigned_maximum m =
-      match M.max_binding m with
-      | exception Not_found -> None
-      | (key,value) -> Some(key,value,M.remove key m)
-  end
+  let inter m1 m2 f =
+    M.merge (fun key a b ->
+        match a,b with
+        | None, _ | _, None -> None
+        | Some a, Some b -> Some (f key a b)) m1 m2
 
-  (* An implementation. *)
-  module IntValue : sig
-    type ('a, 'b) t = int
-    val pretty : Format.formatter -> ('a, 'b) t -> unit
-  end = struct
-    type ('a,'b) t = int
-    let pretty fmt x = Format.pp_print_int fmt x
-  end
+  let update_multiple_from_foreign m1 m2 f =
+    M.merge (fun key a b ->
+        match a, b with
+        | a, None -> a
+        | a, Some b -> f key a b) m1 m2
 
-  module HIntKey : sig
-    type t = int
-    val to_int : t -> int
-  end = struct
-    type t = int
-    let to_int x = x
-  end
+  let update_multiple_from_inter_with_foreign m1 m2 f =
+    M.fold (fun key value acc ->
+        match M.find key acc with
+        | exception Not_found -> acc
+        | v -> begin match f key v value with
+            | None -> M.remove key acc
+            | Some v' -> M.add key v' acc
+          end) m2 m1
 
-  (* module MyMap = Make(SimpleNode(IntKey)(IntValue))(IntKey)(IntValue);; *)
-  module MyMap = MakeMap(HIntKey)
+  let inter_filter m1 m2 f =
+    M.merge (fun key a b ->
+        match a,b with
+        | None, _ | _, None -> None
+        | Some a, Some b -> (f key a b)) m1 m2
+
+  let fold_on_nonequal_inter f m1 m2 acc =
+    let racc = ref acc in
+    ignore @@ M.merge (fun key a b ->
+        match a,b with
+        | None, _ | _, None -> None
+        | Some a, Some b ->
+          if a != b
+          then racc := f key a b !racc;
+          None) m1 m2;
+    !racc
+
+  let fold_on_nonequal_union f ma mb acc =
+    let union = M.merge (fun _key a b ->
+        match a,b with
+        | None, None -> assert false
+        | Some a, Some b when a == b -> None
+        | None, Some _ | Some _, None | Some _, Some _ -> Some(a,b)) ma mb in
+    let elts = M.bindings union in
+    let elts = List.sort (fun (key1,_val1) (key2,_val2) -> unsigned_compare key1 key2) elts in
+    List.fold_left (fun acc (key,(val1,val2)) -> f key val1 val2 acc) acc elts
+
+  let pop_unsigned_minimum m =
+    match M.min_binding m with
+    | exception Not_found -> None
+    | (key,value) -> Some(key,value,M.remove key m)
+
+  let pop_unsigned_maximum m =
+    match M.max_binding m with
+    | exception Not_found -> None
+    | (key,value) -> Some(key,value,M.remove key m)
+end
+
+(* An implementation. *)
+module IntValue : sig
+  type ('a, 'b) t = int
+  val pretty : Format.formatter -> ('a, 'b) t -> unit
+end = struct
+  type ('a,'b) t = int
+  let pretty fmt x = Format.pp_print_int fmt x
+end
+
+
+module TestImpl(MyMap : MAP with type key = int)(Param : sig
+  val test_id : bool
+  val number_gen : int QCheck.arbitrary
+  (* val to_int : 'a MyMap.t -> int option *)
+end) = struct
 
   (* Add a list of pair of ints to a map. *)
   let rec extend_map mymap alist =
@@ -299,6 +301,12 @@ let%test_module _ = (module struct
     | [] -> mymap
     | (a,b)::rest ->
       extend_map (MyMap.add a b mymap) rest
+
+  let rec remove_map mymap alist =
+    match alist with
+    | [] -> mymap
+    | (a,_)::rest ->
+      remove_map (MyMap.remove a mymap) rest
 
   let intmap_of_mymap m =
     MyMap.fold (fun key value acc -> IntMap.add key value acc) m IntMap.empty
@@ -309,7 +317,7 @@ let%test_module _ = (module struct
     let third = extend_map first alist3 in
     (second,third)
 
-  let number_gen = QCheck.int
+  let number_gen = Param.number_gen
 
   let gen = QCheck.(triple
                       (small_list (pair number_gen number_gen))
@@ -395,8 +403,10 @@ let%test_module _ = (module struct
           let chk_calls1 = check_increases () in
           let chk_calls2 = check_increases () in
           let f k x = if (x mod 3 == 0) then None else Some (x - k + 1) in
-          let res1 = intmap_of_mymap @@ MyMap.filter_map (fun k v -> chk_calls1 k; f k v) m1 in
-          let res2 = intmap_of_mymap @@ MyMap.filter_map_no_share (fun k v -> chk_calls2 k; f k v) m1 in
+          let res1 = intmap_of_mymap @@ MyMap.filter_map (
+              fun k v -> chk_calls1 k; f k v) m1 in
+          let res2 = intmap_of_mymap @@ MyMap.filter_map_no_share (
+              fun k v -> chk_calls2 k; f k v) m1 in
           let modelres = IntMap.filter_map f model1 in
           IntMap.equal (=) res1 modelres &&
           IntMap.equal (=) res2 modelres)
@@ -432,7 +442,7 @@ let%test_module _ = (module struct
           let modelres = IntMap.union (fun key a b -> Some (f key a b)) model1 model2 in
           (* dump_test model1 model2 myres modelres;           *)
           IntMap.equal (=) modelres myres)
-  let () = QCheck.Test.check_exn test_idempotent_union;;
+  let () = QCheck.Test.check_exn test_idempotent_union
 
 
   let test_idempotent_inter = QCheck.Test.make ~count:1000 ~name:"idempotent_inter"
@@ -468,7 +478,8 @@ let%test_module _ = (module struct
           let orig_f = sdbm3 in
           let chk_calls = check_increases () in
           let f : int -> int -> int -> int = fun key (a:int) b -> chk_calls key; orig_f key a b in
-          let myres = intmap_of_mymap @@ Foreign.nonidempotent_inter {f=fun k v (Snd v2) -> f k v v2 } m1 m2 in
+          let myres = intmap_of_mymap @@ Foreign.nonidempotent_inter {f=
+            fun k v (Snd v2) -> f k v v2 } m1 m2 in
           let modelres = IntMap.inter model1 model2 orig_f in
           (* dump_test model1 model2 myres modelres; *)
           IntMap.equal (=) modelres myres)
@@ -486,7 +497,8 @@ let%test_module _ = (module struct
           in
           let chk_calls = check_increases () in
           let f = fun key a b -> chk_calls key; orig_f key a b in
-          let myres = intmap_of_mymap @@ Foreign.update_multiple_from_foreign m2 {f=fun k v (Snd v') -> f k v v' } m1 in
+          let myres = intmap_of_mymap @@ Foreign.update_multiple_from_foreign m2 {f=
+            fun k v (Snd v') -> f k v v' } m1 in
           let modelres = IntMap.update_multiple_from_foreign model1 model2 orig_f in
           (* dump_test model1 model2 myres modelres; *)
           IntMap.equal (=) modelres myres)
@@ -501,7 +513,8 @@ let%test_module _ = (module struct
           in
           let chk_calls = check_increases () in
           let f key (a:int) b = chk_calls key; orig_f key a b in
-          let myres = intmap_of_mymap @@ Foreign.update_multiple_from_inter_with_foreign m2 {f=fun k v (Snd v') -> f k v v'} m1 in
+          let myres = intmap_of_mymap @@ Foreign.update_multiple_from_inter_with_foreign m2 {f=
+            fun k v (Snd v') -> f k v v' } m1 in
           let modelres = IntMap.update_multiple_from_inter_with_foreign model1 model2 orig_f in
           (* dump_test model1 model2 myres modelres; *)
           IntMap.equal (=) modelres myres)
@@ -533,7 +546,9 @@ let%test_module _ = (module struct
             | Some a, Some b -> if ((a - b - key) == 0) then None else Some(a-b-key)
             | None, None -> assert false
           in
-          let myres = intmap_of_mymap @@ MyMap.slow_merge f m1 m2 in
+          let myres = intmap_of_mymap @@ MyMap.slow_merge (fun key a b ->
+            f key a b
+           ) m1 m2 in
           let modelres = IntMap.merge f model1 model2 in
           (* dump_test model1 model2 myres modelres; *)
           (* Printf.printf "res is %b\n%!" @@ IntMap.equal (=) modelres myres; *)
@@ -597,13 +612,52 @@ let%test_module _ = (module struct
       | Branch{prefix; branching_bit; _} -> Format.printf "%x : %x@." (Obj.magic prefix) (Obj.magic branching_bit)
       | _ -> ()
     ); *)
-    MyMap.to_list map = [(0,0)] &&
+    MyMap.to_list map = [(0, 0)] &&
     MyMap.to_list map2 = [(0,0); (min_int,5)] &&
     MyMap.to_list map3 = [(0,0); (max_int,8); (min_int,5)] &&
     MyMap.to_list map4 = [(0,0); (25,8); (min_int,5)] &&
     MyMap.to_list map5 = MyMap.to_list map2
-end)
 
+  let test_id_unique = QCheck.Test.make ~count:1000 ~name:"unique_hashcons_id"
+  gen (fun (one,two,three) ->
+      (* Remove duplicates *)
+      let two = List.filter (fun (x, _) -> not (List.mem_assoc x one)) two in
+      let three = List.filter (fun (x, _) -> not (List.mem_assoc x one || List.mem_assoc x two)) three in
+      let m = extend_map MyMap.empty one in
+      let m1 = extend_map (extend_map m two) three in
+      m1 == extend_map (extend_map (extend_map MyMap.empty three) one) two &&
+      m1 == extend_map (extend_map (extend_map MyMap.empty two) three) one &&
+      m1 == extend_map (extend_map (extend_map MyMap.empty three) two) one &&
+      m1 == extend_map (extend_map (extend_map MyMap.empty one) three) two &&
+      m1 == extend_map m1 one &&
+      m == remove_map (extend_map m two) two &&
+      MyMap.empty == remove_map m one
+      )
+  let () = if Param.test_id then QCheck.Test.check_exn test_id_unique
+end
+
+module MyMap = MakeMap(HIntKey)
+module MyHashedMap = MakeHashconsedMap(HIntKey)(HashedValue)()
+
+let%test_module "TestMap_SmallNat" = (module TestImpl(MyMap)(struct
+  let test_id = false
+  let number_gen = QCheck.small_nat
+end))
+
+let%test_module "TestMap_Int" = (module TestImpl(MyMap)(struct
+  let test_id = false
+  let number_gen = QCheck.int
+end))
+
+let%test_module "TestHashconsedMap_SmallNat" = (module TestImpl(MyHashedMap)(struct
+  let test_id = true
+  let number_gen = QCheck.small_nat
+end))
+
+let%test_module "TestHashconsedMap_Int" = (module TestImpl(MyHashedMap)(struct
+  let test_id = true
+  let number_gen = QCheck.int
+end))
 
 let%test_module "TestWeak" = (module struct
 
@@ -612,8 +666,8 @@ let%test_module "TestWeak" = (module struct
     let to_int (Block x) = x
   end
 
-  module NODE = WeakNode(struct type 'a t = MyKey.t end)(WrappedHomogeneousValue)
-  module Map = MakeCustom(MyKey)(NODE)
+  module Node = WeakNode(struct type 'a t = MyKey.t end)(WrappedHomogeneousValue)
+  module Map = MakeCustomMap(MyKey)(Value)(Node)
   open Map
 
   let _m1 = singleton (MyKey.Block 7) "seven"

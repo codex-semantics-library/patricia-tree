@@ -23,7 +23,7 @@
 
 (name patricia-tree)
 
-(version 0.9.0)
+(version 0.10.0)
 
 (maintainers "Dorian Lesbre <dorian.lesbre@cea.fr>")
 

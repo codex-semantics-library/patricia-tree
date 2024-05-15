@@ -93,6 +93,11 @@ dune build @doc
   be extended to store size information in nodes if needed.
 - Exposes a common interface (`view`) to allow users to write their own pattern
   matching on the tree structure without depending on the `NODE` being used.
+- hash-consed versions of heterogeneous/homogeneous maps/sets are
+  available. These provide constant time equality and comparison, and ensure
+  maps/set with the same constants are always physically equal. It comes at the cost
+  of a constant overhead in memory usage (at worst, as hash-consing may allow memory gains) and constant time overhead
+  when calling constructors.
 
 ## Quick overview
 
@@ -110,10 +115,34 @@ module MakeSet(Key: KEY) : SET with type elt = Key.t
 
 module MakeHeterogeneousSet(Key: HETEROGENEOUS_KEY) : HETEROGENEOUS_SET
   with type 'a elt = 'a Key.t
-module MakeHeterogeneousMap(Key: HETEROGENEOUS_KEY)(Value: VALUE) : HETEROGENEOUS_MAP
+module MakeHeterogeneousMap(Key: HETEROGENEOUS_KEY)(Value: HETEROGENEOUS_VALUE) :
+  HETEROGENEOUS_MAP
   with type 'a key = 'a Key.t
    and type ('k,'m) value = ('k,'m) Value.t
 ```
+
+There are also [hash-consed](https://en.wikipedia.org/wiki/Hash_consing) versions
+of these four functors: `MakeHashconsedMap`, `MakeHashconsedSet`,
+`MakeHashconsedHeterogeneousMap` and `MakeHashconsedHeterogeneousSet`.
+These uniquely number their nodes, and ensure nodes with the same contents are
+always physically equal. With this unique numbering:
+- `equal` and `compare` become constant time operations;
+- two maps with the same bindings (where keys are compared by `KEY.to_int` and
+  values by `HASHED_VALUE.polyeq`) will always be physically equal;
+- functions that benefit from sharing will see improved performance;
+- constructors are slightly slower, as they now require a hash-table lookup;
+- memory usage is increased: nodes store their tags inside themselves, and
+  a global hash-table of all built nodes must be maintained;
+- hash-consed maps assume their values are immutable;
+- **WARNING:** when using physical equality as `HASHED_VALUE.polyeq`,
+  some maps of different types may be given the same identifier. See the end of
+  the documentation of `HASHED_VALUE.polyeq` for details.
+  Note that this is the case in the default implementations `HashedValue`
+  and `HeterogeneousHashedValue`.
+- All hash-consing functors are **generative**, since each functor call will
+  create a new hash-table to store the created nodes. Calling a functor
+  twice with same arguments will lead to two numbering systems for identifiers,
+  and thus the types should not be considered compatible.
 
 ### Interfaces
 
@@ -135,18 +164,24 @@ Here is a brief overview of the various module types of our library:
   These just consist of a type, a (polymorphic) equality function, and an
   injective `to_int` coercion.
 
-  The heterogeneous map functor also has a `VALUE` parameter to specify the
+  The heterogeneous map functor also has a `HETEROGENEOUS_VALUE` parameter to specify the
   `('a, 'b) value` type
 - The internal representations of our tree can be customized to use different
   internal `NODE`. Each node come with its own private constructors and destructors,
   as well as a cast to a uniform `view` type used for pattern matching.
 
-  A number of implementations are provided `SimpleNode` (exactly the `view` type),
-  `WeakNode` (node which only store weak pointer to its elements), `NodeWithId`
-  (node which contain a unique identifier), `SetNode` (node optimized for set,
-  doesn't store the `unit` value) and `WeakSetNode`.
+  A number of implementations are provided:
+  - `SimpleNode`: exactly the `NODE.view` type;
+  - `WeakNode`: only store weak pointer to its elements;
+  - `NodeWithId`: node which contains a unique identifier;
+  - `SetNode`: optimized for sets, doesn't store the [unit] value;
+  - `WeakSetNode`: both a `WeakNode` and as `SetNode`
+  - `HashconsedNode`: performs hash-consing (it also stores a unique identifier, but checks when
+    building a new node whether a node with similar content already exists);
+  - `HashconsedSetNode`: both a `HashconsedNode` and a `SetNode`.
 
-  Use the functors `MakeCustomHeterogeneous` and `MakeCustom` to build
+  Use the functors `MakeCustomMap` and `MakeCustomSet` (or their heterogeneous
+  versions `MakeCustomHeterogeneousMap` and `MakeCustomHeterogeneousSet`) to build
   maps using these nodes, or any other custom nodes.
 
 ## Examples
