@@ -21,12 +21,12 @@ as part of the {{: https://codex.top/}Codex semantics library}, developed at
 {1 Installation}
 
 This library can be installed with {{: https://opam.ocaml.org/}opam}:
-{@shell[
+{@bash skip[
 opam install patricia-tree
 ]}
 
 Alternatively, you can clone the source repository and install with {{: https://dune.build/}dune}:
-{@shell[
+{@bash skip[
 git clone git@github.com:codex-semantics-library/patricia-tree.git
 opam install . --deps-only
 cd patricia-tree
