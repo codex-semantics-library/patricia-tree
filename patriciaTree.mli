@@ -31,7 +31,7 @@
     {- The required signature for keys is different, in that we require
       each key to be mapped to a unique integer identifier.}
 
-    {- The implementation uses Patricia Tree, as described in Oksasaki
+    {- The implementation uses Patricia Tree, as described in Okasaki
       and Gill's 1998 paper
       {{: https://www.semanticscholar.org/paper/Fast-Mergeable-Integer-Maps-Okasaki-Gill/23003be706e5f586f23dd7fa5b2a410cc91b659d}{i Fast mergeable integer maps}},
       i.e. it is a space-efficient prefix trie over the big-endian representation of
@@ -228,7 +228,7 @@ end
 module type NODE_WITH_ID = sig
   include NODE (** @closed *)
 
-  val get_id: 'a t -> int
+  val to_int: 'a t -> int
   (** Unique number for each node.
 
       This is not {{!hash_consed}hash-consing}.
@@ -249,12 +249,15 @@ end
 module type HASH_CONSED_NODE = sig
   include NODE (** @closed *)
 
-  val get_id : 'a t -> int
-  (** Returns the {{!hash_consed}hash-consed} id of the map.
-      Unlike {!NODE_WITH_ID.get_id}, hash-consing ensures that maps
+  val to_int : 'a t -> int
+  (** Returns a unique number for each map, the {{!hash_consed}hash-consed} identifier of the map.
+      Unlike {!NODE_WITH_ID.to_int}, hash-consing ensures that maps
       which contain the same keys (compared by {!KEY.to_int}) and values (compared
       by {!HASHED_VALUE.polyeq}) will always be physically equal
       and have the same identifier.
+
+      Maps with the same identifier are also physically equal:
+      [to_int m1 = to_int m2] implies [m1 == m2].
 
       Note that when using physical equality as {!HASHED_VALUE.polyeq}, some
       maps of different types [a t] and [b t] may be given the same identifier.
@@ -1463,7 +1466,7 @@ module type HASHED_VALUE = sig
             val m1 : int HMap.t = <abstr>
             # let m2 = HMap.singleton 5 'a';;
             val m2 : char HMap.t = <abstr>
-            # HMap.get_id m1 = HMap.get_id m2;;
+            # HMap.to_int m1 = HMap.to_int m2;;
             - : bool = true
          ]}
          This can cause problems if you wish to use identifiers of different map
@@ -1471,8 +1474,8 @@ module type HASHED_VALUE = sig
          {[
             type any = Any : 'a HMap.t -> any
             module MapOfMaps = MakeMap(struct
-              type t = any
-              let to_int (Any x) = HMap.get_id x
+              type t = Any : 'a HMap.t -> t
+              let to_int (Any x) = Node.to_int x
             end)
          ]}
          Using this can lead to unexpected behaviors:
@@ -1559,7 +1562,7 @@ module HashedValue : HASHED_VALUE with type 'a t = 'a
     Uses {{: https://ocaml.org/api/Hashtbl.html#VALhash}[Hashtbl.hash]} for hashing
     and physical equality for equality.
     Note that this may lead to maps of different types having the same identifier
-    ({!MakeHashconsedMap.get_id}), see the documentation of {!HASHED_VALUE.polyeq}
+    ({!MakeHashconsedMap.to_int}), see the documentation of {!HASHED_VALUE.polyeq}
     for details on this. *)
 
 module HeterogeneousHashedValue : HETEROGENEOUS_HASHED_VALUE with type ('k, 'm) t = 'm
@@ -1567,7 +1570,7 @@ module HeterogeneousHashedValue : HETEROGENEOUS_HASHED_VALUE with type ('k, 'm) 
     Uses {{: https://ocaml.org/api/Hashtbl.html#VALhash}[Hashtbl.hash]} for hashing
     and physical equality for equality.
     Note that this may lead to maps of different types having the same identifier
-    ({!MakeHashconsedHeterogeneousMap.get_id}), see the documentation of
+    ({!MakeHashconsedHeterogeneousMap.to_int}), see the documentation of
     {!HASHED_VALUE.polyeq} for details on this. *)
 
 
@@ -1668,20 +1671,26 @@ module MakeCustomHeterogeneousSet
       and {!HeterogeneousHashedValue}.
 
     All hash-consing functors are {b generative}, since each functor call will
-    create a new hashtable to store the created nodes. Calling a functor
+    create a new hash-table to store the created nodes. Calling a functor
     twice with same arguments will lead to two numbering systems for identifiers,
     and thus the types should not be considered compatible.  *)
 
 (** Hash-consed version of {!MAP}. See {!hash_consed} for the differences between
     hash-consed and non hash-consed maps.
 
+    This is a generative functor, as calling it creates a new hash-table to store
+    the created nodes, and a reference to store the next unallocated identifier.
+    Maps/sets from different hash-consing functors (even if these functors have
+    the same arguments) will have different (incompatible) numbering systems and
+    be stored in different hash-tables (thus they will never be physically equal).
+
     @since v0.10.0 *)
 module MakeHashconsedMap(Key: KEY)(Value: HASHED_VALUE)() : sig
   include MAP_WITH_VALUE with type key = Key.t and type 'a value = 'a Value.t (** @closed *)
 
-  val get_id : 'a t -> int
+  val to_int : 'a t -> int
   (** Returns the {{!hash_consed}hash-consed} id of the map.
-      Unlike {!NODE_WITH_ID.get_id}, hash-consing ensures that maps
+      Unlike {!NODE_WITH_ID.to_int}, hash-consing ensures that maps
       which contain the same keys (compared by {!KEY.to_int}) and values (compared
       by {!HASHED_VALUE.polyeq}) will always be physically equal
       and have the same identifier.
@@ -1710,13 +1719,19 @@ end
 (** Hash-consed version of {!SET}. See {!hash_consed} for the differences between
     hash-consed and non hash-consed sets.
 
+    This is a generative functor, as calling it creates a new hash-table to store
+    the created nodes, and a reference to store the next unallocated identifier.
+    Maps/sets from different hash-consing functors (even if these functors have
+    the same arguments) will have different (incompatible) numbering systems and
+    be stored in different hash-tables (thus they will never be physically equal).
+
     @since v0.10.0 *)
 module MakeHashconsedSet(Key: KEY)() : sig
   include SET with type elt = Key.t (** @closed *)
 
-  val get_id : t -> int
+  val to_int : t -> int
   (** Returns the {{!hash_consed}hash-consed} id of the map.
-      Unlike {!NODE_WITH_ID.get_id}, hash-consing ensures that maps
+      Unlike {!NODE_WITH_ID.to_int}, hash-consing ensures that maps
       which contain the same keys (compared by {!KEY.to_int}) and values (compared
       by {!HASHED_VALUE.polyeq}) will always be physically equal
       and have the same identifier.
@@ -1745,13 +1760,19 @@ end
 (** Hash-consed version of {!HETEROGENEOUS_SET}.  See {!hash_consed} for the differences between
     hash-consed and non hash-consed sets.
 
+    This is a generative functor, as calling it creates a new hash-table to store
+    the created nodes, and a reference to store the next unallocated identifier.
+    Maps/sets from different hash-consing functors (even if these functors have
+    the same arguments) will have different (incompatible) numbering systems and
+    be stored in different hash-tables (thus they will never be physically equal).
+
     @since v0.10.0 *)
 module MakeHashconsedHeterogeneousSet(Key: HETEROGENEOUS_KEY)() : sig
   include HETEROGENEOUS_SET with type 'a elt = 'a Key.t (** @closed *)
 
-  val get_id : t -> int
+  val to_int : t -> int
   (** Returns the {{!hash_consed}hash-consed} id of the map.
-      Unlike {!NODE_WITH_ID.get_id}, hash-consing ensures that maps
+      Unlike {!NODE_WITH_ID.to_int}, hash-consing ensures that maps
       which contain the same keys (compared by {!KEY.to_int}) and values (compared
       by {!HASHED_VALUE.polyeq}) will always be physically equal
       and have the same identifier.
@@ -1780,15 +1801,21 @@ end
 (** Hash-consed version of {!HETEROGENEOUS_MAP}.  See {!hash_consed} for the differences between
     hash-consed and non hash-consed maps.
 
+    This is a generative functor, as calling it creates a new hash-table to store
+    the created nodes, and a reference to store the next unallocated identifier.
+    Maps/sets from different hash-consing functors (even if these functors have
+    the same arguments) will have different (incompatible) numbering systems and
+    be stored in different hash-tables (thus they will never be physically equal).
+
     @since v0.10.0 *)
 module MakeHashconsedHeterogeneousMap(Key: HETEROGENEOUS_KEY)(Value: HETEROGENEOUS_HASHED_VALUE)() : sig
   include HETEROGENEOUS_MAP
       with type 'a key = 'a Key.t
       and type ('k,'m) value = ('k, 'm) Value.t (** @closed *)
 
-  val get_id : 'a t -> int
+  val to_int : 'a t -> int
   (** Returns the {{!hash_consed}hash-consed} id of the map.
-      Unlike {!NODE_WITH_ID.get_id}, hash-consing ensures that maps
+      Unlike {!NODE_WITH_ID.to_int}, hash-consing ensures that maps
       which contain the same keys (compared by {!KEY.to_int}) and values (compared
       by {!HASHED_VALUE.polyeq}) will always be physically equal
       and have the same identifier.
@@ -1829,7 +1856,7 @@ module SimpleNode(Key: sig type 'k t end)(Value: HETEROGENEOUS_VALUE) : NODE
    and type ('key,'map) value = ('key,'map) Value.t
 
 (** Here, nodes also contain a unique id, e.g. so that they can be
-    used as keys of maps or hashtables. *)
+    used as keys of maps or hash-tables. *)
 module NodeWithId(Key: sig type 'k t end)(Value: HETEROGENEOUS_VALUE) : NODE_WITH_ID
   with type 'a key = 'a Key.t
    and type ('key,'map) value = ('key,'map) Value.t
@@ -1868,8 +1895,15 @@ module WeakSetNode(Key: sig type 'k t end) : NODE
     but also performs hash-consing. So two maps with the same bindings will
     always be physically equal. See {!hash_consed} for more details on this.
 
-    Using these nodes with multiple {!MakeCustomMap} functors will result in
-    all those maps being hash-consed (stored in the same hash table, same numbering system).
+    This is a generative functor, as calling it creates a new hash-table to store
+    the created nodes, and a reference to store the next unallocated identifier.
+    Maps/sets from different hash-consing functors (even if these functors have
+    the same arguments) will have different (incompatible) numbering systems and
+    be stored in different hash-tables (thus they will never be physically equal).
+
+    Using a single {!HashconsedNode} in multiple {!MakeCustomMap} functors will result in
+    all those maps being hash-consed together (stored in the same hash-table,
+    same numbering system).
 
     @since v0.10.0 *)
 module HashconsedNode(Key: HETEROGENEOUS_KEY)(Value: HETEROGENEOUS_HASHED_VALUE)() : HASH_CONSED_NODE

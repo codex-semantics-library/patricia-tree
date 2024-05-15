@@ -50,7 +50,7 @@ end
 
 module type NODE_WITH_ID = sig
   include NODE
-  val get_id: 'a t -> int
+  val to_int: 'a t -> int
 end
 
 module type HASH_CONSED_NODE = sig
@@ -495,7 +495,7 @@ module NodeWithId(Key:sig type 'a t end)(Value:HETEROGENEOUS_VALUE):NODE_WITH_ID
     | NBranch{prefix;branching_bit;tree0;tree1;_} -> Branch{prefix;branching_bit;tree0;tree1}
     | NLeaf{key;value;_} -> Leaf{key;value}
 
-  let get_id = function
+  let to_int = function
     | NEmpty -> 0
     | NBranch{id;_} -> id
     | NLeaf{id;_} -> id
@@ -633,7 +633,7 @@ module HashconsedNode(Key:HETEROGENEOUS_KEY)(Value:HETEROGENEOUS_HASHED_VALUE)()
     | NBranch{prefix;branching_bit;tree0;tree1;_} -> Branch{prefix;branching_bit;tree0;tree1}
     | NLeaf{key;value;_} -> Leaf{key;value}
 
-  let get_id = function
+  let to_int = function
     | NEmpty -> 0
     | NBranch{ id; _ } -> id
     | NLeaf{ id; _ } -> id
@@ -654,7 +654,7 @@ module HashconsedNode(Key:HETEROGENEOUS_KEY)(Value:HETEROGENEOUS_HASHED_VALUE)()
       | NBranch{prefix=prefixa;branching_bit=branching_bita;tree0=tree0a;tree1=tree1a;_},
         NBranch{prefix=prefixb;branching_bit=branching_bitb;tree0=tree0b;tree1=tree1b;_} ->
         prefixa == prefixb && branching_bita == branching_bitb &&
-        get_id tree0a = get_id tree0b && get_id tree1a = get_id tree1b
+        to_int tree0a = to_int tree0b && to_int tree1a = to_int tree1b
       | _ -> false
 
     let hash (AnyMap x) = match x with
@@ -664,7 +664,7 @@ module HashconsedNode(Key:HETEROGENEOUS_KEY)(Value:HETEROGENEOUS_HASHED_VALUE)()
           (hash lsl 1) lor 1
           (* All leaf hashes are odd *)
       | NBranch{prefix; branching_bit; tree0; tree1; _} -> (* All branch hashes are even *)
-        (sdbm (prefix lor branching_bit) @@ sdbm (get_id tree0) (get_id tree1)) lsl 1
+        (sdbm (prefix lor branching_bit) @@ sdbm (to_int tree0) (to_int tree1)) lsl 1
   end
 
   module WeakHash = Weak.Make(HashArg)
@@ -688,8 +688,8 @@ module HashconsedNode(Key:HETEROGENEOUS_KEY)(Value:HETEROGENEOUS_HASHED_VALUE)()
     | x, NEmpty -> x
     | _ -> try_find (NBranch{prefix;branching_bit;tree0;tree1;id=(!count)})
 
-  let equal x y = Int.equal (get_id x) (get_id y)
-  let compare x y = Int.compare (get_id x) (get_id y)
+  let equal x y = x == y
+  let compare x y = Int.compare (to_int x) (to_int y)
 end
 
 module HashconsedSetNode(Key:HETEROGENEOUS_KEY)(): HASH_CONSED_NODE
@@ -715,7 +715,7 @@ module HashconsedSetNode(Key:HETEROGENEOUS_KEY)(): HASH_CONSED_NODE
     | NBranch{prefix;branching_bit;tree0;tree1;_} -> Branch{prefix;branching_bit;tree0;tree1}
     | NLeaf{ key; _ } -> Leaf{ key; value=() }
 
-  let get_id = function
+  let to_int = function
     | NEmpty -> 0
     | NBranch{ id; _ } -> id
     | NLeaf{ id; _ } -> id
@@ -741,7 +741,7 @@ module HashconsedSetNode(Key:HETEROGENEOUS_KEY)(): HASH_CONSED_NODE
       | NEmpty -> 0
       | NLeaf{key; _} -> ((Key.to_int key) lsl 1) lor 1 (* All leaf hashes are odd *)
       | NBranch{prefix; branching_bit; tree0; tree1; _} -> (* All branch hashes are even *)
-        (sdbm (prefix lor branching_bit) @@ sdbm (get_id tree0) (get_id tree1)) lsl 1
+        (sdbm (prefix lor branching_bit) @@ sdbm (to_int tree0) (to_int tree1)) lsl 1
   end
 
   module WeakHash = Weak.Make(HashArg)
@@ -764,8 +764,8 @@ module HashconsedSetNode(Key:HETEROGENEOUS_KEY)(): HASH_CONSED_NODE
     | x, NEmpty -> x
     | _ -> try_find (NBranch{prefix;branching_bit;tree0;tree1;id=(!count)})
 
-  let equal x y = Int.equal (get_id x) (get_id y)
-  let compare x y = Int.compare (get_id x) (get_id y)
+  let equal x y = x == y
+  let compare x y = Int.compare (to_int x) (to_int y)
 end
 
 (** {1 Keys and values} *)
@@ -1952,7 +1952,7 @@ module MakeHashconsedHeterogeneousMap(Key:HETEROGENEOUS_KEY)(Value:HETEROGENEOUS
 
   let equal = Node.equal
   let compare = Node.compare
-  let get_id = Node.get_id
+  let to_int = Node.to_int
 end
 
 module MakeHashconsedHeterogeneousSet(Key:HETEROGENEOUS_KEY)() = struct
@@ -1961,7 +1961,7 @@ module MakeHashconsedHeterogeneousSet(Key:HETEROGENEOUS_KEY)() = struct
 
   let equal = Node.equal
   let compare = Node.compare
-  let get_id = Node.get_id
+  let to_int = Node.to_int
 end
 
 module MakeHashconsedSet(Key : KEY)() = struct
@@ -1969,7 +1969,7 @@ module MakeHashconsedSet(Key : KEY)() = struct
   include MakeCustomSet(Key)(Node)
   let equal = Node.equal
   let compare = Node.compare
-  let get_id = Node.get_id
+  let to_int = Node.to_int
 end
 
 module MakeHashconsedMap(Key: KEY)(Value: HASHED_VALUE)() = struct
@@ -1979,5 +1979,5 @@ module MakeHashconsedMap(Key: KEY)(Value: HASHED_VALUE)() = struct
 
   let equal = Node.equal
   let compare = Node.compare
-  let get_id = Node.get_id
+  let to_int = Node.to_int
 end

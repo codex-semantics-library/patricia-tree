@@ -292,7 +292,7 @@ end
 module TestImpl(MyMap : MAP with type key = int)(Param : sig
   val test_id : bool
   val number_gen : int QCheck.arbitrary
-  (* val get_id : 'a MyMap.t -> int option *)
+  (* val to_int : 'a MyMap.t -> int option *)
 end) = struct
 
   (* Add a list of pair of ints to a map. *)
