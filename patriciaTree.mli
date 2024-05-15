@@ -1634,12 +1634,18 @@ module MakeCustomHeterogeneousSet
       and {!HeterogeneousHashedValue}.
 
     All hash-consing functors are {b generative}, since each functor call will
-    create a new hashtable to store the created nodes. Calling a functor
+    create a new hash-table to store the created nodes. Calling a functor
     twice with same arguments will lead to two numbering systems for identifiers,
     and thus the types should not be considered compatible.  *)
 
 (** Hash-consed version of {!MAP}. See {!hash_consed} for the differences between
     hash-consed and non hash-consed maps.
+
+    This is a generative functor, as calling it creates a new hash-table to store
+    the created nodes, and a reference to store the next unallocated identifier.
+    Maps/sets from different hash-consing functors (even if these functors have
+    the same arguments) will have different (incompatible) numbering systems and
+    be stored in different hash-tables (thus they will never be physically equal).
 
     @since v0.10.0 *)
 module MakeHashconsedMap(Key: KEY)(Value: HASHED_VALUE)() : sig
@@ -1676,6 +1682,12 @@ end
 (** Hash-consed version of {!SET}. See {!hash_consed} for the differences between
     hash-consed and non hash-consed sets.
 
+    This is a generative functor, as calling it creates a new hash-table to store
+    the created nodes, and a reference to store the next unallocated identifier.
+    Maps/sets from different hash-consing functors (even if these functors have
+    the same arguments) will have different (incompatible) numbering systems and
+    be stored in different hash-tables (thus they will never be physically equal).
+
     @since v0.10.0 *)
 module MakeHashconsedSet(Key: KEY)() : sig
   include SET with type elt = Key.t (** @closed *)
@@ -1711,6 +1723,12 @@ end
 (** Hash-consed version of {!HETEROGENEOUS_SET}.  See {!hash_consed} for the differences between
     hash-consed and non hash-consed sets.
 
+    This is a generative functor, as calling it creates a new hash-table to store
+    the created nodes, and a reference to store the next unallocated identifier.
+    Maps/sets from different hash-consing functors (even if these functors have
+    the same arguments) will have different (incompatible) numbering systems and
+    be stored in different hash-tables (thus they will never be physically equal).
+
     @since v0.10.0 *)
 module MakeHashconsedHeterogeneousSet(Key: HETEROGENEOUS_KEY)() : sig
   include HETEROGENEOUS_SET with type 'a elt = 'a Key.t (** @closed *)
@@ -1745,6 +1763,12 @@ end
 
 (** Hash-consed version of {!HETEROGENEOUS_MAP}.  See {!hash_consed} for the differences between
     hash-consed and non hash-consed maps.
+
+    This is a generative functor, as calling it creates a new hash-table to store
+    the created nodes, and a reference to store the next unallocated identifier.
+    Maps/sets from different hash-consing functors (even if these functors have
+    the same arguments) will have different (incompatible) numbering systems and
+    be stored in different hash-tables (thus they will never be physically equal).
 
     @since v0.10.0 *)
 module MakeHashconsedHeterogeneousMap(Key: HETEROGENEOUS_KEY)(Value: HETEROGENEOUS_HASHED_VALUE)() : sig
@@ -1795,7 +1819,7 @@ module SimpleNode(Key: sig type 'k t end)(Value: HETEROGENEOUS_VALUE) : NODE
    and type ('key,'map) value = ('key,'map) Value.t
 
 (** Here, nodes also contain a unique id, e.g. so that they can be
-    used as keys of maps or hashtables. *)
+    used as keys of maps or hash-tables. *)
 module NodeWithId(Key: sig type 'k t end)(Value: HETEROGENEOUS_VALUE) : NODE_WITH_ID
   with type 'a key = 'a Key.t
    and type ('key,'map) value = ('key,'map) Value.t
@@ -1834,8 +1858,15 @@ module WeakSetNode(Key: sig type 'k t end) : NODE
     but also performs hash-consing. So two maps with the same bindings will
     always be physically equal. See {!hash_consed} for more details on this.
 
-    Using these nodes with multiple {!MakeCustomMap} functors will result in
-    all those maps being hash-consed (stored in the same hash table, same numbering system).
+    This is a generative functor, as calling it creates a new hash-table to store
+    the created nodes, and a reference to store the next unallocated identifier.
+    Maps/sets from different hash-consing functors (even if these functors have
+    the same arguments) will have different (incompatible) numbering systems and
+    be stored in different hash-tables (thus they will never be physically equal).
+
+    Using a single {!HashconsedNode} in multiple {!MakeCustomMap} functors will result in
+    all those maps being hash-consed together (stored in the same hash-table,
+    same numbering system).
 
     @since v0.10.0 *)
 module HashconsedNode(Key: HETEROGENEOUS_KEY)(Value: HETEROGENEOUS_HASHED_VALUE)() : HASH_CONSED_NODE

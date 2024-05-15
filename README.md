@@ -139,6 +139,10 @@ always physically equal. With this unique numbering:
   the documentation of `HASHED_VALUE.polyeq` for details.
   Note that this is the case in the default implementations `HashedValue`
   and `HeterogeneousHashedValue`.
+- All hash-consing functors are **generative**, since each functor call will
+  create a new hash-table to store the created nodes. Calling a functor
+  twice with same arguments will lead to two numbering systems for identifiers,
+  and thus the types should not be considered compatible.
 
 ### Interfaces
 

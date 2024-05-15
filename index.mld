@@ -86,7 +86,8 @@ dune build @doc
 {li Additionally, hashconsed versions of heterogeneous/homogeneous maps/sets are
   available. These provide constant time equality and comparison, and ensure
   maps/set with the same constants are always physically equal. It comes at the cost
-  of more memory usage a slightly slower constructors.}}
+  of a constant overhead in memory usage (at worst, as hash-consing may allow
+  memory gains) and constant time overhead when calling constructors.}}
 
 {1 Quick overview}
 
@@ -131,6 +132,10 @@ The functors used to build maps and sets are the following:
     Note that this is the case in the default implementations
     {{!PatriciaTree.HashedValue}[HashedValue]}
     and {{!PatriciaTree.HeterogeneousHashedValue}[HeterogeneousHashedValue]}.
+  - All hash-consing functors are {b generative}, since each functor call will
+    create a new hash-table to store the created nodes. Calling a functor
+    twice with same arguments will lead to two numbering systems for identifiers,
+    and thus the types should not be considered compatible.
 }}
 
 {2 Interfaces}
