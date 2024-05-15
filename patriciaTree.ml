@@ -688,7 +688,7 @@ module HashconsedNode(Key:HETEROGENEOUS_KEY)(Value:HETEROGENEOUS_HASHED_VALUE)()
     | x, NEmpty -> x
     | _ -> try_find (NBranch{prefix;branching_bit;tree0;tree1;id=(!count)})
 
-  let equal x y = Int.equal (get_id x) (get_id y)
+  let equal x y = x == y
   let compare x y = Int.compare (get_id x) (get_id y)
 end
 
@@ -764,7 +764,7 @@ module HashconsedSetNode(Key:HETEROGENEOUS_KEY)(): HASH_CONSED_NODE
     | x, NEmpty -> x
     | _ -> try_find (NBranch{prefix;branching_bit;tree0;tree1;id=(!count)})
 
-  let equal x y = Int.equal (get_id x) (get_id y)
+  let equal x y = x == y
   let compare x y = Int.compare (get_id x) (get_id y)
 end
 
