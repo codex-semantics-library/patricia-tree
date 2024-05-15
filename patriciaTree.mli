@@ -1474,8 +1474,8 @@ module type HASHED_VALUE = sig
          {[
             type any = Any : 'a HMap.t -> any
             module MapOfMaps = MakeMap(struct
-              type t = Any : 'a HMap.t -> t
-              let to_int (Any x) = Node.to_int x
+              type t = any
+              let to_int (Any x) = HMap.to_int x
             end)
          ]}
          Using this can lead to unexpected behaviors:
