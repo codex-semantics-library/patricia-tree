@@ -209,7 +209,7 @@ end
 module type NODE_WITH_ID = sig
   include NODE (** @closed *)
 
-  val get_id: 'a t -> int
+  val to_int: 'a t -> int
   (** Unique number for each node.
 
       This is not {{!hash_consed}hash-consing}.
@@ -230,12 +230,15 @@ end
 module type HASH_CONSED_NODE = sig
   include NODE (** @closed *)
 
-  val get_id : 'a t -> int
-  (** Returns the {{!hash_consed}hash-consed} id of the map.
-      Unlike {!NODE_WITH_ID.get_id}, hash-consing ensures that maps
+  val to_int : 'a t -> int
+  (** Returns a unique number for each map, the {{!hash_consed}hash-consed} identifier of the map.
+      Unlike {!NODE_WITH_ID.to_int}, hash-consing ensures that maps
       which contain the same keys (compared by {!KEY.to_int}) and values (compared
       by {!HASHED_VALUE.polyeq}) will always be physically equal
       and have the same identifier.
+
+      Maps with the same identifier are also physically equal:
+      [to_int m1 = to_int m2] implies [m1 == m2].
 
       Note that when using physical equality as {!HASHED_VALUE.polyeq}, some
       maps of different types [a t] and [b t] may be given the same identifier.
@@ -1433,14 +1436,14 @@ module type HASHED_VALUE = sig
 
             let m1 = HMap.singleton 5 97 (* int HMap.t *)
             let m2 = HMap.singleton 5 'a' (* char HMap.t *)
-            let _ = HMap.get_id m1 = HMap.get_id m2 (* This is also true. *)
+            let _ = HMap.to_int m1 = HMap.to_int m2 (* This is also true. *)
          ]}
          This can cause problems if you wish to use identifiers of different map
          types together:
          {[
             module MapOfMaps = MakeMap(struct
               type t = Any : 'a HMap.t -> t
-              let to_int (Any x) = Node.get_id x
+              let to_int (Any x) = Node.to_int x
             end)
 
            let m3 = MapOfMaps.of_list [ (m1, "foo"); (m2, "bar") ]
@@ -1522,7 +1525,7 @@ module HashedValue : HASHED_VALUE with type 'a t = 'a
     Uses {{: https://ocaml.org/api/Hashtbl.html#VALhash}[Hashtbl.hash]} for hashing
     and physical equality for equality.
     Note that this may lead to maps of different types having the same identifier
-    ({!MakeHashconsedMap.get_id}), see the documentation of {!HASHED_VALUE.polyeq}
+    ({!MakeHashconsedMap.to_int}), see the documentation of {!HASHED_VALUE.polyeq}
     for details on this. *)
 
 module HeterogeneousHashedValue : HETEROGENEOUS_HASHED_VALUE with type ('k, 'm) t = 'm
@@ -1530,7 +1533,7 @@ module HeterogeneousHashedValue : HETEROGENEOUS_HASHED_VALUE with type ('k, 'm) 
     Uses {{: https://ocaml.org/api/Hashtbl.html#VALhash}[Hashtbl.hash]} for hashing
     and physical equality for equality.
     Note that this may lead to maps of different types having the same identifier
-    ({!MakeHashconsedHeterogeneousMap.get_id}), see the documentation of
+    ({!MakeHashconsedHeterogeneousMap.to_int}), see the documentation of
     {!HASHED_VALUE.polyeq} for details on this. *)
 
 
@@ -1642,9 +1645,9 @@ module MakeCustomHeterogeneousSet
 module MakeHashconsedMap(Key: KEY)(Value: HASHED_VALUE)() : sig
   include MAP_WITH_VALUE with type key = Key.t and type 'a value = 'a Value.t (** @closed *)
 
-  val get_id : 'a t -> int
+  val to_int : 'a t -> int
   (** Returns the {{!hash_consed}hash-consed} id of the map.
-      Unlike {!NODE_WITH_ID.get_id}, hash-consing ensures that maps
+      Unlike {!NODE_WITH_ID.to_int}, hash-consing ensures that maps
       which contain the same keys (compared by {!KEY.to_int}) and values (compared
       by {!HASHED_VALUE.polyeq}) will always be physically equal
       and have the same identifier.
@@ -1677,9 +1680,9 @@ end
 module MakeHashconsedSet(Key: KEY)() : sig
   include SET with type elt = Key.t (** @closed *)
 
-  val get_id : t -> int
+  val to_int : t -> int
   (** Returns the {{!hash_consed}hash-consed} id of the map.
-      Unlike {!NODE_WITH_ID.get_id}, hash-consing ensures that maps
+      Unlike {!NODE_WITH_ID.to_int}, hash-consing ensures that maps
       which contain the same keys (compared by {!KEY.to_int}) and values (compared
       by {!HASHED_VALUE.polyeq}) will always be physically equal
       and have the same identifier.
@@ -1712,9 +1715,9 @@ end
 module MakeHashconsedHeterogeneousSet(Key: HETEROGENEOUS_KEY)() : sig
   include HETEROGENEOUS_SET with type 'a elt = 'a Key.t (** @closed *)
 
-  val get_id : t -> int
+  val to_int : t -> int
   (** Returns the {{!hash_consed}hash-consed} id of the map.
-      Unlike {!NODE_WITH_ID.get_id}, hash-consing ensures that maps
+      Unlike {!NODE_WITH_ID.to_int}, hash-consing ensures that maps
       which contain the same keys (compared by {!KEY.to_int}) and values (compared
       by {!HASHED_VALUE.polyeq}) will always be physically equal
       and have the same identifier.
@@ -1749,9 +1752,9 @@ module MakeHashconsedHeterogeneousMap(Key: HETEROGENEOUS_KEY)(Value: HETEROGENEO
       with type 'a key = 'a Key.t
       and type ('k,'m) value = ('k, 'm) Value.t (** @closed *)
 
-  val get_id : 'a t -> int
+  val to_int : 'a t -> int
   (** Returns the {{!hash_consed}hash-consed} id of the map.
-      Unlike {!NODE_WITH_ID.get_id}, hash-consing ensures that maps
+      Unlike {!NODE_WITH_ID.to_int}, hash-consing ensures that maps
       which contain the same keys (compared by {!KEY.to_int}) and values (compared
       by {!HASHED_VALUE.polyeq}) will always be physically equal
       and have the same identifier.
