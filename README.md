@@ -1,6 +1,6 @@
 # Patricia Tree
 
-[![Latest version](https://img.shields.io/badge/version-0.9.0-yellow)](https://github.com/codex-semantics-library/patricia-tree/releases)
+[![Latest version](https://img.shields.io/badge/version-0.10.0-yellow)](https://github.com/codex-semantics-library/patricia-tree/releases)
 [![OCaml Version](https://img.shields.io/badge/OCaml-4.14_--_5.x-blue?logo=ocaml&logoColor=white)](https://github.com/codex-semantics-library/patricia-tree/blob/main/dune-project)
 [![GitHub License](https://img.shields.io/github/license/codex-semantics-library/patricia-tree)](https://github.com/codex-semantics-library/patricia-tree/blob/main/LICENSE)
 [![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/codex-semantics-library/patricia-tree/ocaml.yml)](https://github.com/codex-semantics-library/patricia-tree/actions/workflows/ocaml.yml)
@@ -46,10 +46,10 @@ Alternatively, you can clone the source repository and install with [dune](https
 git clone git@github.com:codex-semantics-library/patricia-tree.git
 cd patricia-tree
 opan install . --deps-only
-dune build
+dune build -p patricia-tree
 dune install
 # To build documentation
-opam install odoc
+opam install . --deps-only --with-doc
 dune build @doc
 ```
 
@@ -124,8 +124,7 @@ module MakeHeterogeneousMap(Key: HETEROGENEOUS_KEY)(Value: HETEROGENEOUS_VALUE) 
 There are also [hash-consed](https://en.wikipedia.org/wiki/Hash_consing) versions
 of these four functors: `MakeHashconsedMap`, `MakeHashconsedSet`,
 `MakeHashconsedHeterogeneousMap` and `MakeHashconsedHeterogeneousSet`.
-These uniquely number their nodes, and ensure nodes with the same contents are
-always physically equal. With this unique numbering:
+These uniquely number their nodes, which means:
 - `equal` and `compare` become constant time operations;
 - two maps with the same bindings (where keys are compared by `KEY.to_int` and
   values by `HASHED_VALUE.polyeq`) will always be physically equal;

@@ -2,7 +2,8 @@
 
 ## Main changes
 
-- Added hash-consed nodes and functors to build hash-consed maps and sets
+- Added hash-consed nodes and functors to build hash-consed maps and sets.
+- Added new functions `fold_on_nonequal_inter` and `fold_on_nonequal_union` to maps.
 - Now support using negative keys, removed `zarith` dependency.
 - Fixed some bugs
 
@@ -31,6 +32,7 @@
 - Now support using negative keys. Trees are built using the bitwise representation
   of integer, meaning they effectively use an unsigned order. Negative keys are
   considered bigger than positive keys, `0` is the minimal number and `-1` the maximal one.
+- Added new functions `fold_on_nonequal_inter` and `fold_on_nonequal_union` to maps.
 
 **Bug fixes:**
 - Fixed a bug where `NodeWithId` wasn't incrementing ids properly
@@ -38,6 +40,8 @@
   method of finding an integer's highest bit.
 - Fixed a bug where `pop_minimum` and `pop_maximum` could throw a private exception
   `Dissappeared` when using `WeakNode`.
+- Fixed a possible assertion error when using `idempotent_subset_domain_forall2`
+  with `WeakNode`.
 
 # v0.9.0 - 2024-04-18
 

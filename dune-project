@@ -1,4 +1,4 @@
-(lang dune 2.7)
+(lang dune 3.0)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;  This file is part of the Codex semantics library                      ;;
@@ -25,6 +25,8 @@
 
 (version 0.10.0)
 
+(using mdx 0.2)
+
 (maintainers "Dorian Lesbre <dorian.lesbre@cea.fr>")
 
 (authors
@@ -36,9 +38,9 @@
 (bug_reports
  "https://github.com/codex-semantics-library/patricia-tree/issues")
 
-(homepage "https://codex.top/patricia-tree/")
+(homepage "https://codex.top/api/patricia-tree/")
 
-(documentation "https://codex.top/patricia-tree/")
+(documentation "https://codex.top/api/patricia-tree/")
 
 (source
  (github "codex-semantics-library/patricia-tree"))
@@ -60,6 +62,10 @@
   (ppx_inline_test
    (and
     (>= "v0.16.0")
+    :with-test))
+  (mdx
+   (and
+    (>= "2.4.1")
     :with-test))
   (odoc
    (and

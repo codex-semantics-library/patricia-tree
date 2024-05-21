@@ -9,15 +9,16 @@ authors: [
   "Dorian Lesbre <dorian.lesbre@cea.fr>"
 ]
 license: "LGPL-2.1-only"
-homepage: "https://codex.top/patricia-tree/"
-doc: "https://codex.top/patricia-tree/"
+homepage: "https://codex.top/api/patricia-tree/"
+doc: "https://codex.top/api/patricia-tree/"
 bug-reports:
   "https://github.com/codex-semantics-library/patricia-tree/issues"
 depends: [
   "ocaml" {>= "4.14"}
-  "dune" {>= "2.7"}
+  "dune" {>= "3.0"}
   "qcheck-core" {>= "0.21.2" & with-test}
   "ppx_inline_test" {>= "v0.16.0" & with-test}
+  "mdx" {>= "2.4.1" & with-test}
   "odoc" {>= "2.4.0" & with-doc}
   "sherlodoc" {with-doc}
 ]

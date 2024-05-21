@@ -30,6 +30,10 @@
 (documentation
  (package patricia-tree))
 
+(mdx
+ (files *.mld *.mli)
+ (libraries patricia-tree))
+
 ;; For test purposes only.
 
 (library

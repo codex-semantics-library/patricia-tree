@@ -15,25 +15,25 @@ under an {{: https://choosealicense.com/licenses/lgpl-2.1/}LGPL-2.1} license.
 
 This library was written by {{: https://www.researchgate.net/profile/Matthieu-Lemerre}Matthieu Lemerre},
 then further improved by {{: https://www.normalesup.org/~dlesbre/}Dorian Lesbre},
-as part of the {{: Codex semantics library}https://codex.top/}, developed at
+as part of the {{: https://codex.top/}Codex semantics library}, developed at
 {{: https://list.cea.fr/en/} CEA List}.
 
 {1 Installation}
 
 This library can be installed with {{: https://opam.ocaml.org/}opam}:
-{@bash[
+{@bash skip[
 opam install patricia-tree
 ]}
 
 Alternatively, you can clone the source repository and install with {{: https://dune.build/}dune}:
-{@bash[
+{@bash skip[
 git clone git@github.com:codex-semantics-library/patricia-tree.git
-opam install . --deps-only
 cd patricia-tree
-dune build
+opan install . --deps-only
+dune build -p patricia-tree
 dune install
 # To build documentation
-opam install odoc
+opam install . --deps-only --with-doc
 dune build @doc
 ]}
 
@@ -98,13 +98,13 @@ The functors used to build maps and sets are the following:
 {ul
 {li For homogeneous (non-generic) maps and sets: {{!PatriciaTree.MakeMap}[MakeMap]} and
     {{!PatriciaTree.MakeSet}[MakeSet]}. These are similar to the standard library's maps and sets.
-    {[
+    {@ocaml skip[
       module MakeMap(Key: KEY) : MAP with type key = Key.t
       module MakeSet(Key: KEY) : SET with type elt = Key.t
     ]}}
 {li For Heterogeneous (generic) maps and sets: {{!PatriciaTree.MakeHeterogeneousMap}[MakeHeterogeneousMap]}
     and {{!PatriciaTree.MakeHeterogeneousSet}[MakeHeterogeneousSet]}.
-    {[
+    {@ocaml skip[
       module MakeHeterogeneousMap(Key: HETEROGENEOUS_KEY)(Value: HETEROGENEOUS_VALUE) :
         HETEROGENEOUS_MAP
         with type 'a key = 'a Key.t
@@ -116,8 +116,7 @@ The functors used to build maps and sets are the following:
   There are also {{: https://en.wikipedia.org/wiki/Hash_consing}hash-consed} versions
   of these four functors: {{!PatriciaTree.MakeHashconsedMap}[MakeHashconsedMap]}, {{!PatriciaTree.MakeHashconsedSet}[MakeHashconsedSet]},
   {{!PatriciaTree.MakeHashconsedHeterogeneousMap}[MakeHashconsedHeterogeneousMap]} and {{!PatriciaTree.MakeHashconsedHeterogeneousSet}[MakeHashconsedHeterogeneousSet]}.
-  These uniquely number their nodes, and ensures {b nodes with the same contents are
-  always physically equal}. With this unique numbering:
+  These uniquely number their nodes, which means:
   - [equal] and [compare] become constant time operations;
   - two maps with the same bindings (where keys are compared by {{!PatriciaTree.KEY.to_int}[KEY.to_int]} and
     values by {{!PatriciaTree.HASHED_VALUE.polyeq}[HASHED_VALUE.polyeq]}) will always be physically equal;
@@ -190,109 +189,180 @@ Here is a brief overview of the various module types of our library:
 
 Here is a small example of a non-generic map:
 
-{[
-(** Create a key struct *)
-module Int (*: PatriciaTree.KEY*) = struct
-  type t = int
-  let to_int x = x
-end
-
-(** Call the map and/or set functors *)
-module IMap = PatriciaTree.MakeMap(Int)
-module ISet = PatriciaTree.MakeSet(Int)
-
-(** Use all the usual map operations *)
-let map =
-  IMap.empty |>
-  IMap.add 1 "hello" |>
-  IMap.add 2 "world" |>
-  IMap.add 3 "how do you do?"
-  (* Also has an [of_list] and [of_seq] operation for initialization *)
-
-let _ = IMap.find 1 map (* "hello" *)
-let _ = IMap.cardinal map (* 3 *)
-
-(** The strength of Patricia Tree is the speedup of operation on multiple maps
-    with common subtrees. *)
-let map2 =
-  IMap.idempotent_inter_filter (fun _key _l _r -> None)
-  (IMap.add 4 "something" map) (IMap.add 5 "something else" map)
-let _ = map == map2 (* true *)
-(* physical equality is preserved as much as possible, although some intersections
-   may need to build new nodes and won't be fully physically equal, they will
-   still share subtrees if possible. *)
-
-(** Many operations preserve physical equality whenever possible *)
-let _ = (IMap.add 1 "hello" map) == map (* true: already present *)
-
-(** Example of cross map/set operation: only keep the bindings of [map]
-    whose keys are in a given set *)
-let set = ISet.of_list [1; 3]
-module CrossOperations = IMap.WithForeign(ISet.BaseMap)
-let restricted_map = CrossOperations.nonidempotent_inter
-  { f = fun _key value () -> value } map set
-]}
+{ol
+{li Start by creating a key module:
+  {@ocaml[
+  module IntKey : PatriciaTree.KEY with type t = int = struct
+    type t = int
+    let to_int x = x
+  end
+  ]}}
+{li Use it to instanciate the map/set functors:
+  {[
+  module IMap : PatriciaTree.MAP with type key = int = PatriciaTree.MakeMap(IntKey);;
+  module ISet : PatriciaTree.SET with type elt = int = PatriciaTree.MakeSet(IntKey);;
+  ]}}
+{li You can now use it as you would any other map:
+  {[
+  # let map =
+    IMap.empty |>
+    IMap.add 1 "hello" |>
+    IMap.add 2 "world" |>
+    IMap.add 3 "how do you do?";;
+  val map : string IMap.t = <abstr>
+  ]}
+  (We also have {{!PatriciaTree.MAP.of_list}[of_list]} and
+  {{!PatriciaTree.MAP.of_seq}[of_seq]} functions for quick initialization)
+  {[
+  # IMap.find 1 map;;
+  - : string = "hello"
+  # IMap.cardinal map;;
+  - : int = 3
+  ]}}
+{li The strength of Patricia Tree is the speedup of operation on multiple maps
+    with common subtrees.
+  {[
+  # let map2 =
+      IMap.idempotent_inter_filter (fun _key _l _r -> None)
+        (IMap.add 4 "something" map)
+        (IMap.add 5 "something else" map);;
+  val map2 : string IMap.t = <abstr>
+  # map == map2;;
+  - : bool = true
+  ]}
+  Physical equality is preserved as much as possible, although some intersections
+  may need to build new nodes and won't be fully physically equal, they will
+  still share subtrees if possible.
+  {[
+  # let str = IMap.find 1 map;;
+  val str : string = "hello"
+  # IMap.add 1 str map == map (* already present *);;
+  - : bool = true
+  # IMap.add 1 "hello" map == map
+    (* new string copy isn't physically equal to the old one *);;
+  - : bool = false
+  ]}
+  Note that physical equality ins't preserved when creating new copies of values
+  (the newly created string ["hello"] isn't physically equal to [str]).
+  It can also fail when maps have the same bindings but were created differently:
+  {[
+    # let map3 = IMap.remove 2 map;;
+    val map3 : string IMap.t = <abstr>
+    # IMap.add 2 (IMap.find 2 map) map3 == map;;
+    - : bool = false
+  ]}
+  This is because they were created through different processes. They will still
+  share subtrees. If you want to maintain full physical equality (and thus get
+  cheap equality test between maps), use the provided
+  {{!PatriciaTree.section-hash_consed}hash-consed maps and sets}.}
+{li Our library also allows cross map/set operations.
+  For example, you can only keep the bindings of [map]
+  whose keys are in a given set:
+  {[
+    let set = ISet.of_list [1; 3]
+    module CrossOperations = IMap.WithForeign(ISet.BaseMap)
+    let restricted_map = CrossOperations.nonidempotent_inter
+      { f = fun _key value () -> value } map set
+  ]}
+  {[
+    # IMap.to_list map;;
+    - : (int * string) list = [(1, "hello"); (2, "world"); (3, "how do you do?")]
+    # IMap.to_list restricted_map;;
+    - : (int * string) list = [(1, "hello"); (3, "how do you do?")]
+  ]}
+}}
 
 {2 Heterogeneous map}
 
-{[
-(** Very small typed expression language *)
-type 'a expr =
-  | G_Const_Int : int -> int expr
-  | G_Const_Bool : bool -> bool expr
-  | G_Addition : int expr * int expr -> int expr
-  | G_Equal : 'a expr * 'a expr -> bool expr
+Heterogeneous maps work very similarly to homogeneous ones, but come with extra
+liberty of having a generic type as a key.
 
-module Expr : PatriciaTree.HETEROGENEOUS_KEY with type 'a t = 'a expr = struct
-  type 'a t = 'a expr
+{ol
+{li Here is a GADT example to use for our keys: a small typed expression language.
+    {[
+      type 'a expr =
+        | G_Const_Int : int -> int expr
+        | G_Const_Bool : bool -> bool expr
+        | G_Addition : int expr * int expr -> int expr
+        | G_Equal : 'a expr * 'a expr -> bool expr
+    ]}
+    We can create our {{!PatriciaTree.HETEROGENEOUS_KEY}[HETEROGENEOUS_KEY]} functor
+    parameter using this type has follows:
+    {[
+      module Expr : PatriciaTree.HETEROGENEOUS_KEY with type 'a t = 'a expr = struct
+        type 'a t = 'a expr
 
-  (** Injective, so long as expression are small enough
-      (encodes the constructor discriminant in two lowest bits).
-      Ideally, use a hash-consed type, to_int needs to be fast *)
-  let rec to_int : type a. a expr -> int = function
-    | G_Const_Int i ->   0 + 4*i
-    | G_Const_Bool b ->  1 + 4*(if b then 1 else 0)
-    | G_Addition(l,r) -> 2 + 4*(to_int l mod 10000 + 10000*(to_int r))
-    | G_Equal(l,r) ->    3 + 4*(to_int l mod 10000 + 10000*(to_int r))
+        (** Injective, so long as expression are small enough
+            (encodes the constructor discriminant in two lowest bits).
+            Ideally, use a hash-consed type, to_int needs to be fast *)
+        let rec to_int : type a. a expr -> int = function
+          | G_Const_Int i ->   0 + 4*i
+          | G_Const_Bool b ->  1 + 4*(if b then 1 else 0)
+          | G_Addition(l,r) -> 2 + 4*(to_int l mod 10000 + 10000*(to_int r))
+          | G_Equal(l,r) ->    3 + 4*(to_int l mod 10000 + 10000*(to_int r))
 
-  (** Full polymorphic equality *)
-  let rec polyeq : type a b. a expr -> b expr -> (a, b) PatriciaTree.cmp =
-    fun l r -> match l, r with
-    | G_Const_Int l, G_Const_Int r -> if l = r then Eq else Diff
-    | G_Const_Bool l, G_Const_Bool r -> if l = r then Eq else Diff
-    | G_Addition(ll, lr), G_Addition(rl, rr) -> (
-        match polyeq ll rl with
-        | Eq -> polyeq lr rr
-        | Diff -> Diff)
-    | G_Equal(ll, lr), G_Equal(rl, rr) ->    (
-        match polyeq ll rl with
-        | Eq -> (match polyeq lr rr with Eq -> Eq | Diff -> Diff) (* Match required by typechecker *)
-        | Diff -> Diff)
-    | _ -> Diff
-end
+        (** Full polymorphic equality *)
+        let rec polyeq : type a b. a expr -> b expr -> (a, b) PatriciaTree.cmp =
+          fun l r -> match l, r with
+          | G_Const_Int l, G_Const_Int r -> if l = r then Eq else Diff
+          | G_Const_Bool l, G_Const_Bool r -> if l = r then Eq else Diff
+          | G_Addition(ll, lr), G_Addition(rl, rr) -> (
+              match polyeq ll rl with
+              | Eq -> polyeq lr rr
+              | Diff -> Diff)
+          | G_Equal(ll, lr), G_Equal(rl, rr) ->    (
+              match polyeq ll rl with
+              | Eq -> (match polyeq lr rr with Eq -> Eq | Diff -> Diff) (* Match required by typechecker *)
+              | Diff -> Diff)
+          | _ -> Diff
+      end
+    ]}}
+{li We can now instanciate our map functor. Note that in the heterogeneous case,
+    we must also specify the value type (second functor argument) and how it depends
+    on the key type (first parameter) and the map type (second parameter).
+    Here the value only depends on the type of the key, not that of the map
+    {[
+      module EMap = PatriciaTree.MakeHeterogeneousMap(Expr)(struct type ('a, _) t = 'a end)
+    ]}}
+{li You can now use this as you would any other dependent map:
+    {[
+      # let map : unit EMap.t =
+        EMap.empty |>
+        EMap.add (G_Const_Bool false) false |>
+        EMap.add (G_Const_Int 5) 5 |>
+        EMap.add (G_Addition (G_Const_Int 3, G_Const_Int 6)) 9 |>
+        EMap.add (G_Equal (G_Const_Bool false, G_Equal (G_Const_Int 5, G_Const_Int 7))) true
+      val map : unit EMap.t = <abstr>
+      # EMap.find (G_Const_Bool false) map;;
+      - : bool = false
+      # EMap.find (G_Const_Int 5) map;;
+      - : int = 5
+      # EMap.cardinal map;;
+      - : int = 4
+    ]}}
+{li Physical equality preservation allows fast operations on multiple maps with common
+    ancestors. In the heterogeneous case, these functions are a bit more complex
+    since OCaml requires that first-order polymorphic functions be wrapped in records:
+    {[
+      # let map2 = EMap.idempotent_inter_filter
+          { f = fun _key _l _r -> None } (* polymorphic 1rst order functions are wrapped in records *)
+          (EMap.add (G_Const_Int 0) 8 map)
+          (EMap.add (G_Const_Int 0) 9 map)
+      val map2 : unit EMap.t = <abstr>
+    ]}
+    Even though [map] and [map2] have the same elements, they may not always
+    be physically equal:
+    {[
+      # map == map2;;
+      - : bool = false
+    ]}
+    This is because they were created through different processes. They will still
+    share subtrees. If you want to maintain full physical equality (and thus get
+    cheap equality test between maps), use the provided
+    {{!PatriciaTree.section-hash_consed}hash-consed maps and sets}.
+}
+}
 
-(** Map from expression to their values: here the value only depends on the type
-    of the key, not that of the map *)
-module EMap = PatriciaTree.MakeHeterogeneousMap(Expr)(struct type ('a, _) t = 'a end)
-
-(** You can use all the usual map operations *)
-let map : unit EMap.t =
-  EMap.empty |>
-  EMap.add (G_Const_Bool false) false |>
-  EMap.add (G_Const_Int 5) 5 |>
-  EMap.add (G_Addition (G_Const_Int 3, G_Const_Int 6)) 9 |>
-  EMap.add (G_Equal (G_Const_Bool false, G_Equal (G_Const_Int 5, G_Const_Int 7))) true
-
-let _ = EMap.find (G_Const_Bool false) map (* false *)
-let _ = EMap.cardinal map (* 4 *)
-
-(** Fast operations on multiple maps with common subtrees. *)
-let map2 =
-  EMap.idempotent_inter_filter
-    { f = fun _key _l _r -> None } (* polymorphic 1rst order functions are wrapped in records *)
-    (EMap.add (G_Const_Int 0) 8 map)
-    (EMap.add (G_Const_Int 0) 9 map)
-]}
 
 {1 Release status}
 
