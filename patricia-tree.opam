@@ -9,8 +9,8 @@ authors: [
   "Dorian Lesbre <dorian.lesbre@cea.fr>"
 ]
 license: "LGPL-2.1-only"
-homepage: "https://codex.top/patricia-tree/"
-doc: "https://codex.top/patricia-tree/"
+homepage: "https://codex.top/api/patricia-tree/"
+doc: "https://codex.top/api/patricia-tree/"
 bug-reports:
   "https://github.com/codex-semantics-library/patricia-tree/issues"
 depends: [

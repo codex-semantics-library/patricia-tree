@@ -38,9 +38,9 @@
 (bug_reports
  "https://github.com/codex-semantics-library/patricia-tree/issues")
 
-(homepage "https://codex.top/patricia-tree/")
+(homepage "https://codex.top/api/patricia-tree/")
 
-(documentation "https://codex.top/patricia-tree/")
+(documentation "https://codex.top/api/patricia-tree/")
 
 (source
  (github "codex-semantics-library/patricia-tree"))
@@ -65,7 +65,7 @@
     :with-test))
   (mdx
    (and
-    (>="2.4.1")
+    (>= "2.4.1")
     :with-test))
   (odoc
    (and
