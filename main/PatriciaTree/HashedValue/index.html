@@ -10,16 +10,20 @@ let polyeq : type a b. a t -&gt; b t -&gt; bool = fun x y -&gt;
     match x, y with
     | T_Int i, T_Int j -&gt; i = j (* Here type a = b = int, we can return true *)
     | T_Bool i, T_Bool j -&gt; i &amp;&amp; j (* same here, but with a = b = bool *)
-    | _ -&gt; false (* never return true on heterogeneous cases. *)</code></pre></li><li><p>Using physical equality:</p><pre class="language-ocaml"><code>let polyeq a b = a == Obj.magic b</code></pre><p>While this contains an <code>Obj.magic</code>, it is still type safe (OCaml just compares the immediate values) and we can safely cast values from one type to the other if they satisfy this (since they are already physically equal).</p><p>This is the implementation used in <a href="#"><code>HashedValue</code></a>. Note however that using this function can lead to <b>identifiers no longer being unique across types</b>. They will still be unique and behave as expected within a certain type, but since some values of different types can physically equal, we may have identifer clashes:</p><pre class="language-ocaml"><code>let _ = 97 == Obj.magic 'a' (* This is true *)
-
-module HMap = MakeHashconsedMap(Int)(HashedValue)
-
-let m1 = HMap.singleton 5 97 (* int HMap.t *)
-let m2 = HMap.singleton 5 'a' (* char HMap.t *)
-let _ = HMap.to_int m1 = HMap.to_int m2 (* This is also true. *)</code></pre><p>This can cause problems if you wish to use identifiers of different map types together:</p><pre class="language-ocaml"><code> module MapOfMaps = MakeMap(struct
-   type t = Any : 'a HMap.t -&gt; t
-   let to_int (Any x) = Node.to_int x
- end)
-
-let m3 = MapOfMaps.of_list [ (m1, &quot;foo&quot;); (m2, &quot;bar&quot;) ]
-(* m3 has cardinal 1, the m1-&gt;foo binding has been overwritten. *)</code></pre><p>This issue does not happen with the two previous variants, since they both only return true on the same types.</p></li></ul></div></div></div></body></html>
+    | _ -&gt; false (* never return true on heterogeneous cases. *)</code></pre></li><li><p>Using physical equality:</p><pre class="language-ocaml"><code>let polyeq a b = a == Obj.magic b</code></pre><p>While this contains an <code>Obj.magic</code>, it is still type safe (OCaml just compares the immediate values) and we can safely cast values from one type to the other if they satisfy this (since they are already physically equal).</p><p>This is the implementation used in <a href="#"><code>HashedValue</code></a>. Note however that using this function can lead to <b>identifiers no longer being unique across types</b>. They will still be unique and behave as expected within a certain type, but since some values of different types can physically equal, we may have identifer clashes:</p><pre class="language-ocaml"><code># 97 == Obj.magic 'a';;
+- : bool = true</code></pre><pre class="language-ocaml"><code>module HMap = MakeHashconsedMap(struct
+    type t = int
+    let to_int x = x
+end)(HashedValue)()</code></pre><pre class="language-ocaml"><code># let m1 = HMap.singleton 5 97;;
+val m1 : int HMap.t = &lt;abstr&gt;
+# let m2 = HMap.singleton 5 'a';;
+val m2 : char HMap.t = &lt;abstr&gt;
+# HMap.to_int m1 = HMap.to_int m2;;
+- : bool = true</code></pre><p>This can cause problems if you wish to use identifiers of different map types together:</p><pre class="language-ocaml"><code>type any = Any : 'a HMap.t -&gt; any
+module MapOfMaps = MakeMap(struct
+  type t = any
+  let to_int (Any x) = HMap.to_int x
+end)</code></pre><p>Using this can lead to unexpected behaviors: in the following <code>m3</code> has cardinal 1, the <code>m1-&gt;&quot;foo&quot;</code> binding has been overwritten</p><pre class="language-ocaml"><code># let m3 = MapOfMaps.of_list [ (Any m1, &quot;foo&quot;); (Any m2, &quot;bar&quot;) ]
+val m3 : string MapOfMaps.t = &lt;abstr&gt;
+# MapOfMaps.to_list m3
+- : (any * string) list = [(Any &lt;abstr&gt;, &quot;bar&quot;)]</code></pre><p>This issue does not happen with the two previous variants, since they both only return true on the same types.</p></li></ul></div></div></div></body></html>
