@@ -1713,7 +1713,7 @@ module MakeCustomHeterogeneousSet
 
   (* Note: as add is simpler, without any insertion function needed,
      maybe it is worth reimplementing it. *)
-  let [@specialised] add key map = BaseMap.add key () map
+  let [@specialise] add key map = BaseMap.add key () map
   let singleton elt = singleton elt ()
   let is_singleton set = match BaseMap.is_singleton set with
     | None -> None
@@ -1722,13 +1722,13 @@ module MakeCustomHeterogeneousSet
   (* Likewise with union and inter: we do not have to worry about
      reconciling the values here, so we could reimplement if the
      compiler is not smart enough. *)
-  let [@specialised] union =
+  let  union =
     let f:(unit,unit,unit) BaseMap.polyunion = {f=fun _ () () -> ()} in
-    fun sa sb -> BaseMap.idempotent_union f sa sb
+    fun [@specialise] sa sb -> BaseMap.idempotent_union f sa sb
 
-  let [@specialised] inter =
+  let inter =
     let f:(unit,unit,unit) BaseMap.polyinter = {f=fun _ () () -> ()} in
-    fun sa sb -> (BaseMap.idempotent_inter (* [@specialised] *)) f sa sb
+    fun [@specialise] sa sb -> (BaseMap.idempotent_inter (* [@specialised] *)) f sa sb
 
   type polyiter = { f: 'a. 'a elt -> unit; } [@@unboxed]
   let iter f set = BaseMap.iter {f=fun k () -> f.f k} set
