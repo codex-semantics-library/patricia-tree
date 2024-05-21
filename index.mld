@@ -28,9 +28,9 @@ opam install patricia-tree
 Alternatively, you can clone the source repository and install with {{: https://dune.build/}dune}:
 {@bash skip[
 git clone git@github.com:codex-semantics-library/patricia-tree.git
-opam install . --deps-only
 cd patricia-tree
-dune build
+opan install . --deps-only
+dune build -p patricia-tree
 dune install
 # To build documentation
 opam install . --deps-only --with-doc

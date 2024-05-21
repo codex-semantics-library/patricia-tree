@@ -46,10 +46,10 @@ Alternatively, you can clone the source repository and install with [dune](https
 git clone git@github.com:codex-semantics-library/patricia-tree.git
 cd patricia-tree
 opan install . --deps-only
-dune build
+dune build -p patricia-tree
 dune install
 # To build documentation
-opam install odoc
+opam install . --deps-only --with-doc
 dune build @doc
 ```
 
