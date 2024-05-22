@@ -42,6 +42,7 @@
   `Dissappeared` when using `WeakNode`.
 - Fixed a possible assertion error when using `idempotent_subset_domain_forall2`
   with `WeakNode`.
+- Fix compilation warnings when compiling on ocaml 5.2.
 
 # v0.9.0 - 2024-04-18
 
