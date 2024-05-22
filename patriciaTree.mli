@@ -142,7 +142,8 @@ type mask = private int
 
 (**/**)
 
-val highest_bit : int -> int
+external highest_bit: int -> (int[@untagged]) =
+  "caml_int_builtin_highest_bit_byte" "caml_int_builtin_highest_bit" [@@noalloc]
 (** [highest_bit x] is an integer with a single bit set: the highest set bit of [x].
     exported for test purposes only.
 
