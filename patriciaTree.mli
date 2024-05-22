@@ -142,7 +142,7 @@ type mask = private int
 
 (**/**)
 
-val highest_bit : int -> (int[@untagged])
+val highest_bit : int -> int
 (** [highest_bit x] is an integer with a single bit set: the highest set bit of [x].
     exported for test purposes only.
 
