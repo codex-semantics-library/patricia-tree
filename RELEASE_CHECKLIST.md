@@ -25,8 +25,14 @@ Step-by-step guide to creating and publishing a new release.
    Check that [github-action](https://github.com/codex-semantics-library/patricia-tree/actions) succeeds (build, tests and documentation).
    It should create a new folder `vX.Y.Z` on the `gh-pages` branch.
 
-5. On the `gh-pages` branch, edit `index.html` to add a link to the new version
-   in the list of documentation versions. Push and switch back to the `main` branch.
+5. On the [codex-semantics-library.github.io](https://github.com/codex-semantics-library/codex-semantics-library.github.io)
+   repository:
+   - update the `patricia-tree.latest-version` field in `_data/packages.yaml`
+   - update the `api/patricia-tree.md` page to add a link to the new version.
+   - run `dune build @doc-json`, copy the json files from
+     `<this repo>/_build/default/_doc/html/patricia-tree` to
+     `<website>/_data/api/patricia-tree/vX__Y__Z` (note the `__` instead of `.`),
+     also copy the `db.js` file to `<website>/assets/js/sherlodoc-db/patricia-tree.X.Y.Z.js`
 
 6. Run:
    ```bash
