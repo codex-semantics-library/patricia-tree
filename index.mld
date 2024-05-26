@@ -219,8 +219,11 @@ Here is a small example of a non-generic map:
   # IMap.cardinal map;;
   - : int = 3
   ]}}
-{li The strength of Patricia Tree is the speedup of operation on multiple maps
-    with common subtrees.
+{li The strength of Patricia Tree is the speedup of operations on multiple maps
+    with common subtrees. For example, in the following, the
+    {{!PatriciaTree.MAP.idempotent_inter_filter}[idempotent_inter_filter]} function
+    will skip recursive calls to physically equal subtrees (kept as-is in the intersection).
+    This allows faster than [O(n)] intersections.
   {[
   # let map2 =
       IMap.idempotent_inter_filter (fun _key _l _r -> None)
@@ -232,7 +235,7 @@ Here is a small example of a non-generic map:
   ]}
   Physical equality is preserved as much as possible, although some intersections
   may need to build new nodes and won't be fully physically equal, they will
-  still share subtrees if possible.
+  still share some subtrees.
   {[
   # let str = IMap.find 1 map;;
   val str : string = "hello"
@@ -242,7 +245,7 @@ Here is a small example of a non-generic map:
     (* new string copy isn't physically equal to the old one *);;
   - : bool = false
   ]}
-  Note that physical equality ins't preserved when creating new copies of values
+  Note that physical equality isn't preserved when creating new copies of values
   (the newly created string ["hello"] isn't physically equal to [str]).
   It can also fail when maps have the same bindings but were created differently:
   {[
@@ -251,20 +254,22 @@ Here is a small example of a non-generic map:
     # IMap.add 2 (IMap.find 2 map) map3 == map;;
     - : bool = false
   ]}
-  This is because they were created through different processes. They will still
-  share subtrees. If you want to maintain full physical equality (and thus get
+  If you want to maintain full physical equality (and thus get
   cheap equality test between maps), use the provided
   {{!PatriciaTree.section-hash_consed}hash-consed maps and sets}.}
-{li Our library also allows cross map/set operations.
+{li Our library also allows cross map/set operations through the
+  {{!PatriciaTree.MAP.WithForeign}[WithForeign]} functors:
+  {[
+    module CrossOperations = IMap.WithForeign(ISet.BaseMap)
+  ]}
   For example, you can only keep the bindings of [map]
   whose keys are in a given set:
   {[
-    let set = ISet.of_list [1; 3]
-    module CrossOperations = IMap.WithForeign(ISet.BaseMap)
-    let restricted_map = CrossOperations.nonidempotent_inter
-      { f = fun _key value () -> value } map set
-  ]}
-  {[
+    # let set = ISet.of_list [1; 3];;
+    val set : ISet.t = <abstr>
+    # let restricted_map = CrossOperations.nonidempotent_inter
+      { f = fun _key value () -> value } map set;;
+    val restricted_map : string IMap.t = <abstr>
     # IMap.to_list map;;
     - : (int * string) list = [(1, "hello"); (2, "world"); (3, "how do you do?")]
     # IMap.to_list restricted_map;;
@@ -360,8 +365,7 @@ liberty of having a generic type as a key.
     share subtrees. If you want to maintain full physical equality (and thus get
     cheap equality test between maps), use the provided
     {{!PatriciaTree.section-hash_consed}hash-consed maps and sets}.
-}
-}
+}}
 
 
 {1 Release status}
