@@ -26,25 +26,27 @@ module ISet : PatriciaTree.SET with type elt = int = PatriciaTree.MakeSet(IntKey
 val map : string IMap.t = &lt;abstr&gt;</code></pre><p>(We also have <a href="PatriciaTree/module-type-MAP/index.html#val-of_list" title="PatriciaTree.MAP.of_list"><code>of_list</code></a> and <a href="PatriciaTree/module-type-MAP/index.html#val-of_seq" title="PatriciaTree.MAP.of_seq"><code>of_seq</code></a> functions for quick initialization)</p><pre class="language-ocaml"><code># IMap.find 1 map;;
 - : string = &quot;hello&quot;
 # IMap.cardinal map;;
-- : int = 3</code></pre></li><li><p>The strength of Patricia Tree is the speedup of operation on multiple maps with common subtrees.</p><pre class="language-ocaml"><code># let map2 =
+- : int = 3</code></pre></li><li><p>The strength of Patricia Tree is the speedup of operations on multiple maps with common subtrees. For example, in the following, the <a href="PatriciaTree/module-type-MAP/index.html#val-idempotent_inter_filter" title="PatriciaTree.MAP.idempotent_inter_filter"><code>idempotent_inter_filter</code></a> function will skip recursive calls to physically equal subtrees (kept as-is in the intersection). This allows faster than <code>O(n)</code> intersections.</p><pre class="language-ocaml"><code># let map2 =
     IMap.idempotent_inter_filter (fun _key _l _r -&gt; None)
       (IMap.add 4 &quot;something&quot; map)
       (IMap.add 5 &quot;something else&quot; map);;
 val map2 : string IMap.t = &lt;abstr&gt;
 # map == map2;;
-- : bool = true</code></pre><p>Physical equality is preserved as much as possible, although some intersections may need to build new nodes and won't be fully physically equal, they will still share subtrees if possible.</p><pre class="language-ocaml"><code># let str = IMap.find 1 map;;
+- : bool = true</code></pre><p>Physical equality is preserved as much as possible, although some intersections may need to build new nodes and won't be fully physically equal, they will still share some subtrees.</p><pre class="language-ocaml"><code># let str = IMap.find 1 map;;
 val str : string = &quot;hello&quot;
 # IMap.add 1 str map == map (* already present *);;
 - : bool = true
 # IMap.add 1 &quot;hello&quot; map == map
   (* new string copy isn't physically equal to the old one *);;
-- : bool = false</code></pre><p>Note that physical equality ins't preserved when creating new copies of values (the newly created string <code>&quot;hello&quot;</code> isn't physically equal to <code>str</code>). It can also fail when maps have the same bindings but were created differently:</p><pre class="language-ocaml"><code># let map3 = IMap.remove 2 map;;
+- : bool = false</code></pre><p>Note that physical equality isn't preserved when creating new copies of values (the newly created string <code>&quot;hello&quot;</code> isn't physically equal to <code>str</code>). It can also fail when maps have the same bindings but were created differently:</p><pre class="language-ocaml"><code># let map3 = IMap.remove 2 map;;
 val map3 : string IMap.t = &lt;abstr&gt;
 # IMap.add 2 (IMap.find 2 map) map3 == map;;
-- : bool = false</code></pre><p>This is because they were created through different processes. They will still share subtrees. If you want to maintain full physical equality (and thus get cheap equality test between maps), use the provided <a href="PatriciaTree/index.html#hash_consed" title="hash_consed">hash-consed maps and sets</a>.</p></li><li><p>Our library also allows cross map/set operations. For example, you can only keep the bindings of <code>map</code> whose keys are in a given set:</p><pre class="language-ocaml"><code>let set = ISet.of_list [1; 3]
-module CrossOperations = IMap.WithForeign(ISet.BaseMap)
-let restricted_map = CrossOperations.nonidempotent_inter
-  { f = fun _key value () -&gt; value } map set</code></pre><pre class="language-ocaml"><code># IMap.to_list map;;
+- : bool = false</code></pre><p>If you want to maintain full physical equality (and thus get cheap equality test between maps), use the provided <a href="PatriciaTree/index.html#hash_consed" title="hash_consed">hash-consed maps and sets</a>.</p></li><li><p>Our library also allows cross map/set operations through the <a href="PatriciaTree/module-type-MAP/WithForeign/index.html" title="PatriciaTree.MAP.WithForeign"><code>WithForeign</code></a> functors:</p><pre class="language-ocaml"><code>module CrossOperations = IMap.WithForeign(ISet.BaseMap)</code></pre><p>For example, you can only keep the bindings of <code>map</code> whose keys are in a given set:</p><pre class="language-ocaml"><code># let set = ISet.of_list [1; 3];;
+val set : ISet.t = &lt;abstr&gt;
+# let restricted_map = CrossOperations.nonidempotent_inter
+  { f = fun _key value () -&gt; value } map set;;
+val restricted_map : string IMap.t = &lt;abstr&gt;
+# IMap.to_list map;;
 - : (int * string) list = [(1, &quot;hello&quot;); (2, &quot;world&quot;); (3, &quot;how do you do?&quot;)]
 # IMap.to_list restricted_map;;
 - : (int * string) list = [(1, &quot;hello&quot;); (3, &quot;how do you do?&quot;)]</code></pre></li></ol><h3 id="heterogeneous-map"><a href="#heterogeneous-map" class="anchor"></a>Heterogeneous map</h3><p>Heterogeneous maps work very similarly to homogeneous ones, but come with extra liberty of having a generic type as a key.</p><ol><li><p>Here is a GADT example to use for our keys: a small typed expression language.</p><pre class="language-ocaml"><code>type 'a expr =
