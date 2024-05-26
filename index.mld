@@ -297,7 +297,7 @@ liberty of having a generic type as a key.
       module Expr : PatriciaTree.HETEROGENEOUS_KEY with type 'a t = 'a expr = struct
         type 'a t = 'a expr
 
-        (** Injective, so long as expression are small enough
+        (** Injective, so long as expressions are small enough
             (encodes the constructor discriminant in two lowest bits).
             Ideally, use a hash-consed type, to_int needs to be fast *)
         let rec to_int : type a. a expr -> int = function
@@ -381,7 +381,7 @@ away as we would like a bit more time using this library before doing so.
 
 There is a bug in the OCaml typechecker which prevents us from directly
 defining non-generic maps as instances of generic maps. To avoid this, non-generic maps
-use a separate value type (instead of just using ['b])
+use a separate value type {{!PatriciaTree.snd}[('a, 'b) snd]} (instead of just using ['b])
 {[
 type (_, 'b) snd = Snd of 'b [@@unboxed]
 ]}
