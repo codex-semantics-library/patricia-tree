@@ -57,16 +57,16 @@ jobs:
           opam install . --deps-only --with-doc
           opam exec -- dune build @doc
 
-      - id: vars
-        shell: bash
-        run: echo "ref=$(echo ${GITHUB_REF#refs/*/})" >> ${GITHUB_OUTPUT}
+      # - id: vars
+      #   shell: bash
+      #   run: echo "ref=$(echo ${GITHUB_REF#refs/*/})" >> ${GITHUB_OUTPUT}
 
-      - uses: actions/upload-artifact@v4
-        if: github.event_name == 'push' &&
-          ( github.ref == 'refs/heads/main' || startsWith(github.ref,'refs/tags') )
-        with:
-          name: doc-${{ steps.vars.outputs.ref }}
-          path: _build/default/_doc/_html/patricia-tree/
+      # - uses: actions/upload-artifact@v4
+      #   if: github.event_name == 'push' &&
+      #     ( github.ref == 'refs/heads/main' || startsWith(github.ref,'refs/tags') )
+      #   with:
+      #     name: doc-${{ steps.vars.outputs.ref }}
+      #     path: _build/default/_doc/_html/patricia-tree/
 
   build-test:
     strategy:
@@ -104,34 +104,34 @@ jobs:
       - name: Run unit tests
         run: opam exec -- dune test
 
-  doc:
-    needs: build-test-doc
-    if: github.event_name == 'push' &&
-      ( github.ref == 'refs/heads/main' || startsWith(github.ref,'refs/tags') )
-    permissions:
-      contents: write
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout gh-pages
-        uses: actions/checkout@v4
-        with:
-          ref: gh-pages
-      - name: Remove previous doc
-        run: rm -rf ${{ needs.build-test-doc.outputs.ref }}
-      - name: Retrieve new documentation
-        uses: actions/download-artifact@v4
-        with:
-          name: doc-${{ needs.build-test-doc.outputs.ref }}
-          path: ${{ needs.build-test-doc.outputs.ref }}
-      - name: Deploy documentation
-        run: |
-          git config user.email "${{ github.actor }}@users.noreply.github.com"
-          git config user.name "${{ github.actor }}"
-          git add ${{ needs.build-test-doc.outputs.ref }}
-          if ! git diff --cached --quiet --exit-code;
-          then
-            git commit -m "Deploy ${GITHUB_SHA}"
-            git push -f "https://${{ github.actor }}:${{ github.token }}@github.com/${{ github.repository }}.git" gh-pages
-          else
-            echo "No changes to push"
-          fi
+  # doc:
+  #   needs: build-test-doc
+  #   if: github.event_name == 'push' &&
+  #     ( github.ref == 'refs/heads/main' || startsWith(github.ref,'refs/tags') )
+  #   permissions:
+  #     contents: write
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Checkout gh-pages
+  #       uses: actions/checkout@v4
+  #       with:
+  #         ref: gh-pages
+  #     - name: Remove previous doc
+  #       run: rm -rf ${{ needs.build-test-doc.outputs.ref }}
+  #     - name: Retrieve new documentation
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         name: doc-${{ needs.build-test-doc.outputs.ref }}
+  #         path: ${{ needs.build-test-doc.outputs.ref }}
+  #     - name: Deploy documentation
+  #       run: |
+  #         git config user.email "${{ github.actor }}@users.noreply.github.com"
+  #         git config user.name "${{ github.actor }}"
+  #         git add ${{ needs.build-test-doc.outputs.ref }}
+  #         if ! git diff --cached --quiet --exit-code;
+  #         then
+  #           git commit -m "Deploy ${GITHUB_SHA}"
+  #           git push -f "https://${{ github.actor }}:${{ github.token }}@github.com/${{ github.repository }}.git" gh-pages
+  #         else
+  #           echo "No changes to push"
+  #         fi
