@@ -37,7 +37,7 @@ static inline uintnat clz(uintnat v){
   #ifdef ARCH_SIXTYFOUR
     return __builtin_clzll(v);
   #else
-    return __builtin_clz(v)
+    return __builtin_clz(v);
   #endif
 #endif
 #ifdef _MSC_VER
@@ -48,7 +48,7 @@ static inline uintnat clz(uintnat v){
     _BitScanReverse(&res,v);
   #endif
     return res;
-#endif    
+#endif
 }
 
 /**************** Highest bit ****************/
