@@ -53,6 +53,8 @@ opam install . --deps-only --with-doc
 dune build @doc
 ```
 
+See the [examples](#examples) to jump right into using this library.
+
 ## Features
 
 - Similar to OCaml's `Map` and `Set`, using the same function names when possible
@@ -184,6 +186,15 @@ Here is a brief overview of the various module types of our library:
   maps using these nodes, or any other custom nodes.
 
 ## Examples
+
+To use this library, [install it](#installation) and add the following to your
+dune files:
+```dune
+(executable ; or library
+  ...
+  (libraries patricia-tree ...)
+)
+```
 
 ### Homogeneous map
 
