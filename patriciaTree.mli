@@ -1421,14 +1421,14 @@ module type HASHED_VALUE = sig
      Examples of safe implementations include:
      {ul
      {li Having a type ['a t] which doesn't depend on ['a], in which case casting
-         form ['a t] to ['b t] is always safe:
+         from ['a t] to ['b t] is always safe:
          {[
           type _ t = foo
           let cast : type a b. a t -> b t = fun x -> x
           let polyeq : type a b. a t -> b t -> bool = fun x y -> x = y
          ]}}
      {li Using a GADT type and examining its constructors to only return [true]
-         when the constructors are equal:
+         when the constructors are equal (or have the same type parameter):
          {[
             type _ t =
                 | T_Int : int -> int t
@@ -1480,7 +1480,8 @@ module type HASHED_VALUE = sig
             end)
          ]}
          Using this can lead to unexpected behaviors:
-         in the following [m3] has cardinal 1, the [m1->"foo"] binding has been overwritten
+         in the following [m3] has cardinal 1, the [m1->"foo"] binding has been
+         overwritten:
          {[
            # let m3 = MapOfMaps.of_list [ (Any m1, "foo"); (Any m2, "bar") ]
            val m3 : string MapOfMaps.t = <abstr>
