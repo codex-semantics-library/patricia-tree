@@ -1206,6 +1206,7 @@ module type MAP_WITH_VALUE = sig
       O(|m1|+|m2|). Use one of faster functions above if you can. *)
 
   val disjoint : 'a t -> 'a t -> bool
+  (** [disjoint a b] is [true] if and only if [a] and [b] have disjoint domains. *)
 
   (** Combination with other kinds of maps.
       [Map2] must use the same {!KEY.to_int} function. *)
