@@ -1,155 +1,6 @@
-(**************************************************************************)
-(*  This file is part of the Codex semantics library                      *)
-(*    (patricia-tree sub-component).                                      *)
-(*                                                                        *)
-(*  Copyright (C) 2024                                                    *)
-(*    CEA (Commissariat à l'énergie atomique et aux énergies              *)
-(*         alternatives)                                                  *)
-(*                                                                        *)
-(*  You can redistribute it and/or modify it under the terms of the GNU   *)
-(*  Lesser General Public License as published by the Free Software       *)
-(*  Foundation, version 2.1.                                              *)
-(*                                                                        *)
-(*  It is distributed in the hope that it will be useful,                 *)
-(*  but WITHOUT ANY WARRANTY; without even the implied warranty of        *)
-(*  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *)
-(*  GNU Lesser General Public License for more details.                   *)
-(*                                                                        *)
-(*  See the GNU Lesser General Public License version 2.1                 *)
-(*  for more details (enclosed in the file LICENSE).                      *)
-(**************************************************************************)
+(** All signatures used in this library *)
 
-(** Association maps from key to values, and sets, implemented with
-    Patricia Trees, allowing fast merge operations by making use of
-    physical equality between subtrees; and custom implementation of
-    tree nodes (allowing normal maps, hash-consed maps, weak key or
-    value maps, sets, custom maps, etc.)
-
-    This is similar to OCaml's Map, except that:
-
-    {ul
-    {- The required signature for keys is different, in that we require
-      each key to be mapped to a unique integer identifier.}
-
-    {- The implementation uses Patricia Tree, as described in Okasaki
-      and Gill's 1998 paper
-      {{: https://www.semanticscholar.org/paper/Fast-Mergeable-Integer-Maps-Okasaki-Gill/23003be706e5f586f23dd7fa5b2a410cc91b659d}{i Fast mergeable integer maps}},
-      i.e. it is a space-efficient prefix trie over the big-endian representation of
-      the key's integer identifier.
-
-      Example of a 5-bit patricia tree containing five numbers: 0 [0b0000], 1 [0b0001],
-      5 [0b0101] and 7 [0b0111] and -8 [0b1111]:
-      {v
-                              Branch
-                          (prefix=0b?___)
-                          /             \
-                    Branch               Leaf(-8)
-                (prefix=0b0?__)          0b1111
-                /             \
-           Branch             Branch
-       (prefix=0b000?)     (prefix=0b01?_)
-         |        |          |       |
-      Leaf(0)  Leaf(1)    Leaf(5)  Leaf(7)
-      0b0000   0b0001     0b0101   0b0111
-      v}
-
-      The main benefit of Patricia Tree is that their representation
-      is stable (contrary to maps, inserting nodes in any order will
-      return the same shape), which allows different versions of a map
-      to share more subtrees in memory, and the operations over two
-      maps to benefit from this sharing. The functions in this library
-      attempt to maximally preserve sharing and benefit from sharing,
-      allowing very important improvements in complexity and running
-      time when combining maps or sets is a frequent operation.}
-
-    {- Finally, the implementation is more customizable, allowing
-      notably (key,value) pairs or different types to be in the same map,
-      or to choose the memory representation of the nodes of the tree.}
-
-    {- Some operations like {{!BASE_MAP.pop_unsigned_minimum}[pop_unsigned_minimum]} and
-     {{!BASE_MAP.pop_unsigned_maximum}[pop_unsigned_maximum]} make our Set
-     suitable as priority queue (but remember that each element in the
-     queue must map to a distinct integer, and that using the {{!unsigned_lt}unsigned order}
-     means elements with negative priority are seen as greater than elements with
-     positive ones).}
-    } *)
-
-(** Note on complexity: in the following, n represents the size of the
-    map when there is one (and [|map1|] is the number of elements in
-    [map1]).  The term log(n) correspond to the maximum height of the
-    tree, which is log(n) if we assume an even distribution of numbers
-    in the map (e.g. random distribution, or integers chosen
-    contiguously using a counter). The worst-case height is
-    O(min(n,64)) which is actually constant, but not really
-    informative; log(n) corresponds to the real complexity in usual
-    distributions. *)
-
-(**/**)
-(** mdx requires opening PatriciaTree, but we don't want that to appear in the doc.
-    also contains some quick placeholder code:
-{[
-    open PatriciaTree
-
-    type foo
-
-    module IntKey = struct
-        type 'a t = int
-        let to_int x = x
-        let polyeq : type a b. a t -> b t -> (a, b) cmp = fun a b ->
-            if a == Obj.magic b then Obj.magic Eq else Diff
-    end
-    module MyValue = Int
-    module MyMap = MakeHeterogeneousMap(IntKey)(struct type ('a,'b) t = int end)
-]}
-*)
-(**/**)
-
-val unsigned_lt : int -> int -> bool
-(** All integers comparisons in this library are done according to their
-    {b unsigned representation}. This is the same as signed comparison for same
-    sign integers, but all negative integers are greater than the positives.
-    This means [-1] is the greatest possible number, and [0] is the smallest.
-    {[
-    # unsigned_lt 2 (-1);;
-    - : bool = true
-    # unsigned_lt max_int min_int;;
-    - : bool = true
-    # unsigned_lt 3 2;;
-    - : bool = false
-    # unsigned_lt 2 3;;
-    - : bool = true
-    # unsigned_lt (-2) (-3);;
-    - : bool = false
-    # unsigned_lt (-4) (-3);;
-    - : bool = true
-    # unsigned_lt 0 0;;
-    - : bool = false
-    ]}
-
-    Using this unsigned order helps avoid a bug described in
-    {{: https://www.cs.tufts.edu/comp/150FP/archive/jan-midtgaard/qc-patricia.pdf}{i QuickChecking Patricia Trees}}
-    by Jan Mitgaard.
-
-    @since 0.10.0 *)
-
-
-type intkey = private int
-(** Private type used to represent prefix stored in nodes.
-    These are integers with all bits after branching bit (included) set to zero *)
-
-type mask = private int
-(** Private type: integers with a single bit set. *)
-
-(**/**)
-
-external highest_bit: int -> (int[@untagged]) =
-  "caml_int_builtin_highest_bit_byte" "caml_int_builtin_highest_bit" [@@noalloc]
-(** [highest_bit x] is an integer with a single bit set: the highest set bit of [x].
-    exported for test purposes only.
-
-    @since 0.10.0 *)
-
-(**/**)
+open Ints
 
 (** {1 Nodes} *)
 
@@ -206,7 +57,7 @@ module type NODE = sig
     | Empty : 'map view
     (** Can happen only at the toplevel: there is no empty interior node. *)
     | Branch : { prefix : intkey; branching_bit : mask;
-                 tree0 : 'map t; tree1 : 'map t; } -> 'map view
+                  tree0 : 'map t; tree1 : 'map t; } -> 'map view
     (** Same constraints as {!branch}:
         - [branching_bit] contains only one bit set; the corresponding mask is (branching_bit - 1).
         - [prefix] is normalized: the bits below the [branching_bit] are set to zero
@@ -644,7 +495,7 @@ module type HETEROGENEOUS_SET = sig
   (** Underlying basemap, for cross map/set operations *)
   module BaseMap : HETEROGENEOUS_MAP
     with type 'a key = 'a elt
-     and type (_,_) value = unit
+      and type (_,_) value = unit
 
   type t = unit BaseMap.t
   (** The type of our set *)
@@ -794,7 +645,7 @@ module type SET = sig
   (** Underlying basemap, for cross map/set operations *)
   module BaseMap : HETEROGENEOUS_MAP
     with type _ key = elt
-     and type (_,_) value = unit
+      and type (_,_) value = unit
 
   type t = unit BaseMap.t
   (** The set type *)
@@ -1357,35 +1208,20 @@ end
 
     @since 0.10.0 *)
 module type VALUE = sig
-    type 'a t
-    (** The type of values. A ['map map] maps [key] to ['map value].
-    Can be mutable if desired, unless it is being used in {!hash_consed}. *)
+  type 'a t
+  (** The type of values. A ['map map] maps [key] to ['map value].
+      Can be mutable if desired, unless it is being used in {!hash_consed}. *)
 end
-
-(** Default implementation of {!VALUE}, used in {!MakeMap}.
-    @since 0.10.0 *)
-module Value : VALUE with type 'a t = 'a
 
 (** The module type of values, which can be heterogeneous.
     This can be used to specify how the type of the value depends on that of the key.
     If the value doesn't depend on the key type, you can use the provided default
     implementations {!HomogeneousValue} and {!WrappedHomogeneousValue}. *)
 module type HETEROGENEOUS_VALUE = sig
-    type ('key, 'map) t
-    (** The type of values. A ['map map] maps ['key key] to [('key, 'map) value].
-    Can be mutable if desired, unless it is being used in {!hash_consed}. *)
+  type ('key, 'map) t
+  (** The type of values. A ['map map] maps ['key key] to [('key, 'map) value].
+      Can be mutable if desired, unless it is being used in {!hash_consed}. *)
 end
-
-(** Default implementation of {!HETEROGENEOUS_VALUE}, to use when the type of the
-    value in a heterogeneous map does not depend on the type of the key, only on
-    the type of the map. *)
-module HomogeneousValue : HETEROGENEOUS_VALUE with type ('a,'map) t = 'map
-
-(** Same as {!HomogeneousValue}, but uses a wrapper (unboxed) type instead of direct
-    equality. This avoids a problem in the typechecker with overly eager simplification of aliases.
-    More info on
-    {{: https://discuss.ocaml.org/t/weird-behaviors-with-first-order-polymorphism/13783} the OCaml discourse post}. *)
-module WrappedHomogeneousValue : HETEROGENEOUS_VALUE with type ('a,'map) t = ('a,'map) snd
 
 (** {!VALUE} parameter for {!hash_consed}, as hash-consing requires hashing and comparing values.
 
@@ -1503,423 +1339,59 @@ end
 
     @since 0.10.0 *)
 module type HETEROGENEOUS_HASHED_VALUE = sig
-    type ('key, 'map) t
-    (** The type of values for a hash-consed maps.
+  type ('key, 'map) t
+  (** The type of values for a hash-consed maps.
 
-        Unlike {!HETEROGENEOUS_VALUE.t}, {b hash-consed values should be immutable}.
-        Or, if they do mutate, they must not change their {!hash} value, and
-        still be equal to the same values via {!polyeq} *)
+      Unlike {!HETEROGENEOUS_VALUE.t}, {b hash-consed values should be immutable}.
+      Or, if they do mutate, they must not change their {!hash} value, and
+      still be equal to the same values via {!polyeq} *)
 
-    val hash : ('key, 'map) t -> int
-    (** [hash v] should return an integer hash for the value [v].
-        It is used for {{!hash_consed}hash-consing}.
+  val hash : ('key, 'map) t -> int
+  (** [hash v] should return an integer hash for the value [v].
+      It is used for {{!hash_consed}hash-consing}.
 
-        Hashing should be fast, avoid mapping too many values to the same integer
-        and compatible with {!polyeq} (equal values must have the same hash:
-        [polyeq v1 v2 = true ==> hash v1 = hash v2]). *)
+      Hashing should be fast, avoid mapping too many values to the same integer
+      and compatible with {!polyeq} (equal values must have the same hash:
+      [polyeq v1 v2 = true ==> hash v1 = hash v2]). *)
 
-    val polyeq : ('key, 'map_a) t -> ('key, 'map_b) t -> bool
-    (** Polymorphic equality on values.
+  val polyeq : ('key, 'map_a) t -> ('key, 'map_b) t -> bool
+  (** Polymorphic equality on values.
 
-       {b WARNING: if [polyeq a b] is true, then casting [b] to the type of [a]
-          (and [a] to the type of [b]) must be type-safe.} Eg. if [a : (k, t1) t] and [b : (k, t2) t]
-       yield [polyeq a b = true], then [let a' : (k,t2) t = Obj.magic a] and
-       [let b' : (k,t1) t = Obj.magic b] must be safe.
+      {b WARNING: if [polyeq a b] is true, then casting [b] to the type of [a]
+        (and [a] to the type of [b]) must be type-safe.} Eg. if [a : (k, t1) t] and [b : (k, t2) t]
+      yield [polyeq a b = true], then [let a' : (k,t2) t = Obj.magic a] and
+      [let b' : (k,t1) t = Obj.magic b] must be safe.
 
-       Examples of safe implementations include:
-       {ul
-       {li Having a type [('key, 'map) t] which doesn't depend on ['map] (i can depend on ['key]), in which case casting
-           form [('key, 'a) t] to [('key, 'b) t] is always safe:
-           {[
-            type ('k, _) t = 'k list
-            let cast : type a b. ('k, a) t -> ('k, b) t = fun x -> x
-            let polyeq : type a b. ('k, a) t -> ('k, b) t -> bool = fun x y -> x = y
-           ]}}
-       {li Using a GADT type and examining its constructors to only return [true]
-           when the constructors are equal:
-           {[
-              type (_, _) t =
-                  | T_Int : int -> (unit, int) t
-                  | T_Bool : bool -> (unit, bool) t
-              let polyeq : type k a b. (k, a) t -> (k, b) t -> bool = fun x y ->
-                  match x, y with
-                  | T_Int i, T_Int j -> i = j (* Here type a = b = int, we can return true *)
-                  | T_Bool i, T_Bool j -> i && j (* same here, but with a = b = bool *)
-                  | _ -> false (* never return true on heterogeneous cases. *)
-           ]}}
-       {li Using physical equality:
-           {[
-              let polyeq a b = a == Obj.magic b
-           ]}
-           While this contains an [Obj.magic], it is still type safe (OCaml just compares
-           the immediate values) and we can safely cast values from one type to the
-           other if they satisfy this (since they are already physically equal).
+      Examples of safe implementations include:
+      {ul
+      {li Having a type [('key, 'map) t] which doesn't depend on ['map] (i can depend on ['key]), in which case casting
+          form [('key, 'a) t] to [('key, 'b) t] is always safe:
+          {[
+          type ('k, _) t = 'k list
+          let cast : type a b. ('k, a) t -> ('k, b) t = fun x -> x
+          let polyeq : type a b. ('k, a) t -> ('k, b) t -> bool = fun x y -> x = y
+          ]}}
+      {li Using a GADT type and examining its constructors to only return [true]
+          when the constructors are equal:
+          {[
+            type (_, _) t =
+                | T_Int : int -> (unit, int) t
+                | T_Bool : bool -> (unit, bool) t
+            let polyeq : type k a b. (k, a) t -> (k, b) t -> bool = fun x y ->
+                match x, y with
+                | T_Int i, T_Int j -> i = j (* Here type a = b = int, we can return true *)
+                | T_Bool i, T_Bool j -> i && j (* same here, but with a = b = bool *)
+                | _ -> false (* never return true on heterogeneous cases. *)
+          ]}}
+      {li Using physical equality:
+          {[
+            let polyeq a b = a == Obj.magic b
+          ]}
+          While this contains an [Obj.magic], it is still type safe (OCaml just compares
+          the immediate values) and we can safely cast values from one type to the
+          other if they satisfy this (since they are already physically equal).
 
-           This is the implementation used in {!HeterogeneousHashedValue}. Note however that
-           using this function can lead to {b identifiers no longer being unique across
-           types}. See {!HASHED_VALUE.polyeq} for more information on this.}} *)
+          This is the implementation used in {!HeterogeneousHashedValue}. Note however that
+          using this function can lead to {b identifiers no longer being unique across
+          types}. See {!HASHED_VALUE.polyeq} for more information on this.}} *)
 end
-
-module HashedValue : HASHED_VALUE with type 'a t = 'a
-(** Generic implementation of {!HASHED_VALUE}.
-    Uses {{: https://ocaml.org/api/Hashtbl.html#VALhash}[Hashtbl.hash]} for hashing
-    and physical equality for equality.
-    Note that this may lead to maps of different types having the same identifier
-    ({!MakeHashconsedMap.to_int}), see the documentation of {!HASHED_VALUE.polyeq}
-    for details on this. *)
-
-module HeterogeneousHashedValue : HETEROGENEOUS_HASHED_VALUE with type ('k, 'm) t = 'm
-(** Generic implementation of {!HETEROGENEOUS_HASHED_VALUE}.
-    Uses {{: https://ocaml.org/api/Hashtbl.html#VALhash}[Hashtbl.hash]} for hashing
-    and physical equality for equality.
-    Note that this may lead to maps of different types having the same identifier
-    ({!MakeHashconsedHeterogeneousMap.to_int}), see the documentation of
-    {!HASHED_VALUE.polyeq} for details on this. *)
-
-
-(** {1 Functors} *)
-(** This section presents the functors which can be used to build patricia tree
-    maps and sets. *)
-
-(** {2 Homogeneous maps and sets} *)
-(** These are homogeneous maps and set, their keys/elements are a single
-    non-generic type, just like the standard library's [Map] and [Set] modules. *)
-
-module MakeMap(Key: KEY) : MAP with type key = Key.t
-module MakeSet(Key: KEY) : SET with type elt = Key.t
-
-(** {2 Heterogeneous maps and sets} *)
-(** Heterogeneous maps are ['map map], which store bindings of ['key key]
-    to [('key, 'map) value], where ['key key] is a GADT, as we must be able
-    to compare keys of different types together.
-
-    Similarly, heterogeneous sets store sets of ['key key]. *)
-
-module MakeHeterogeneousSet(Key: HETEROGENEOUS_KEY) : HETEROGENEOUS_SET
-  with type 'a elt = 'a Key.t
-module MakeHeterogeneousMap(Key: HETEROGENEOUS_KEY)(Value: HETEROGENEOUS_VALUE) : HETEROGENEOUS_MAP
-  with type 'a key = 'a Key.t
-   and type ('k,'m) value = ('k,'m) Value.t
-
-
-(** {2 Maps and sets with custom nodes} *)
-(** We can also customize the representation and creation of nodes, to
-    gain space or time.
-
-    Possibitities include having weak key and/or values, hash-consing,
-    giving unique number to nodes or keeping them in sync with the
-    disk, lazy evaluation and/or caching, adding size information for
-    constant time [cardinal] functions, etc.
-
-    See {!node_impl} for the provided implementations of {!NODE}, or create your own. *)
-
-(** Create a homogeneous map with a custom {!NODE}. Also allows
-    customizing the map values *)
-module MakeCustomMap
-    (Key: KEY)
-    (Value: VALUE)
-    (Node: NODE with type 'a key = Key.t and type ('key,'map) value = ('key, 'map Value.t) snd)
-  : MAP_WITH_VALUE
-    with type key = Key.t
-     and type 'm value = 'm Value.t
-     and type 'm t = 'm Node.t
-
-
-(** Create a homogeneous set with a custom {!NODE}.
-    @since v0.10.0 *)
-module MakeCustomSet
-    (Key: KEY)
-    (Node: NODE with type 'a key = Key.t and type ('key,'map) value = unit)
-  : SET
-    with type elt = Key.t
-     and type 'a BaseMap.t = 'a Node.t
-
-(** Create an heterogeneous map with a custom {!NODE}. *)
-module MakeCustomHeterogeneousMap
-    (Key: HETEROGENEOUS_KEY)
-    (Value: HETEROGENEOUS_VALUE)
-    (Node: NODE with type 'a key = 'a Key.t and type ('key,'map) value = ('key,'map) Value.t)
-  : HETEROGENEOUS_MAP
-    with type 'a key = 'a Key.t
-     and type ('k,'m) value = ('k,'m) Value.t
-     and type 'm t = 'm Node.t
-
-(** Create an heterogeneous set with a custom {!NODE}.
-    @since v0.10.0 *)
-module MakeCustomHeterogeneousSet
-    (Key: HETEROGENEOUS_KEY)
-    (NODE: NODE with type 'a key = 'a Key.t and type ('key,'map) value = unit)
-  : HETEROGENEOUS_SET
-    with type 'a elt = 'a Key.t
-     and type 'a BaseMap.t = 'a NODE.t
-
-(** {2:hash_consed Hash-consed maps and sets} *)
-(** Hash-consed maps and sets uniquely number each of their nodes.
-    Upon creation, they check whether a similar node has been created before,
-    if so they return it, else they return a new node with a new number.
-    With this unique numbering:
-    - [equal] and [compare] become constant time operations;
-    - two maps with the same bindings (where keys are compared by {!KEY.to_int} and
-      values by {!HASHED_VALUE.polyeq}) will always be physically equal;
-    - functions that benefit from sharing, like {!BASE_MAP.idempotent_union} and
-      {!BASE_MAP.idempotent_inter} will see improved performance;
-    - constructors are slightly slower, as they now require a hash-table lookup;
-    - memory usage is increased: nodes store their tags inside themselves, and
-      a global hash-table of all built nodes must be maintained;
-    - hash-consed maps assume their values are immutable;
-    - {b WARNING:} when using physical equality as {!HASHED_VALUE.polyeq}, some
-      {b maps of different types may be given the same identifier}. See the end of
-      the documentation of {!HASHED_VALUE.polyeq} for details.
-      Note that this is the case in the default implementations {!HashedValue}
-      and {!HeterogeneousHashedValue}.
-
-    All hash-consing functors are {b generative}, since each functor call will
-    create a new hash-table to store the created nodes. Calling a functor
-    twice with same arguments will lead to two numbering systems for identifiers,
-    and thus the types should not be considered compatible.  *)
-
-(** Hash-consed version of {!MAP}. See {!hash_consed} for the differences between
-    hash-consed and non hash-consed maps.
-
-    This is a generative functor, as calling it creates a new hash-table to store
-    the created nodes, and a reference to store the next unallocated identifier.
-    Maps/sets from different hash-consing functors (even if these functors have
-    the same arguments) will have different (incompatible) numbering systems and
-    be stored in different hash-tables (thus they will never be physically equal).
-
-    @since v0.10.0 *)
-module MakeHashconsedMap(Key: KEY)(Value: HASHED_VALUE)() : sig
-  include MAP_WITH_VALUE with type key = Key.t and type 'a value = 'a Value.t (** @closed *)
-
-  val to_int : 'a t -> int
-  (** Returns the {{!hash_consed}hash-consed} id of the map.
-      Unlike {!NODE_WITH_ID.to_int}, hash-consing ensures that maps
-      which contain the same keys (compared by {!KEY.to_int}) and values (compared
-      by {!HASHED_VALUE.polyeq}) will always be physically equal
-      and have the same identifier.
-
-      Note that when using physical equality as {!HASHED_VALUE.polyeq}, some
-      maps of different types [a t] and [b t] may be given the same identifier.
-      See the end of the documentation of {!HASHED_VALUE.polyeq} for details. *)
-
-  val equal : 'a t -> 'a t -> bool
-  (** Constant time equality using the {{!hash_consed}hash-consed} nodes identifiers.
-      This is equivalent to physical equality.
-      Two nodes are equal if their trees contain the same bindings,
-      where keys are compared by {!KEY.to_int} and values are compared by
-      {!HASHED_VALUE.polyeq}. *)
-
-  val compare : 'a t -> 'a t -> int
-  (** Constant time comparison using the {{!hash_consed}hash-consed} node identifiers.
-      This order is fully arbitrary, but it is total and can be used to sort nodes.
-      It is based on node ids which depend on the order in which the nodes where created
-      (older nodes having smaller ids).
-
-      One useful property of this order is that
-      child nodes will always have a smaller identifier than their parents. *)
-end
-
-(** Hash-consed version of {!SET}. See {!hash_consed} for the differences between
-    hash-consed and non hash-consed sets.
-
-    This is a generative functor, as calling it creates a new hash-table to store
-    the created nodes, and a reference to store the next unallocated identifier.
-    Maps/sets from different hash-consing functors (even if these functors have
-    the same arguments) will have different (incompatible) numbering systems and
-    be stored in different hash-tables (thus they will never be physically equal).
-
-    @since v0.10.0 *)
-module MakeHashconsedSet(Key: KEY)() : sig
-  include SET with type elt = Key.t (** @closed *)
-
-  val to_int : t -> int
-  (** Returns the {{!hash_consed}hash-consed} id of the map.
-      Unlike {!NODE_WITH_ID.to_int}, hash-consing ensures that maps
-      which contain the same keys (compared by {!KEY.to_int}) and values (compared
-      by {!HASHED_VALUE.polyeq}) will always be physically equal
-      and have the same identifier.
-
-      Note that when using physical equality as {!HASHED_VALUE.polyeq}, some
-      maps of different types [a t] and [b t] may be given the same identifier.
-      See the end of the documentation of {!HASHED_VALUE.polyeq} for details. *)
-
-  val equal : t -> t -> bool
-  (** Constant time equality using the {{!hash_consed}hash-consed} nodes identifiers.
-      This is equivalent to physical equality.
-      Two nodes are equal if their trees contain the same bindings,
-      where keys are compared by {!KEY.to_int} and values are compared by
-      {!HASHED_VALUE.polyeq}. *)
-
-  val compare : t -> t -> int
-  (** Constant time comparison using the {{!hash_consed}hash-consed} node identifiers.
-      This order is fully arbitrary, but it is total and can be used to sort nodes.
-      It is based on node ids which depend on the order in which the nodes where created
-      (older nodes having smaller ids).
-
-      One useful property of this order is that
-      child nodes will always have a smaller identifier than their parents. *)
-end
-
-(** Hash-consed version of {!HETEROGENEOUS_SET}.  See {!hash_consed} for the differences between
-    hash-consed and non hash-consed sets.
-
-    This is a generative functor, as calling it creates a new hash-table to store
-    the created nodes, and a reference to store the next unallocated identifier.
-    Maps/sets from different hash-consing functors (even if these functors have
-    the same arguments) will have different (incompatible) numbering systems and
-    be stored in different hash-tables (thus they will never be physically equal).
-
-    @since v0.10.0 *)
-module MakeHashconsedHeterogeneousSet(Key: HETEROGENEOUS_KEY)() : sig
-  include HETEROGENEOUS_SET with type 'a elt = 'a Key.t (** @closed *)
-
-  val to_int : t -> int
-  (** Returns the {{!hash_consed}hash-consed} id of the map.
-      Unlike {!NODE_WITH_ID.to_int}, hash-consing ensures that maps
-      which contain the same keys (compared by {!KEY.to_int}) and values (compared
-      by {!HASHED_VALUE.polyeq}) will always be physically equal
-      and have the same identifier.
-
-      Note that when using physical equality as {!HASHED_VALUE.polyeq}, some
-      maps of different types [a t] and [b t] may be given the same identifier.
-      See the end of the documentation of {!HASHED_VALUE.polyeq} for details. *)
-
-  val equal : t -> t -> bool
-  (** Constant time equality using the {{!hash_consed}hash-consed} nodes identifiers.
-      This is equivalent to physical equality.
-      Two nodes are equal if their trees contain the same bindings,
-      where keys are compared by {!KEY.to_int} and values are compared by
-      {!HASHED_VALUE.polyeq}. *)
-
-  val compare : t -> t -> int
-  (** Constant time comparison using the {{!hash_consed}hash-consed} node identifiers.
-      This order is fully arbitrary, but it is total and can be used to sort nodes.
-      It is based on node ids which depend on the order in which the nodes where created
-      (older nodes having smaller ids).
-
-      One useful property of this order is that
-      child nodes will always have a smaller identifier than their parents. *)
-end
-
-(** Hash-consed version of {!HETEROGENEOUS_MAP}.  See {!hash_consed} for the differences between
-    hash-consed and non hash-consed maps.
-
-    This is a generative functor, as calling it creates a new hash-table to store
-    the created nodes, and a reference to store the next unallocated identifier.
-    Maps/sets from different hash-consing functors (even if these functors have
-    the same arguments) will have different (incompatible) numbering systems and
-    be stored in different hash-tables (thus they will never be physically equal).
-
-    @since v0.10.0 *)
-module MakeHashconsedHeterogeneousMap(Key: HETEROGENEOUS_KEY)(Value: HETEROGENEOUS_HASHED_VALUE)() : sig
-  include HETEROGENEOUS_MAP
-      with type 'a key = 'a Key.t
-      and type ('k,'m) value = ('k, 'm) Value.t (** @closed *)
-
-  val to_int : 'a t -> int
-  (** Returns the {{!hash_consed}hash-consed} id of the map.
-      Unlike {!NODE_WITH_ID.to_int}, hash-consing ensures that maps
-      which contain the same keys (compared by {!KEY.to_int}) and values (compared
-      by {!HASHED_VALUE.polyeq}) will always be physically equal
-      and have the same identifier.
-
-      Note that when using physical equality as {!HASHED_VALUE.polyeq}, some
-      maps of different types [a t] and [b t] may be given the same identifier.
-      See the end of the documentation of {!HASHED_VALUE.polyeq} for details. *)
-
-  val equal : 'a t -> 'a t -> bool
-  (** Constant time equality using the {{!hash_consed}hash-consed} nodes identifiers.
-      This is equivalent to physical equality.
-      Two nodes are equal if their trees contain the same bindings,
-      where keys are compared by {!KEY.to_int} and values are compared by
-      {!HASHED_VALUE.polyeq}. *)
-
-  val compare : 'a t -> 'a t -> int
-  (** Constant time comparison using the {{!hash_consed}hash-consed} node identifiers.
-      This order is fully arbitrary, but it is total and can be used to sort nodes.
-      It is based on node ids which depend on the order in which the nodes where created
-      (older nodes having smaller ids).
-
-      One useful property of this order is that
-      child nodes will always have a smaller identifier than their parents. *)
-end
-
-
-(** {1:node_impl Some implementations of NODE} *)
-(** We provide a few different implementations of {!NODE}, they can be used with
-    the {!MakeCustomMap}, {!MakeCustomSet}, {!MakeCustomHeterogeneousMap} and
-    {!MakeCustomHeterogeneousSet} functors. *)
-
-(** {2 Basic nodes} *)
-
-(** This module is such that ['map t = 'map view].
-    This is the node used in {!MakeHeterogeneousMap} and {!MakeMap}. *)
-module SimpleNode(Key: sig type 'k t end)(Value: HETEROGENEOUS_VALUE) : NODE
-  with type 'a key = 'a Key.t
-   and type ('key,'map) value = ('key,'map) Value.t
-
-(** Here, nodes also contain a unique id, e.g. so that they can be
-    used as keys of maps or hash-tables. *)
-module NodeWithId(Key: sig type 'k t end)(Value: HETEROGENEOUS_VALUE) : NODE_WITH_ID
-  with type 'a key = 'a Key.t
-   and type ('key,'map) value = ('key,'map) Value.t
-
-
-(* Maybe: we can make variations around NodeWithId; e.g. a version
-    that does HashConsing, or a version that replicates the node to a
-    key-value store on disk, etc. *)
-
-(** An optimized representation for sets, i.e. maps to unit: we do not
-    store a reference to unit (note that you can further optimize when
-    you know the representation of the key).
-    This is the node used in {!MakeHeterogeneousSet} and {!MakeSet}. *)
-module SetNode(Key: sig type 'k t end) : NODE
-  with type 'a key = 'a Key.t
-   and type ('key,'map) value = unit
-
-(** {2 Weak nodes} *)
-
-(** NODE used to implement weak key hashes (the key-binding pair is an
-    Ephemeron, the reference to the key is weak, and if the key is
-    garbage collected, the binding disappears from the map *)
-module WeakNode(Key: sig type 'k t end)(Value: HETEROGENEOUS_VALUE) : NODE
-  with type 'a key = 'a Key.t
-   and type ('key,'map) value = ('key,'map) Value.t
-
-(** Both a {!WeakNode} and a {!SetNode}, useful to implement Weak sets.  *)
-module WeakSetNode(Key: sig type 'k t end) : NODE
-  with type 'a key = 'a Key.t
-   and type ('key,'map) value = unit
-
-
-(** {2 Hashconsed nodes} *)
-
-(** Gives a unique number to each node like {!NodeWithId},
-    but also performs hash-consing. So two maps with the same bindings will
-    always be physically equal. See {!hash_consed} for more details on this.
-
-    This is a generative functor, as calling it creates a new hash-table to store
-    the created nodes, and a reference to store the next unallocated identifier.
-    Maps/sets from different hash-consing functors (even if these functors have
-    the same arguments) will have different (incompatible) numbering systems and
-    be stored in different hash-tables (thus they will never be physically equal).
-
-    Using a single {!HashconsedNode} in multiple {!MakeCustomMap} functors will result in
-    all those maps being hash-consed together (stored in the same hash-table,
-    same numbering system).
-
-    @since v0.10.0 *)
-module HashconsedNode(Key: HETEROGENEOUS_KEY)(Value: HETEROGENEOUS_HASHED_VALUE)() : HASH_CONSED_NODE
-  with type 'a key = 'a Key.t
-   and type ('key,'map) value = ('key, 'map) Value.t
-
-(** Both a {!HashconsedNode} and a {!SetNode}.
-    @since v0.10.0 *)
-module HashconsedSetNode(Key: HETEROGENEOUS_KEY)() : HASH_CONSED_NODE
-  with type 'a key = 'a Key.t
-   and type ('key,'map) value = unit
-
-(* TODO: Functor to make sets from maps. *)
-(* TODO: A possibility of customizing the fixpoint in the recursive
-   calls, so that we can cache operations or make lazy some of the
-   operations. *)

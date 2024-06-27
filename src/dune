@@ -22,7 +22,7 @@
 (library
  (name PatriciaTree)
  (public_name patricia-tree)
- (modules PatriciaTree)
+ (modules :standard \ prelude PatriciaTreeTest)
  (foreign_stubs
   (language c)
   (names int_builtins)))
@@ -32,9 +32,8 @@
 
 (mdx
  (files *.mld *.mli)
- (libraries patricia-tree))
-
-;; For test purposes only.
+ (libraries patricia-tree)
+ (preludes prelude.ml))
 
 (library
  (name PatriciaTreeTest)
