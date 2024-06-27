@@ -1,8 +1,32 @@
+(**************************************************************************)
+(*  This file is part of the Codex semantics library                      *)
+(*    (patricia-tree sub-component).                                      *)
+(*                                                                        *)
+(*  Copyright (C) 2024                                                    *)
+(*    CEA (Commissariat à l'énergie atomique et aux énergies              *)
+(*         alternatives)                                                  *)
+(*                                                                        *)
+(*  You can redistribute it and/or modify it under the terms of the GNU   *)
+(*  Lesser General Public License as published by the Free Software       *)
+(*  Foundation, version 2.1.                                              *)
+(*                                                                        *)
+(*  It is distributed in the hope that it will be useful,                 *)
+(*  but WITHOUT ANY WARRANTY; without even the implied warranty of        *)
+(*  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *)
+(*  GNU Lesser General Public License for more details.                   *)
+(*                                                                        *)
+(*  See the GNU Lesser General Public License version 2.1                 *)
+(*  for more details (enclosed in the file LICENSE).                      *)
+(**************************************************************************)
+
 (** All signatures used in this library *)
 
 open Ints
 
 (** {1 Nodes} *)
+(** Nodes are the underlying representation used to build a patricia-tree.
+    The module type specifies the constructors they must provide, and a common
+    interface used for pattern-matching. *)
 
 (** This module explains how a node is stored in memory, with
     functions to create and view nodes. *)
@@ -1131,7 +1155,7 @@ end
 module type MAP = MAP_WITH_VALUE with type 'a value = 'a
 
 (** {1 Keys} *)
-(** Keys are the functor arguments used to build the maps. *)
+(** Functor argument used to specify the key type when building the maps. *)
 
 (** The signature of homogeneous keys (non-generic, unparameterized keys).  *)
 module type KEY = sig
@@ -1197,6 +1221,7 @@ module type HETEROGENEOUS_KEY = sig
 end
 
 (** {1 Values} *)
+(** Functor argument used to specify the value type when building the maps. *)
 
 (** Module type used for specifying custom homogeneous value types in {!MakeCustomMap}.
     For most purposes, use the provided {!Value} implementation.
