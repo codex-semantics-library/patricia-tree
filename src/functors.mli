@@ -108,8 +108,11 @@ module MakeCustomHeterogeneousSet
       {!BASE_MAP.idempotent_inter} will see improved performance;
     - constructors are slightly slower, as they now require a hash-table lookup;
     - memory usage is increased: nodes store their tags inside themselves, and
-      a global hash-table of all built nodes must be maintained;
-    - hash-consed maps assume their values are immutable;
+      a global hash-table of all built nodes must be maintained.
+      This is quickly amortized if multiple identical nodes are built,
+      as only one will be kept in memory.
+    - hash-consed maps assume their keys and values are immutable, where regular
+      maps can mutate values freely;
     - {b WARNING:} when using physical equality as {!HASHED_VALUE.polyeq}, some
       {b maps of different types may be given the same identifier}. See the end of
       the documentation of {!HASHED_VALUE.polyeq} for details.

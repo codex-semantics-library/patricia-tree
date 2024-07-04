@@ -22,7 +22,7 @@
 (** Association maps from key to values, and sets, implemented with
     Patricia Trees, allowing fast merge operations by making use of
     physical equality between subtrees; and custom implementation of
-    tree nodes (allowing normal maps, hash-consed maps, weak key or
+    {{!node_impl}tree nodes} (allowing normal maps, {{!hash_consed}hash-consed maps}, weak key or
     value maps, sets, custom maps, etc.).
 
     The main entry points into this library are the functors that build maps
@@ -134,8 +134,10 @@ include Functors
 include Key_value
 
 (** {1:node_impl Some implementations of NODE} *)
-(** We provide a few different implementations of {!NODE}, they can be used with
+(** We provide a few different implementations of {!NODE}, the internal representation
+    of a PatriciaTree's nodes. They can be used with
     the {!MakeCustomMap}, {!MakeCustomSet}, {!MakeCustomHeterogeneousMap} and
-    {!MakeCustomHeterogeneousSet} functors. *)
+    {!MakeCustomHeterogeneousSet} functors to build maps and sets with custom
+    internal representation. *)
 
 include Nodes
