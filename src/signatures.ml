@@ -172,13 +172,13 @@ end
     - {!SET} specializes {!HETEROGENEOUS_SET} further by making elements (keys)
       non-generic ([elt] instead of ['a elt]).  *)
 module type BASE_MAP = sig
-  include NODE
+  include NODE (** @closed *)
 
   (** Existential wrapper for the ['a] parameter in a ['a key], [('a,'map) value] pair *)
   type 'map key_value_pair =
       KeyValue : 'a key * ('a, 'map) value -> 'map key_value_pair
 
-  (** {3 Basic functions} *)
+  (** {1 Basic functions} *)
 
   val unsigned_min_binding : 'a t -> 'a key_value_pair
   (** [unsigned_min_binding m] is minimal binding [KeyValue(k,v)] of the map,
@@ -247,7 +247,7 @@ module type BASE_MAP = sig
       whether the old value existed). O(log(n)) complexity.
       Preserves physical equality if the new value is physically equal to the old. *)
 
-  (** {3 Iterators} *)
+  (** {1 Iterators} *)
 
   val split : 'key key -> 'map t -> 'map t * ('key, 'map) value option * 'map t
   (** [split key map] splits the map into:
@@ -333,7 +333,7 @@ module type BASE_MAP = sig
       it defaults to {{: https://v2.ocaml.org/api/Format.html#VALpp_print_cut}[Format.pp_print_cut]}.
       Bindings are printed in the {{!unsigned_lt}unsigned order} of {!KEY.to_int} *)
 
-  (** {3 Functions on pairs of maps} *)
+  (** {1 Functions on pairs of maps} *)
 
   type ('map1,'map2) polysame_domain_for_all2 =
     { f : 'a. 'a key -> ('a, 'map1) value -> ('a, 'map2) value -> bool; } [@@unboxed]
@@ -424,7 +424,7 @@ module type BASE_MAP = sig
   val disjoint : 'a t -> 'a t -> bool
   (** [disjoint m1 m2] is [true] iff [m1] and [m2] have disjoint domains *)
 
-  (** {3 Conversion functions} *)
+  (** {1 Conversion functions} *)
 
   val to_seq : 'a t -> 'a key_value_pair Seq.t
   (** [to_seq m] iterates the whole map, in increasing {{!unsigned_lt}unsigned order} of {!KEY.to_int} *)
