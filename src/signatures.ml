@@ -1014,7 +1014,7 @@ module type MAP_WITH_VALUE = sig
       returns true for each mapping pair of keys. We assume that [f]
       is reflexive (i.e. [f key value value] returns [true]) to avoid
       visiting physically equal subtrees of [map1] and [map2]. The
-      complexity is O(log(n)*Delta) where Delta is the number of
+      complexity is O(log(n)+Delta) where Delta is the number of
       different keys between [map1] and [map2]. *)
 
   val nonreflexive_same_domain_for_all2 : (key -> 'a value -> 'b value -> bool) -> 'a t -> 'b t -> bool
@@ -1025,10 +1025,10 @@ module type MAP_WITH_VALUE = sig
 
   val reflexive_subset_domain_for_all2 : (key -> 'a value -> 'a value -> bool) -> 'a t -> 'a t -> bool
   (** [reflexive_subset_domain_for_all2 f map1 map2] returns true if
-      all the keys of [map1] also are in [map2], and [f key (find map1
-      key) (find map2 key)] returns [true] when both keys are present
-      in the map. We assume that [f] is reflexive (i.e. [f key value
-      value] returns true) to avoid visiting physically equal subtrees
+      all the keys of [map1] also are in [map2], and
+      [f key (find map1 key) (find map2 key)] returns [true] when both keys are present
+      in the map. We assume that [f] is reflexive (i.e.
+      [f key value value] returns true) to avoid visiting physically equal subtrees
       of [map1] and [map2]. The complexity is O(log(n)*Delta) where
       Delta is the number of different keys between [map1] and
       [map2]. *)
