@@ -137,32 +137,7 @@ module MakeCustomHeterogeneousSet
 module MakeHashconsedMap(Key: KEY)(Value: HASHED_VALUE)() : sig
   include MAP_WITH_VALUE with type key = Key.t and type 'a value = 'a Value.t (** @closed *)
 
-  val to_int : 'a t -> int
-  (** Returns the {{!hash_consed}hash-consed} id of the map.
-      Unlike {!NODE_WITH_ID.to_int}, hash-consing ensures that maps
-      which contain the same keys (compared by {!KEY.to_int}) and values (compared
-      by {!HASHED_VALUE.polyeq}) will always be physically equal
-      and have the same identifier.
-
-      Note that when using physical equality as {!HASHED_VALUE.polyeq}, some
-      maps of different types [a t] and [b t] may be given the same identifier.
-      See the end of the documentation of {!HASHED_VALUE.polyeq} for details. *)
-
-  val equal : 'a t -> 'a t -> bool
-  (** Constant time equality using the {{!hash_consed}hash-consed} nodes identifiers.
-      This is equivalent to physical equality.
-      Two nodes are equal if their trees contain the same bindings,
-      where keys are compared by {!KEY.to_int} and values are compared by
-      {!HASHED_VALUE.polyeq}. *)
-
-  val compare : 'a t -> 'a t -> int
-  (** Constant time comparison using the {{!hash_consed}hash-consed} node identifiers.
-      This order is fully arbitrary, but it is total and can be used to sort nodes.
-      It is based on node ids which depend on the order in which the nodes where created
-      (older nodes having smaller ids).
-
-      One useful property of this order is that
-      child nodes will always have a smaller identifier than their parents. *)
+  include HASH_CONSED_OPERATIONS with type 'a t := 'a t (** @inline *)
 end
 
 (** Hash-consed version of {!SET}. See {!hash_consed} for the differences between
@@ -178,32 +153,7 @@ end
 module MakeHashconsedSet(Key: KEY)() : sig
   include SET with type elt = Key.t (** @closed *)
 
-  val to_int : t -> int
-  (** Returns the {{!hash_consed}hash-consed} id of the map.
-      Unlike {!NODE_WITH_ID.to_int}, hash-consing ensures that maps
-      which contain the same keys (compared by {!KEY.to_int}) and values (compared
-      by {!HASHED_VALUE.polyeq}) will always be physically equal
-      and have the same identifier.
-
-      Note that when using physical equality as {!HASHED_VALUE.polyeq}, some
-      maps of different types [a t] and [b t] may be given the same identifier.
-      See the end of the documentation of {!HASHED_VALUE.polyeq} for details. *)
-
-  val equal : t -> t -> bool
-  (** Constant time equality using the {{!hash_consed}hash-consed} nodes identifiers.
-      This is equivalent to physical equality.
-      Two nodes are equal if their trees contain the same bindings,
-      where keys are compared by {!KEY.to_int} and values are compared by
-      {!HASHED_VALUE.polyeq}. *)
-
-  val compare : t -> t -> int
-  (** Constant time comparison using the {{!hash_consed}hash-consed} node identifiers.
-      This order is fully arbitrary, but it is total and can be used to sort nodes.
-      It is based on node ids which depend on the order in which the nodes where created
-      (older nodes having smaller ids).
-
-      One useful property of this order is that
-      child nodes will always have a smaller identifier than their parents. *)
+  include HASH_CONSED_OPERATIONS with type 'a t := t (** @inline *)
 end
 
 (** Hash-consed version of {!HETEROGENEOUS_SET}.  See {!hash_consed} for the differences between
@@ -219,32 +169,7 @@ end
 module MakeHashconsedHeterogeneousSet(Key: HETEROGENEOUS_KEY)() : sig
   include HETEROGENEOUS_SET with type 'a elt = 'a Key.t (** @closed *)
 
-  val to_int : t -> int
-  (** Returns the {{!hash_consed}hash-consed} id of the map.
-      Unlike {!NODE_WITH_ID.to_int}, hash-consing ensures that maps
-      which contain the same keys (compared by {!KEY.to_int}) and values (compared
-      by {!HASHED_VALUE.polyeq}) will always be physically equal
-      and have the same identifier.
-
-      Note that when using physical equality as {!HASHED_VALUE.polyeq}, some
-      maps of different types [a t] and [b t] may be given the same identifier.
-      See the end of the documentation of {!HASHED_VALUE.polyeq} for details. *)
-
-  val equal : t -> t -> bool
-  (** Constant time equality using the {{!hash_consed}hash-consed} nodes identifiers.
-      This is equivalent to physical equality.
-      Two nodes are equal if their trees contain the same bindings,
-      where keys are compared by {!KEY.to_int} and values are compared by
-      {!HASHED_VALUE.polyeq}. *)
-
-  val compare : t -> t -> int
-  (** Constant time comparison using the {{!hash_consed}hash-consed} node identifiers.
-      This order is fully arbitrary, but it is total and can be used to sort nodes.
-      It is based on node ids which depend on the order in which the nodes where created
-      (older nodes having smaller ids).
-
-      One useful property of this order is that
-      child nodes will always have a smaller identifier than their parents. *)
+  include HASH_CONSED_OPERATIONS with type 'a t := t (** @inline *)
 end
 
 (** Hash-consed version of {!HETEROGENEOUS_MAP}.  See {!hash_consed} for the differences between
@@ -262,30 +187,5 @@ module MakeHashconsedHeterogeneousMap(Key: HETEROGENEOUS_KEY)(Value: HETEROGENEO
       with type 'a key = 'a Key.t
       and type ('k,'m) value = ('k, 'm) Value.t (** @closed *)
 
-  val to_int : 'a t -> int
-  (** Returns the {{!hash_consed}hash-consed} id of the map.
-      Unlike {!NODE_WITH_ID.to_int}, hash-consing ensures that maps
-      which contain the same keys (compared by {!KEY.to_int}) and values (compared
-      by {!HASHED_VALUE.polyeq}) will always be physically equal
-      and have the same identifier.
-
-      Note that when using physical equality as {!HASHED_VALUE.polyeq}, some
-      maps of different types [a t] and [b t] may be given the same identifier.
-      See the end of the documentation of {!HASHED_VALUE.polyeq} for details. *)
-
-  val equal : 'a t -> 'a t -> bool
-  (** Constant time equality using the {{!hash_consed}hash-consed} nodes identifiers.
-      This is equivalent to physical equality.
-      Two nodes are equal if their trees contain the same bindings,
-      where keys are compared by {!KEY.to_int} and values are compared by
-      {!HASHED_VALUE.polyeq}. *)
-
-  val compare : 'a t -> 'a t -> int
-  (** Constant time comparison using the {{!hash_consed}hash-consed} node identifiers.
-      This order is fully arbitrary, but it is total and can be used to sort nodes.
-      It is based on node ids which depend on the order in which the nodes where created
-      (older nodes having smaller ids).
-
-      One useful property of this order is that
-      child nodes will always have a smaller identifier than their parents. *)
+  include HASH_CONSED_OPERATIONS with type 'a t := 'a t (** @inline *)
 end

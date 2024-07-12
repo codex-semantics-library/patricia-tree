@@ -81,7 +81,7 @@ module type NODE = sig
     | Empty : 'map view
     (** Can happen only at the toplevel: there is no empty interior node. *)
     | Branch : { prefix : intkey; branching_bit : mask;
-                  tree0 : 'map t; tree1 : 'map t; } -> 'map view
+                 tree0 : 'map t; tree1 : 'map t; } -> 'map view
     (** Same constraints as {!branch}:
         - [branching_bit] contains only one bit set; the corresponding mask is (branching_bit - 1).
         - [prefix] is normalized: the bits below the [branching_bit] are set to zero
@@ -519,7 +519,7 @@ module type HETEROGENEOUS_SET = sig
   (** Underlying basemap, for cross map/set operations *)
   module BaseMap : HETEROGENEOUS_MAP
     with type 'a key = 'a elt
-      and type (_,_) value = unit
+     and type (_,_) value = unit
 
   type t = unit BaseMap.t
   (** The type of our set *)
@@ -1153,6 +1153,40 @@ end
     a ['a map] binds [key] to ['a].
     Most of this interface should be shared with {{: https://ocaml.org/api/Map.S.html}[Stdlib.Map.S]}. *)
 module type MAP = MAP_WITH_VALUE with type 'a value = 'a
+
+(** Operations added/changed in {{!hash_consed}hash-consed} maps and sets. *)
+module type HASH_CONSED_OPERATIONS = sig
+  type 'a t
+
+  (** {1 Hash-consing specific operations} *)
+
+  val to_int : 'a t -> int
+  (** Returns the {{!hash_consed}hash-consed} id of the map.
+      Unlike {!NODE_WITH_ID.to_int}, hash-consing ensures that maps
+      which contain the same keys (compared by {!KEY.to_int}) and values (compared
+      by {!HASHED_VALUE.polyeq}) will always be physically equal
+      and have the same identifier.
+
+      Note that when using physical equality as {!HASHED_VALUE.polyeq}, some
+      maps of different types [a t] and [b t] may be given the same identifier.
+      See the end of the documentation of {!HASHED_VALUE.polyeq} for details. *)
+
+  val equal : 'a t -> 'a t -> bool
+  (** Constant time equality using the {{!hash_consed}hash-consed} nodes identifiers.
+      This is equivalent to physical equality.
+      Two nodes are equal if their trees contain the same bindings,
+      where keys are compared by {!KEY.to_int} and values are compared by
+      {!HASHED_VALUE.polyeq}. *)
+
+  val compare : 'a t -> 'a t -> int
+  (** Constant time comparison using the {{!hash_consed}hash-consed} node identifiers.
+      This order is fully arbitrary, but it is total and can be used to sort nodes.
+      It is based on node ids which depend on the order in which the nodes where created
+      (older nodes having smaller ids).
+
+      One useful property of this order is that
+      child nodes will always have a smaller identifier than their parents. *)
+end
 
 (** {1 Keys} *)
 (** Functor argument used to specify the key type when building the maps. *)
