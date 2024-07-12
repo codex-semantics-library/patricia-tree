@@ -307,7 +307,7 @@ let map2 =
 ## Release status
 
 This should be close to a stable release. It is already being
-used as part of a larger project successfully, and this usage as helped us mature
+used as part of a [larger project](https://codex.top) successfully, and this usage as helped us mature
 the interface. As is, we believe the project is usable, and we don't anticipate
 any major change before 1.0.0. We didn't commit to a stable release straight
 away as we would like a bit more time using this library before doing so.
