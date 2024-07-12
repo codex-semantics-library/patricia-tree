@@ -322,7 +322,7 @@ type (_, 'b) snd = Snd of 'b [@@unboxed]
 It should not incur any extra performance cost as it is unboxed, but can appear
 when manipulating non-generic maps.
 
-For more details about this issue, see [the OCaml discourse discussion](https://discuss.ocaml.org/t/weird-behaviors-with-first-order-polymorphism/13783).
+For more details about this issue, see [the OCaml discourse discussion](https://discuss.ocaml.org/t/weird-behaviors-with-first-order-polymorphism/13783) or [the github issue](https://github.com/ocaml/ocaml/issues/13292).
 
 ## Comparison to other OCaml libraries
 

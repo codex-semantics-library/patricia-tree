@@ -34,7 +34,8 @@ module WrappedHomogeneousValue : HETEROGENEOUS_VALUE with type ('a,'map) t = ('a
 (** Same as {!HomogeneousValue}, but uses a wrapper (unboxed) type instead of direct
     equality. This avoids a problem in the typechecker with overly eager simplification of aliases.
     More info on
-    {{: https://discuss.ocaml.org/t/weird-behaviors-with-first-order-polymorphism/13783} the OCaml discourse post}. *)
+    {{: https://discuss.ocaml.org/t/weird-behaviors-with-first-order-polymorphism/13783} the OCaml discourse post}
+    and {{: https://github.com/ocaml/ocaml/issues/13292}the github issue}. *)
 
 module HashedValue : HASHED_VALUE with type 'a t = 'a
 (** Generic implementation of {!HASHED_VALUE}.

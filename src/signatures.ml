@@ -797,7 +797,8 @@ end
     Since the type is unboxed, it doesn't introduce any performance overhead.
 
     This is due to a bug in the typechecker, more info on
-    {{: https://discuss.ocaml.org/t/weird-behaviors-with-first-order-polymorphism/13783} the OCaml discourse post}. *)
+    {{: https://discuss.ocaml.org/t/weird-behaviors-with-first-order-polymorphism/13783} the OCaml discourse post}
+    and {{: https://github.com/ocaml/ocaml/issues/13292}the github issue}. *)
 type (_, 'b) snd = Snd of 'b [@@unboxed]
 
 
