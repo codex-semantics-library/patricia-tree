@@ -20,16 +20,10 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (library
- (name PatriciaTree)
- (public_name patricia-tree)
- (foreign_stubs
-  (language c)
-  (names int_builtins)))
-
-(documentation
- (package patricia-tree))
-
-(mdx
- (files *.mld *.mli)
- (libraries patricia-tree)
- (preludes test/mdx_prelude.ml))
+ (name PatriciaTreeTest)
+ (inline_tests
+  (libraries qcheck-core))
+ (preprocess
+  (pps ppx_inline_test))
+ (libraries PatriciaTree qcheck-core)
+ (modules PatriciaTreeTest))
