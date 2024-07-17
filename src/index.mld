@@ -206,7 +206,7 @@ Here is a small example of a non-generic map:
     but you can use any type, so long as it supports an efficient and injective
     {{!PatriciaTree.Sigs.KEY.to_int}[to_int]} function.
   {@ocaml[
-  module IntKey : PatriciaTree.KEY with type t = int = struct
+  module IntKey : PatriciaTree.Sigs.KEY with type t = int = struct
     type t = int
     let to_int x = x
   end
@@ -334,7 +334,7 @@ liberty of having a generic type as a key.
           | G_Equal(l,r) ->    3 + 4*(to_int l mod 10000 + 10000*(to_int r))
 
         (** Full polymorphic equality, requires annotation to type properly *)
-        let rec polyeq : type a b. a expr -> b expr -> (a, b) PatriciaTree.cmp =
+        let rec polyeq : type a b. a expr -> b expr -> (a, b) PatriciaTree.Sigs.cmp =
           fun l r -> match l, r with
           | G_Const_Int l, G_Const_Int r -> if l = r then Eq else Diff
           | G_Const_Bool l, G_Const_Bool r -> if l = r then Eq else Diff
