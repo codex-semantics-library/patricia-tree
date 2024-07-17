@@ -46,8 +46,8 @@ See the {{!examples}examples} to jump right into using this library.
   using the same function names when possible
   and the same convention for order of arguments. This should allow switching to
   and from Patricia Tree with minimal effort.}
-{li The functor parameters ({{!PatriciaTree.KEY}[KEY]} module) requires an injective [to_int : t -> int]
-  function instead of a [compare] function. {{!PatriciaTree.KEY.to_int}[KEY.to_int]} should be fast,
+{li The functor parameters ({{!PatriciaTree.Sigs.KEY}[Sigs.KEY]} module) requires an injective [to_int : t -> int]
+  function instead of a [compare] function. {{!PatriciaTree.Sigs.KEY.to_int}[Sigs.KEY.to_int]} should be fast,
   and injective.
   This works well with {{: https://en.wikipedia.org/wiki/Hash_consing}hash-consed} types.}
 {li The Patricia Tree representation is stable, contrary to maps, inserting nodes
@@ -71,8 +71,8 @@ See the {{!examples}examples} to jump right into using this library.
   {{: https://www.cs.tufts.edu/comp/150FP/archive/jan-midtgaard/qc-patricia.pdf}{i QuickChecking Patricia Trees}}
   by Jan Mitgaard.
 
-  It also affects functions like {{!PatriciaTree.BASE_MAP.unsigned_min_binding}[unsigned_min_binding]}
-  and {{!PatriciaTree.BASE_MAP.pop_unsigned_minimum}[pop_unsigned_minimum]}. They will return the smallest
+  It also affects functions like {{!PatriciaTree.Sigs.BASE_MAP.unsigned_min_binding}[unsigned_min_binding]}
+  and {{!PatriciaTree.Sigs.BASE_MAP.pop_unsigned_minimum}[pop_unsigned_minimum]}. They will return the smallest
   positive integer of both positive and negative keys are present; and not the smallest negative,
   as one might expect.}
 {li Supports generic maps and sets: a ['m map] that maps ['k key] to [('k, 'm) value].
@@ -80,11 +80,11 @@ See the {{!examples}examples} to jump right into using this library.
   for the type of keys. This is also sometimes called a dependent map.}
 {li Allows easy and fast operations across different types of maps and set
   which have the same type of keys (e.g. an intersection between a map and a set).}
-{li Multiple choices for internal representation ({{!PatriciaTree.NODE}[NODE]}), which allows for efficient
+{li Multiple choices for internal representation ({{!PatriciaTree.Sigs.NODE}[Sigs.NODE]}), which allows for efficient
   storage (no need to store a value for sets), or using weak nodes only (values removed from the tree if no other pointer to it exists). This system can also
   be extended to store size information in nodes if needed.}
-{li Exposes a common interface ({!type:PatriciaTree.NODE.view}) to allow users to write their own pattern
-  matching on the tree structure without depending on the {{!PatriciaTree.NODE}[NODE]} being used.}
+{li Exposes a common interface ({!type:PatriciaTree.Sigs.NODE.view}) to allow users to write their own pattern
+  matching on the tree structure without depending on the {{!PatriciaTree.Sigs.NODE}[Sigs.NODE]} being used.}
 {li Additionally, hashconsed versions of heterogeneous/homogeneous maps/sets are
   available. These provide constant time equality and comparison, and ensure
   maps/set with the same constants are always physically equal. It comes at the cost
@@ -101,17 +101,17 @@ The functors used to build maps and sets are the following:
 {li For homogeneous (non-generic) maps and sets: {{!PatriciaTree.MakeMap}[MakeMap]} and
     {{!PatriciaTree.MakeSet}[MakeSet]}. These are similar to the standard library's maps and sets.
     {@ocaml skip[
-      module MakeMap(Key: KEY) : MAP with type key = Key.t
-      module MakeSet(Key: KEY) : SET with type elt = Key.t
+      module MakeMap(Key: Sigs.KEY) : Sigs.MAP with type key = Key.t
+      module MakeSet(Key: Sigs.KEY) : Sigs.SET with type elt = Key.t
     ]}}
 {li For Heterogeneous (generic) maps and sets: {{!PatriciaTree.MakeHeterogeneousMap}[MakeHeterogeneousMap]}
     and {{!PatriciaTree.MakeHeterogeneousSet}[MakeHeterogeneousSet]}.
     {@ocaml skip[
-      module MakeHeterogeneousMap(Key: HETEROGENEOUS_KEY)(Value: HETEROGENEOUS_VALUE) :
+      module MakeHeterogeneousMap(Key: Sigs.HETEROGENEOUS_KEY)(Value: Sigs.HETEROGENEOUS_VALUE) :
         HETEROGENEOUS_MAP
         with type 'a key = 'a Key.t
          and type ('k,'m) value = ('k,'m) Value.t
-      module MakeHeterogeneousSet(Key: HETEROGENEOUS_KEY) : HETEROGENEOUS_SET
+      module MakeHeterogeneousSet(Key: Sigs.HETEROGENEOUS_KEY) : Sigs.HETEROGENEOUS_SET
         with type 'a elt = 'a Key.t
     ]}}
 {li
@@ -120,16 +120,16 @@ The functors used to build maps and sets are the following:
   {{!PatriciaTree.MakeHashconsedHeterogeneousMap}[MakeHashconsedHeterogeneousMap]} and {{!PatriciaTree.MakeHashconsedHeterogeneousSet}[MakeHashconsedHeterogeneousSet]}.
   These uniquely number their nodes, which means:
   - [equal] and [compare] become constant time operations;
-  - two maps with the same bindings (where keys are compared by {{!PatriciaTree.KEY.to_int}[KEY.to_int]} and
-    values by {{!PatriciaTree.HASHED_VALUE.polyeq}[HASHED_VALUE.polyeq]}) will always be physically equal;
+  - two maps with the same bindings (where keys are compared by {{!PatriciaTree.Sigs.KEY.to_int}[Sigs.KEY.to_int]} and
+    values by {{!PatriciaTree.Sigs.HASHED_VALUE.polyeq}[Sigs.HASHED_VALUE.polyeq]}) will always be physically equal;
   - functions that benefit from sharing will see improved performance;
   - constructors are slightly slower, as they now require a hash-table lookup;
   - memory usage is increased: nodes store their tags inside themselves, and
     a global hash-table of all built nodes must be maintained;
   - hash-consed maps assume their values are immutable;
-  - {b WARNING:} when using physical equality as {{!PatriciaTree.HASHED_VALUE.polyeq}[HASHED_VALUE.polyeq]}, some maps of different
+  - {b WARNING:} when using physical equality as {{!PatriciaTree.Sigs.HASHED_VALUE.polyeq}[Sigs.HASHED_VALUE.polyeq]}, some maps of different
     types may be given the same identifier.  See the end of
-    the documentation of {{!PatriciaTree.HASHED_VALUE.polyeq}[HASHED_VALUE.polyeq]} for details.
+    the documentation of {{!PatriciaTree.Sigs.HASHED_VALUE.polyeq}[Sigs.HASHED_VALUE.polyeq]} for details.
     Note that this is the case in the default implementations
     {{!PatriciaTree.HashedValue}[HashedValue]}
     and {{!PatriciaTree.HeterogeneousHashedValue}[HeterogeneousHashedValue]}.
@@ -141,9 +141,10 @@ The functors used to build maps and sets are the following:
 
 {2 Interfaces}
 
-Here is a brief overview of the various module types of our library:
+Here is a brief overview of the various module types of our library. They are placed
+inside the {{!PatriciaTree.Sigs}[Sigs]} module:
 {ul
-{li {{!PatriciaTree.BASE_MAP}[BASE_MAP]}: the underlying module type of all our trees (maps end sets). It
+{li {{!PatriciaTree.Sigs.BASE_MAP}[BASE_MAP]}: the underlying module type of all our trees (maps end sets). It
   represents a ['b map] binding ['a key] to [('a,'b) value], as well as all
   functions needed to manipulate them.
 
@@ -151,26 +152,26 @@ Here is a brief overview of the various module types of our library:
   unified representation, useful for cross map operations. However, for practical
   purposes, it is often best to use the more specific interfaces:
   {ul
-  {li {{!PatriciaTree.HETEROGENEOUS_MAP}[HETEROGENEOUS_MAP]} for heterogeneous maps (this is just {{!PatriciaTree.BASE_MAP}[BASE_MAP]} with a
+  {li {{!PatriciaTree.Sigs.HETEROGENEOUS_MAP}[HETEROGENEOUS_MAP]} for heterogeneous maps (this is just {{!PatriciaTree.Sigs.BASE_MAP}[BASE_MAP]} with a
     [WithForeign] functor).}
-  {li {{!PatriciaTree.MAP}[MAP]} for homogeneous maps, this interface is close to {{: https://ocaml.org/api/Map.S.html}[Stdlib.Map.S]}.}
-  {li {{!PatriciaTree.HETEROGENEOUS_SET}[HETEROGENEOUS_SET]} for heterogeneous sets (sets of ['a elt]). These are just
+  {li {{!PatriciaTree.Sigs.MAP}[MAP]} for homogeneous maps, this interface is close to {{: https://ocaml.org/api/Map.S.html}[Stdlib.Map.S]}.}
+  {li {{!PatriciaTree.Sigs.HETEROGENEOUS_SET}[HETEROGENEOUS_SET]} for heterogeneous sets (sets of ['a elt]). These are just
     maps to [unit], but with a custom node representation to avoid storing [unit] in
     nodes.}
-  {li {{!PatriciaTree.SET}[SET]} for homogeneous sets, this interface is close to {{: https://ocaml.org/api/Set.S.html}[Stdlib.Set.S]}.}
+  {li {{!PatriciaTree.Sigs.SET}[SET]} for homogeneous sets, this interface is close to {{: https://ocaml.org/api/Set.S.html}[Stdlib.Set.S]}.}
   }}
-{li The parameter of our functor are either {{!PatriciaTree.KEY}[KEY]} or {{!PatriciaTree.HETEROGENEOUS_KEY}[HETEROGENEOUS_KEY]}.
+{li The parameter of our functor are either {{!PatriciaTree.Sigs.KEY}[KEY]} or {{!PatriciaTree.Sigs.HETEROGENEOUS_KEY}[HETEROGENEOUS_KEY]}.
   These just consist of a type, a (polymorphic) equality function, and an
   injective [to_int] coercion.
 
-  The heterogeneous map functor also has a {{!PatriciaTree.HETEROGENEOUS_VALUE}[HETEROGENEOUS_VALUE]} parameter to specify the
+  The heterogeneous map functor also has a {{!PatriciaTree.Sigs.HETEROGENEOUS_VALUE}[HETEROGENEOUS_VALUE]} parameter to specify the
   [('a, 'b) value] type.}
 {li The internal representations of our tree can be customized to use different
-  internal {{!PatriciaTree.NODE}[NODE]}. Each node come with its own private constructors and destructors,
-  as well as a cast to a uniform {{!type:PatriciaTree.NODE.view}[NODE.view]} type used for pattern matching.
+  internal {{!PatriciaTree.Sigs.NODE}[NODE]}. Each node come with its own private constructors and destructors,
+  as well as a cast to a uniform {{!type:PatriciaTree.Sigs.NODE.view}[NODE.view]} type used for pattern matching.
 
   A number of implementations are provided:
-  - {{!PatriciaTree.SimpleNode}[SimpleNode]}: exactly the {{!type:PatriciaTree.NODE.view}[NODE.view]} type;
+  - {{!PatriciaTree.SimpleNode}[SimpleNode]}: exactly the {{!type:PatriciaTree.Sigs.NODE.view}[NODE.view]} type;
   - {{!PatriciaTree.WeakNode}[WeakNode]}: only store weak pointer to its elements;
   - {{!PatriciaTree.NodeWithId}[NodeWithId]}: node which contains a unique identifier;
   - {{!PatriciaTree.SetNode}[SetNode]}: optimized for sets, doesn't store the [unit] value;
@@ -201,19 +202,26 @@ dune files:
 Here is a small example of a non-generic map:
 
 {ol
-{li Start by creating a key module:
+{li Start by creating a key module. We use [type int] for keys in this example,
+    but you can use any type, so long as it supports an efficient and injective
+    {{!PatriciaTree.Sigs.KEY.to_int}[to_int]} function.
   {@ocaml[
-  module IntKey : PatriciaTree.KEY with type t = int = struct
+  module IntKey : PatriciaTree.Sigs.KEY with type t = int = struct
     type t = int
     let to_int x = x
   end
   ]}}
 {li Use it to instanciate the map/set functors:
   {[
-  module IMap : PatriciaTree.MAP with type key = int = PatriciaTree.MakeMap(IntKey);;
-  module ISet : PatriciaTree.SET with type elt = int = PatriciaTree.MakeSet(IntKey);;
+  module IMap : PatriciaTree.Sigs.MAP with type key = int
+              = PatriciaTree.MakeMap(IntKey)
+  module ISet : PatriciaTree.Sigs.SET with type elt = int
+              = PatriciaTree.MakeSet(IntKey)
   ]}}
-{li You can now use it as you would any other map:
+{li You can now use it as you would any other map, most of the interface is
+    shared with the standard library's {{: https://ocaml.org/api/Map.S.html}[Map]}
+    and {{: https://ocaml.org/api/Set.S.html}[Set]} (some functions have
+    been renamed to highlight their differing requirements).
   {[
   # let map =
     IMap.empty |>
@@ -222,17 +230,18 @@ Here is a small example of a non-generic map:
     IMap.add 3 "how do you do?";;
   val map : string IMap.t = <abstr>
   ]}
-  (We also have {{!PatriciaTree.MAP.of_list}[of_list]} and
-  {{!PatriciaTree.MAP.of_seq}[of_seq]} functions for quick initialization)
+  (We also have {{!PatriciaTree.Sigs.MAP.of_list}[of_list]} and
+  {{!PatriciaTree.Sigs.MAP.of_seq}[of_seq]} functions for quick initialization)
   {[
   # IMap.find 1 map;;
   - : string = "hello"
+
   # IMap.cardinal map;;
   - : int = 3
   ]}}
 {li The strength of Patricia Tree is the speedup of operations on multiple maps
     with common subtrees. For example, in the following, the
-    {{!PatriciaTree.MAP.idempotent_inter_filter}[idempotent_inter_filter]} function
+    {{!PatriciaTree.Sigs.MAP.idempotent_inter_filter}[idempotent_inter_filter]} function
     will skip recursive calls to physically equal subtrees (kept as-is in the intersection).
     This allows faster than [O(n)] intersections.
   {[
@@ -241,6 +250,7 @@ Here is a small example of a non-generic map:
         (IMap.add 4 "something" map)
         (IMap.add 5 "something else" map);;
   val map2 : string IMap.t = <abstr>
+
   # map == map2;;
   - : bool = true
   ]}
@@ -250,8 +260,10 @@ Here is a small example of a non-generic map:
   {[
   # let str = IMap.find 1 map;;
   val str : string = "hello"
+
   # IMap.add 1 str map == map (* already present *);;
   - : bool = true
+
   # IMap.add 1 "hello" map == map
     (* new string copy isn't physically equal to the old one *);;
   - : bool = false
@@ -262,6 +274,7 @@ Here is a small example of a non-generic map:
   {[
     # let map3 = IMap.remove 2 map;;
     val map3 : string IMap.t = <abstr>
+
     # IMap.add 2 (IMap.find 2 map) map3 == map;;
     - : bool = false
   ]}
@@ -269,7 +282,7 @@ Here is a small example of a non-generic map:
   cheap equality test between maps), use the provided
   {{!PatriciaTree.section-hash_consed}hash-consed maps and sets}.}
 {li Our library also allows cross map/set operations through the
-  {{!PatriciaTree.MAP.WithForeign}[WithForeign]} functors:
+  {{!PatriciaTree.Sigs.MAP.WithForeign}[WithForeign]} functors:
   {[
     module CrossOperations = IMap.WithForeign(ISet.BaseMap)
   ]}
@@ -278,11 +291,14 @@ Here is a small example of a non-generic map:
   {[
     # let set = ISet.of_list [1; 3];;
     val set : ISet.t = <abstr>
+
     # let restricted_map = CrossOperations.nonidempotent_inter
       { f = fun _key value () -> value } map set;;
     val restricted_map : string IMap.t = <abstr>
+
     # IMap.to_list map;;
     - : (int * string) list = [(1, "hello"); (2, "world"); (3, "how do you do?")]
+
     # IMap.to_list restricted_map;;
     - : (int * string) list = [(1, "hello"); (3, "how do you do?")]
   ]}
@@ -302,10 +318,10 @@ liberty of having a generic type as a key.
         | G_Addition : int expr * int expr -> int expr
         | G_Equal : 'a expr * 'a expr -> bool expr
     ]}
-    We can create our {{!PatriciaTree.HETEROGENEOUS_KEY}[HETEROGENEOUS_KEY]} functor
+    We can create our {{!PatriciaTree.Sigs.HETEROGENEOUS_KEY}[Sigs.HETEROGENEOUS_KEY]} functor
     parameter using this type as follows:
     {[
-      module Expr : PatriciaTree.HETEROGENEOUS_KEY with type 'a t = 'a expr = struct
+      module Expr : PatriciaTree.Sigs.HETEROGENEOUS_KEY with type 'a t = 'a expr = struct
         type 'a t = 'a expr
 
         (** Injective, so long as expressions are small enough
@@ -317,8 +333,8 @@ liberty of having a generic type as a key.
           | G_Addition(l,r) -> 2 + 4*(to_int l mod 10000 + 10000*(to_int r))
           | G_Equal(l,r) ->    3 + 4*(to_int l mod 10000 + 10000*(to_int r))
 
-        (** Full polymorphic equality *)
-        let rec polyeq : type a b. a expr -> b expr -> (a, b) PatriciaTree.cmp =
+        (** Full polymorphic equality, requires annotation to type properly *)
+        let rec polyeq : type a b. a expr -> b expr -> (a, b) PatriciaTree.Sigs.cmp =
           fun l r -> match l, r with
           | G_Const_Int l, G_Const_Int r -> if l = r then Eq else Diff
           | G_Const_Bool l, G_Const_Bool r -> if l = r then Eq else Diff
@@ -328,7 +344,8 @@ liberty of having a generic type as a key.
               | Diff -> Diff)
           | G_Equal(ll, lr), G_Equal(rl, rr) ->    (
               match polyeq ll rl with
-              | Eq -> (match polyeq lr rr with Eq -> Eq | Diff -> Diff) (* Match required by typechecker *)
+              | Eq -> (* this match is no-op, but it is required to typecheck *)
+                      (match polyeq lr rr with Eq -> Eq | Diff -> Diff)
               | Diff -> Diff)
           | _ -> Diff
       end
@@ -338,7 +355,9 @@ liberty of having a generic type as a key.
     on the key type (first parameter) and the map type (second parameter).
     Here the value only depends on the type of the key, not that of the map
     {[
-      module EMap = PatriciaTree.MakeHeterogeneousMap(Expr)(struct type ('a, _) t = 'a end)
+      module EMap = PatriciaTree.MakeHeterogeneousMap
+                      (Expr)
+                      (struct type ('key, 'map) t = 'key end)
     ]}}
 {li You can now use this as you would any other dependent map:
     {[
@@ -349,10 +368,13 @@ liberty of having a generic type as a key.
         EMap.add (G_Addition (G_Const_Int 3, G_Const_Int 6)) 9 |>
         EMap.add (G_Equal (G_Const_Bool false, G_Equal (G_Const_Int 5, G_Const_Int 7))) true
       val map : unit EMap.t = <abstr>
+
       # EMap.find (G_Const_Bool false) map;;
       - : bool = false
+
       # EMap.find (G_Const_Int 5) map;;
       - : int = 5
+
       # EMap.cardinal map;;
       - : int = 4
     ]}}
@@ -382,24 +404,24 @@ liberty of having a generic type as a key.
 {1 Release status}
 
 This should be close to a stable release. It is already being
-used as part of a larger project successfully, and this usage as helped us mature
+used as part of a {{: https://codex.top}larger project} successfully, and this usage as helped us mature
 the interface. As is, we believe the project is usable, and we don't anticipate
 any major change before 1.0.0. We didn't commit to a stable release straight
 away as we would like a bit more time using this library before doing so.
-
 
 {1 Known issues}
 
 There is a bug in the OCaml typechecker which prevents us from directly
 defining non-generic maps as instances of generic maps. To avoid this, non-generic maps
-use a separate value type {{!PatriciaTree.snd}[('a, 'b) snd]} (instead of just using ['b])
+use a separate value type {{!PatriciaTree.Sigs.snd}[('a, 'b) snd]} (instead of just using ['b])
 {[
 type (_, 'b) snd = Snd of 'b [@@unboxed]
 ]}
 It should not incur any extra performance cost as it is unboxed, but can appear
 when manipulating non-generic maps.
 
-For more details about this issue, see {{: https://discuss.ocaml.org/t/weird-behaviors-with-first-order-polymorphism/13783}the OCaml discourse discussion}.
+For more details about this issue, see {{: https://discuss.ocaml.org/t/weird-behaviors-with-first-order-polymorphism/13783}the OCaml discourse discussion}
+or {{: https://github.com/ocaml/ocaml/issues/13292}the github issue}.
 
 {1 Comparison to other OCaml libraries}
 

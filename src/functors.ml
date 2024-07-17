@@ -19,785 +19,19 @@
 (*  for more details (enclosed in the file LICENSE).                      *)
 (**************************************************************************)
 
-(** {1 Signatures} *)
+open Ints
+open Sigs
+open Key_value
+open Nodes
+
+(** [match_prefix k p m] returns [true] if and only if the key [k] has prefix [p] up to bit [m]. *)
+let match_prefix k p m = mask k m = p
+
+(** Returns true if the branch caracterized by the two first arguments
+    would contain the branch caracterized by the second (as right or left subtree) *)
+let [@inline always] branches_before l_prefix (l_mask : mask) (r_prefix : intkey) (r_mask : mask) =
+  unsigned_lt (r_mask :> int) (l_mask :> int) && match_prefix (r_prefix :> int) l_prefix l_mask
 
-(** The integer associated with a key *)
-type intkey = int
-
-(** A mask is an integer with a single bit set (i.e. a power of 2). *)
-type mask = int
-
-module type NODE = sig
-  type 'key key
-  type ('key, 'map) value
-  type 'map t
-
-  val empty : 'map t
-  val leaf : 'key key -> ('key, 'map) value -> 'map t
-  val branch :
-    prefix:intkey ->
-    branching_bit:mask -> tree0:'map t -> tree1:'map t -> 'map t
-
-  type 'map view = private
-    | Empty : 'map view
-    | Branch : { prefix : intkey; branching_bit : mask;
-                 tree0 : 'map t; tree1 : 'map t; } -> 'map view
-    | Leaf : { key : 'key key; value : ('key, 'map) value; } -> 'map view
-
-  val is_empty: 'map t -> bool
-  val view: 'a t -> 'a view
-end
-
-module type NODE_WITH_ID = sig
-  include NODE
-  val to_int: 'a t -> int
-end
-
-module type HASH_CONSED_NODE = sig
-  include NODE_WITH_ID
-  val equal : 'a t -> 'a t -> bool
-  val compare : 'a t -> 'a t -> int
-end
-
-module type BASE_MAP = sig
-  include NODE
-
-  type 'map key_value_pair =
-      KeyValue : 'a key * ('a, 'map) value -> 'map key_value_pair
-  val unsigned_min_binding : 'a t -> 'a key_value_pair
-  val unsigned_max_binding : 'a t -> 'a key_value_pair
-  val singleton : 'a key -> ('a, 'b) value -> 'b t
-  val cardinal : 'a t -> int
-  val is_singleton : 'a t -> 'a key_value_pair option
-  val find : 'key key -> 'map t -> ('key, 'map) value
-  val find_opt : 'key key -> 'map t -> ('key, 'map) value option
-  val mem : 'key key -> 'map t -> bool
-  val remove : 'key key -> 'map t -> 'map t
-  val pop_unsigned_minimum: 'map t -> ('map key_value_pair * 'map t) option
-  val pop_unsigned_maximum: 'map t -> ('map key_value_pair * 'map t) option
-
-  val insert: 'a key -> (('a,'map) value option -> ('a,'map) value) -> 'map t -> 'map t
-  val update: 'a key -> (('a,'map) value option -> ('a,'map) value option) -> 'map t -> 'map t
-  val add : 'key key -> ('key, 'map) value -> 'map t -> 'map t
-  val split : 'key key -> 'map t -> 'map t * ('key, 'map) value option * 'map t
-
-  type 'map polyiter = { f : 'a. 'a key -> ('a, 'map) value -> unit; } [@@unboxed]
-  val iter : 'map polyiter -> 'map t -> unit
-
-  type ('acc,'map) polyfold = { f: 'a. 'a key -> ('a,'map) value -> 'acc -> 'acc } [@@unboxed]
-  val fold : ('acc,'map) polyfold -> 'map t -> 'acc -> 'acc
-
-  type ('acc,'map) polyfold2 = { f: 'a. 'a key -> ('a,'map) value -> ('a,'map) value -> 'acc -> 'acc } [@@unboxed]
-  val fold_on_nonequal_inter : ('acc,'map) polyfold2 -> 'map t -> 'map t -> 'acc -> 'acc
-
-  type ('acc,'map) polyfold2_union = { f: 'a. 'a key -> ('a,'map) value option -> ('a,'map) value option -> 'acc -> 'acc } [@@unboxed]
-  val fold_on_nonequal_union : ('acc,'map) polyfold2_union -> 'map t -> 'map t -> 'acc -> 'acc
-
-  type 'map polypredicate = { f: 'a. 'a key -> ('a,'map) value -> bool; } [@@unboxed]
-  val filter : 'map polypredicate -> 'map t -> 'map t
-  val for_all : 'map polypredicate -> 'map t -> bool
-
-  type ('map1,'map2) polymap = { f : 'a. ('a, 'map1) value -> ('a, 'map2) value; } [@@unboxed]
-  val map : ('map,'map) polymap -> 'map t -> 'map t
-  val map_no_share : ('map1,'map2) polymap -> 'map1 t -> 'map2 t
-
-  type ('map1,'map2) polymapi =
-    { f : 'a. 'a key -> ('a, 'map1) value -> ('a, 'map2) value; } [@@unboxed]
-  val mapi : ('map,'map) polymapi -> 'map t -> 'map t
-  val mapi_no_share : ('map1,'map2) polymapi -> 'map1 t -> 'map2 t
-
-  type ('map1,'map2) polyfilter_map =
-    { f : 'a. 'a key -> ('a, 'map1) value -> ('a, 'map2) value option; } [@@unboxed]
-  val filter_map : ('map,'map) polyfilter_map -> 'map t -> 'map t
-  val filter_map_no_share : ('map1,'map2) polyfilter_map -> 'map1 t -> 'map2 t
-
-  type 'map polypretty = { f: 'a. Format.formatter -> 'a key -> ('a, 'map) value -> unit } [@@unboxed]
-  val pretty :
-    ?pp_sep:(Format.formatter -> unit -> unit) -> 'map polypretty ->
-    Format.formatter -> 'map t -> unit
-
-  type ('map1,'map2) polysame_domain_for_all2 =
-    { f : 'a. 'a key -> ('a, 'map1) value -> ('a, 'map2) value -> bool; } [@@unboxed]
-  val reflexive_same_domain_for_all2 :
-    ('map,'map) polysame_domain_for_all2 -> 'map t -> 'map t -> bool
-  val nonreflexive_same_domain_for_all2:
-    ('map1,'map2) polysame_domain_for_all2 -> 'map1 t -> 'map2 t -> bool
-  val reflexive_subset_domain_for_all2 :
-    ('map,'map) polysame_domain_for_all2 -> 'map t -> 'map t -> bool
-
-  type ('map1, 'map2, 'map3) polyunion = {
-    f : 'a. 'a key -> ('a, 'map1) value -> ('a, 'map2) value -> ('a, 'map3) value; } [@@unboxed]
-  val idempotent_union : ('a, 'a, 'a) polyunion -> 'a t -> 'a t -> 'a t
-
-
-  type ('map1, 'map2, 'map3) polyinter = {
-    f : 'a. 'a key -> ('a, 'map1) value -> ('a, 'map2) value -> ('a, 'map3) value;
-  } [@@unboxed]
-  val idempotent_inter : ('a, 'a, 'a) polyinter -> 'a t -> 'a t -> 'a t
-  val nonidempotent_inter_no_share :('a, 'b, 'c) polyinter -> 'a t -> 'b t -> 'c t
-
-
-  type ('map1, 'map2, 'map3) polyinterfilter = { f : 'a. 'a key -> ('a, 'map1) value -> ('a, 'map2) value -> ('a, 'map3) value option; } [@@unboxed]
-  val idempotent_inter_filter : ('a, 'a, 'a) polyinterfilter -> 'a t -> 'a t -> 'a t
-
-  type ('map1, 'map2, 'map3) polymerge = {
-    f : 'a. 'a key -> ('a, 'map1) value option -> ('a, 'map2) value option -> ('a, 'map3) value  option; } [@@unboxed]
-  val slow_merge : ('map1, 'map2, 'map3) polymerge -> 'map1 t -> 'map2 t -> 'map3 t
-  val disjoint : 'a t -> 'a t -> bool
-
-  val to_seq : 'a t -> 'a key_value_pair Seq.t
-  val to_rev_seq : 'a t -> 'a key_value_pair Seq.t
-  val add_seq : 'a key_value_pair Seq.t -> 'a t -> 'a t
-  val of_seq : 'a key_value_pair Seq.t -> 'a t
-
-  val of_list : 'a key_value_pair list -> 'a t
-  val to_list : 'a t -> 'a key_value_pair list
-end
-
-(** {2 Heterogeneous maps and sets} *)
-
-module type HETEROGENEOUS_MAP = sig
-  include BASE_MAP
-
-  module WithForeign(Map2:BASE_MAP with type 'a key = 'a key):sig
-    type ('map1,'map2) polyinter_foreign = { f: 'a. 'a key -> ('a,'map1) value -> ('a,'map2) Map2.value -> ('a,'map1) value } [@@unboxed]
-
-    val nonidempotent_inter : ('a,'b) polyinter_foreign -> 'a t -> 'b Map2.t -> 'a t
-
-    type ('map2,'map1) polyfilter_map_foreign =
-      { f : 'a. 'a key -> ('a, 'map2) Map2.value -> ('a, 'map1) value option; } [@@unboxed]
-    val filter_map_no_share : ('map2,'map1) polyfilter_map_foreign -> 'map2 Map2.t -> 'map1 t
-    (** Like {!BASE_MAP.filter_map_no_share}, but allows to transform a foreigh map into the current one. *)
-
-    type ('map1,'map2) polyupdate_multiple = { f: 'a. 'a key -> ('a,'map1) value option -> ('a,'map2) Map2.value -> ('a,'map1) value option } [@@unboxed]
-    val update_multiple_from_foreign : 'b Map2.t -> ('a,'b) polyupdate_multiple -> 'a t -> 'a t
-
-    type ('map1,'map2) polyupdate_multiple_inter = { f: 'a. 'a key -> ('a,'map1) value -> ('a,'map2) Map2.value -> ('a,'map1) value option } [@@unboxed]
-    val update_multiple_from_inter_with_foreign : 'b Map2.t -> ('a,'b) polyupdate_multiple_inter -> 'a t -> 'a t
-  end
-end
-
-
-module type HETEROGENEOUS_SET = sig
-  type 'a elt
-
-  module BaseMap : HETEROGENEOUS_MAP
-    with type 'a key = 'a elt
-     and type (_,_) value = unit
-
-  type t = unit BaseMap.t
-  type 'a key = 'a elt
-
-  type any_elt = Any : 'a elt -> any_elt
-
-  val empty: t
-  val is_empty: t -> bool
-  val mem: 'a elt -> t -> bool
-  val add: 'a elt -> t -> t
-  val singleton: 'a elt -> t
-  val cardinal: t -> int
-  val is_singleton: t -> any_elt option
-  val remove: 'a elt -> t -> t
-  val unsigned_min_elt: t -> any_elt
-  val unsigned_max_elt: t -> any_elt
-  val pop_unsigned_minimum: t -> (any_elt * t) option
-  val pop_unsigned_maximum: t -> (any_elt * t) option
-  val union: t -> t -> t
-  val inter: t -> t -> t
-  val disjoint: t -> t -> bool
-  val equal : t -> t -> bool
-  val subset : t -> t -> bool
-  val split: 'a elt -> t -> t * bool * t
-  type polyiter = { f: 'a. 'a elt -> unit; } [@@unboxed]
-  val iter: polyiter -> t -> unit
-
-  type polypredicate = { f: 'a. 'a elt -> bool; } [@@unboxed]
-  val filter: polypredicate -> t -> t
-  val for_all: polypredicate -> t -> bool
-
-  type 'acc polyfold = { f: 'a. 'a elt -> 'acc -> 'acc } [@@unboxed]
-  val fold: 'acc polyfold -> t -> 'acc -> 'acc
-
-  type polypretty = { f: 'a. Format.formatter -> 'a elt -> unit; } [@@unboxed]
-  val pretty :
-    ?pp_sep:(Format.formatter -> unit -> unit) -> polypretty -> Format.formatter -> t -> unit
-
-  val to_seq : t -> any_elt Seq.t
-  val to_rev_seq : t -> any_elt Seq.t
-  val add_seq : any_elt Seq.t -> t -> t
-  val of_seq : any_elt Seq.t -> t
-
-  val of_list : any_elt list -> t
-  val to_list : t -> any_elt list
-end
-
-
-(** {2 Homogeneous maps and sets} *)
-
-(** Signature for sets implemented using Patricia trees. *)
-module type SET = sig
-  type elt
-
-  module BaseMap : HETEROGENEOUS_MAP
-    with type _ key = elt
-     and type (_,_) value = unit
-
-  type key = elt
-  type t = unit BaseMap.t
-
-  val empty: t
-  val is_empty: t -> bool
-  val mem: elt -> t -> bool
-  val add: elt -> t -> t
-  val singleton: elt -> t
-  val cardinal: t -> int
-  val is_singleton: t -> elt option
-  val remove: elt -> t -> t
-  val unsigned_min_elt: t -> elt
-  val unsigned_max_elt: t -> elt
-  val pop_unsigned_minimum: t -> (elt * t) option
-  val pop_unsigned_maximum: t -> (elt * t) option
-  val iter: (elt -> unit) -> t -> unit
-  val filter: (elt -> bool) -> t -> t
-  val for_all: (elt -> bool) -> t -> bool
-  val fold: (elt -> 'b -> 'b) -> t -> 'b -> 'b
-  val split: elt -> t -> t * bool * t
-  val pretty :
-    ?pp_sep:(Format.formatter -> unit -> unit) ->
-    (Format.formatter -> elt -> unit) ->
-    Format.formatter -> t -> unit
-  val union: t -> t -> t
-  val inter: t -> t -> t
-  val disjoint: t -> t -> bool
-  val equal : t -> t -> bool
-  val subset : t -> t -> bool
-  val to_seq : t -> elt Seq.t
-  val to_rev_seq : t -> elt Seq.t
-  val add_seq : elt Seq.t -> t -> t
-  val of_seq : elt Seq.t -> t
-
-  val of_list : elt list -> t
-  val to_list : t -> elt list
-end
-
-type (_, 'b) snd = Snd of 'b [@@unboxed]
-
-module type MAP_WITH_VALUE = sig
-  type key
-  type 'a t
-  type 'a value
-
-  module BaseMap : HETEROGENEOUS_MAP
-   with type 'a t = 'a t
-    and type _ key = key
-    and type ('a,'b) value = ('a,'b value) snd
-
-  val empty : 'a t
-  val is_empty : 'a t -> bool
-  val unsigned_min_binding : 'a t -> (key * 'a value)
-  val unsigned_max_binding : 'a t -> (key * 'a value)
-  val singleton : key -> 'a value -> 'a t
-  val cardinal : 'a t -> int
-  val is_singleton : 'a t -> (key * 'a value) option
-  val find : key -> 'a t -> 'a value
-  val find_opt : key -> 'a t -> 'a value option
-  val mem : key -> 'a t -> bool
-  val remove : key -> 'a t -> 'a t
-  val pop_unsigned_minimum : 'a t -> (key * 'a value * 'a t) option
-  val pop_unsigned_maximum : 'a t -> (key * 'a value * 'a t) option
-  val insert : key -> ('a value option -> 'a value) -> 'a t -> 'a t
-  val update : key -> ('a value option -> 'a value option) -> 'a t -> 'a t
-  val add : key -> 'a value -> 'a t -> 'a t
-  val split : key -> 'a t -> 'a t * 'a value option * 'a t
-  val iter : (key -> 'a value -> unit) -> 'a t -> unit
-  val fold : (key -> 'a value -> 'acc -> 'acc) ->  'a t -> 'acc -> 'acc
-  val fold_on_nonequal_inter : (key -> 'a value -> 'a value -> 'acc -> 'acc) ->
-    'a t -> 'a t -> 'acc -> 'acc
-  val fold_on_nonequal_union :
-    (key -> 'a value option -> 'a value option -> 'acc -> 'acc) ->
-    'a t -> 'a t -> 'acc -> 'acc
-  val filter : (key -> 'a value -> bool) -> 'a t -> 'a t
-  val for_all : (key -> 'a value -> bool) -> 'a t -> bool
-  val map : ('a value -> 'a value) -> 'a t -> 'a t
-  val map_no_share : ('a value -> 'b value) -> 'a t -> 'b t
-  val mapi : (key -> 'a value -> 'a value) -> 'a t -> 'a t
-  val mapi_no_share : (key -> 'a value -> 'b value) -> 'a t -> 'b t
-  val filter_map : (key -> 'a value -> 'a value option) -> 'a t -> 'a t
-  val filter_map_no_share : (key -> 'a value -> 'b value option) -> 'a t -> 'b t
-  val reflexive_same_domain_for_all2 : (key -> 'a value -> 'a value -> bool) -> 'a t -> 'a t ->  bool
-  val nonreflexive_same_domain_for_all2 : (key -> 'a value -> 'b value -> bool) -> 'a t -> 'b t -> bool
-  val reflexive_subset_domain_for_all2 : (key -> 'a value -> 'a value -> bool) -> 'a t -> 'a t -> bool
-  val idempotent_union : (key -> 'a value -> 'a value -> 'a value) -> 'a t -> 'a t -> 'a t
-  val idempotent_inter : (key -> 'a value -> 'a value -> 'a value) -> 'a t -> 'a t -> 'a t
-  val nonidempotent_inter_no_share : (key -> 'a value -> 'b value -> 'c value) -> 'a t -> 'b t -> 'c t
-  val idempotent_inter_filter : (key -> 'a value -> 'a value -> 'a value option) -> 'a t -> 'a t -> 'a t
-  val slow_merge : (key -> 'a value option -> 'b value option -> 'c value option) -> 'a t -> 'b t -> 'c t
-  val disjoint : 'a t -> 'a t -> bool
-
-  module WithForeign(Map2 : BASE_MAP with type _ key = key):sig
-    type ('b,'c) polyfilter_map_foreign = { f: 'a. key -> ('a,'b) Map2.value -> 'c value option } [@@unboxed]
-    val filter_map_no_share : ('b, 'c) polyfilter_map_foreign -> 'b Map2.t ->  'c t
-
-    type ('value,'map2) polyinter_foreign =
-      { f: 'a. 'a Map2.key -> 'value value -> ('a, 'map2) Map2.value -> 'value value } [@@unboxed]
-    val nonidempotent_inter : ('a, 'b) polyinter_foreign -> 'a t -> 'b Map2.t -> 'a t
-
-    type ('map1,'map2) polyupdate_multiple = { f: 'a. key -> 'map1 value option -> ('a,'map2) Map2.value -> 'map1 value option } [@@unboxed]
-    val update_multiple_from_foreign : 'b Map2.t -> ('a,'b) polyupdate_multiple -> 'a t -> 'a t
-
-    type ('map1,'map2) polyupdate_multiple_inter = { f: 'a. key -> 'map1 value -> ('a,'map2) Map2.value -> 'map1 value option } [@@unboxed]
-    val update_multiple_from_inter_with_foreign: 'b Map2.t -> ('a,'b) polyupdate_multiple_inter -> 'a t -> 'a t
-  end
-
-  val pretty :
-    ?pp_sep:(Format.formatter -> unit -> unit) ->
-    (Format.formatter -> key -> 'a value -> unit) ->
-    Format.formatter -> 'a t -> unit
-
-  val to_seq : 'a t -> (key * 'a value) Seq.t
-  val to_rev_seq : 'a t -> (key * 'a value) Seq.t
-  val add_seq : (key * 'a value) Seq.t -> 'a t -> 'a t
-  val of_seq : (key * 'a value) Seq.t -> 'a t
-  val of_list : (key * 'a value) list -> 'a t
-  val to_list : 'a t -> (key * 'a value) list
-end
-
-module type MAP = MAP_WITH_VALUE with type 'a value = 'a
-
-(** {2 Keys and Value} *)
-
-module type KEY = sig
-  type t
-  val to_int: t -> int
-end
-
-type (_,_) cmp = Eq: ('a,'a) cmp | Diff: ('a,'b) cmp
-
-module type HETEROGENEOUS_KEY = sig
-  type 'key t
-  val to_int: ('key) t -> int
-  val polyeq: 'a t -> 'b t -> ('a,'b) cmp
-end
-
-module type VALUE = sig type 'a t end
-
-module type HETEROGENEOUS_VALUE = sig
-  type ('key,'map) t
-end
-
-(** {1 Utility functions} *)
-
-(** Fast highest bit computation in c, using GCC's __builtin_clz
-    which compile to efficient instruction (bsr) when possible. *)
-external highest_bit: int -> (int[@untagged]) =
-  "caml_int_builtin_highest_bit_byte" "caml_int_builtin_highest_bit" [@@noalloc]
-
-let unsigned_lt x y = x - min_int < y - min_int
-  (* if x >= 0 && y >= 0
-  then x < y
-  else if x >= 0
-    then (* pos < neg *) true
-    else if y >= 0 then false
-    else x < y *)
-
-(** Note: in the original version, okasaki give the masks as arguments
-    to optimize the computation of highest_bit. *)
-let branching_bit a b = highest_bit (a lxor b)
-
-let mask i m = i land (lnot (2*m-1))
-
-(** {1 Nodes} *)
-
-(** Simple node, with no hash consing. *)
-module [@inline] SimpleNode(Key:sig type 'a t end)(Value:HETEROGENEOUS_VALUE) = struct
-  type 'a key = 'a Key.t
-  type ('key,'map) value = ('key,'map) Value.t
-
-  type 'map view =
-    | Empty: 'map view
-    | Branch: {prefix:intkey;branching_bit:mask;tree0:'map t;tree1:'map t} -> 'map view
-    | Leaf: {key:'key key; value:('key,'map) value} -> 'map view
-  and 'map t = 'map view
-  let view x = x
-
-  let empty = Empty
-  let is_empty x = x == Empty
-  let leaf key value  = Leaf {key;value}
-  let branch ~prefix ~branching_bit ~tree0 ~tree1 =
-    match tree0,tree1 with
-    | Empty, x -> x
-    | x, Empty -> x
-    | _ -> Branch{prefix;branching_bit;tree0;tree1}
-end
-
-module WeakNode(Key:sig type 'a t end)(Value:HETEROGENEOUS_VALUE)(* :NODE *) = struct
-  type 'a key = 'a Key.t
-  type ('key,'map) value = ('key,'map) Value.t
-
-  type 'map view =
-    | Empty: 'map view
-    | Branch: {prefix:intkey;branching_bit:mask;tree0:'map t;tree1:'map t} -> 'map view
-    | Leaf: {key:'key key; value:('key,'map) value} -> 'map view
-  and 'a t =
-    | TEmpty: 'map t
-    | TBranch: {prefix:intkey;branching_bit:mask;tree0:'map t;tree1:'map t} -> 'map t
-    (* Additional hidden case: leaf, which is an Ephemeron.K1, whose
-       tag is 251, so it can be discriminated against the other
-       cases. This avoids an indirection. *)
-
-  let empty = TEmpty
-  let is_empty x = x == TEmpty
-  let leaf key value = Obj.magic (Ephemeron.K1.make key value)
-  let branch ~prefix ~branching_bit ~tree0 ~tree1 =
-    match tree0,tree1 with
-    | TEmpty, x -> x
-    | x, TEmpty -> x
-    | _ -> TBranch{prefix;branching_bit;tree0;tree1}
-
-  let view (type k) (type map) (t:map t) =
-    let obj = Obj.repr t in
-    if Obj.is_block obj && Obj.tag obj != 0 then
-      (* Ephemeron.K1.get_(key|value) are no longer available in 5.0,
-         so we do that instead. *)
-      let ephe:Obj.Ephemeron.t = Obj.magic obj in
-      let key:k key option = Obj.magic @@ Obj.Ephemeron.get_key ephe 0 in
-      let data:(k,map) Value.t option = Obj.magic @@ Obj.Ephemeron.get_data ephe in
-      match key,data with
-      | Some key, Some value -> Leaf{key;value}
-      | _ -> Empty
-    else match t with
-    | TEmpty -> Empty
-    | TBranch{prefix;branching_bit;tree0;tree1} -> Branch{prefix;branching_bit;tree0;tree1}
-
-end
-
-
-(** Add a unique id to nodes, e.g. so that they can be used as keys in maps or sets.  *)
-module NodeWithId(Key:sig type 'a t end)(Value:HETEROGENEOUS_VALUE):NODE_WITH_ID
-  with type 'key key = 'key Key.t
-   and type ('key,'map) value = ('key,'map) Value.t
-= struct
-
-  type 'a key = 'a Key.t
-  type ('key,'map) value = ('key,'map) Value.t
-
-  type 'map view =
-    | Empty: 'map view
-    | Branch: {prefix:intkey;branching_bit:mask;tree0:'map t;tree1:'map t} -> 'map view
-    | Leaf: {key:'key key; value:('key,'map) value} -> 'map view
-  and 'map t =
-    | NEmpty: 'map t
-    | NBranch: {prefix:intkey;branching_bit:mask;tree0:'map t;tree1:'map t;id:int} -> 'map t
-    | NLeaf: {key:'key key;value:('key,'map) value;id:int} -> 'map t
-
-  let view = function
-    | NEmpty -> Empty
-    | NBranch{prefix;branching_bit;tree0;tree1;_} -> Branch{prefix;branching_bit;tree0;tree1}
-    | NLeaf{key;value;_} -> Leaf{key;value}
-
-  let to_int = function
-    | NEmpty -> 0
-    | NBranch{id;_} -> id
-    | NLeaf{id;_} -> id
-
-  let count = ref 0
-
-  let empty = NEmpty
-  let is_empty x = x == NEmpty
-  let leaf key value = incr count; NLeaf {key;value;id=(!count)}
-  let branch ~prefix ~branching_bit ~tree0 ~tree1 =
-    match tree0,tree1 with
-    | NEmpty, x -> x
-    | x, NEmpty -> x
-    | _ -> incr count; NBranch{prefix;branching_bit;tree0;tree1;id=(!count)}
-end
-
-
-(** NODE for sets, i.e. when there is no associated values.  *)
-module SetNode(Key:sig type 'a t end):NODE
-  with type 'key key = 'key Key.t
-   and type ('key,'map) value = unit
-= struct
-
-  type 'a key = 'a Key.t
-  type ('key,'map) value = unit
-
-  type 'map view =
-    | Empty: 'map view
-    | Branch: {prefix:intkey;branching_bit:mask;tree0:'map t;tree1:'map t} -> 'map view
-    | Leaf: {key:'key key; value:('key,'map) value} -> 'map view
-  and 'map t =
-    | NEmpty: 'map t
-    | NBranch: {prefix:intkey;branching_bit:mask;tree0:'map t;tree1:'map t} -> 'map t
-    | NLeaf: {key:'key key} -> 'map t
-
-
-  let view = function
-    | NEmpty -> Empty
-    | NBranch{prefix;branching_bit;tree0;tree1} -> Branch{prefix;branching_bit;tree0;tree1}
-    | NLeaf{key} -> Leaf{key;value=()}
-
-  let empty = NEmpty
-  let is_empty x = x == NEmpty
-  let leaf key _value = NLeaf {key}
-  let branch ~prefix ~branching_bit ~tree0 ~tree1 =
-    match tree0,tree1 with
-    | NEmpty, x -> x
-    | x, NEmpty -> x
-    | _ -> NBranch{prefix;branching_bit;tree0;tree1}
-
-end
-
-module WeakSetNode(Key:sig type 'a t end)(* :NODE *) = struct
-  type 'a key = 'a Key.t
-  type ('key,'map) value = unit
-
-  type 'map view =
-    | Empty: 'map view
-    | Branch: {prefix:intkey;branching_bit:mask;tree0:'map t;tree1:'map t} -> 'map view
-    | Leaf: {key:'key key; value:('key,'map) value} -> 'map view
-  and 'a t =
-    | TEmpty: 'map t
-    | TBranch: {prefix:intkey;branching_bit:mask;tree0:'map t;tree1:'map t} -> 'map t
-    (* Additional hidden case: leaf, which is a Weak array, whose tag
-       is 251, so it can be discriminated against the other
-       cases. This avoids an indirection. *)
-
-  let empty = TEmpty
-  let is_empty x = x == TEmpty
-  let leaf key () = Obj.magic (let a = Weak.create 1 in Weak.set a 0 (Some key))
-  let branch ~prefix ~branching_bit ~tree0 ~tree1 =
-    match tree0,tree1 with
-    | TEmpty, x -> x
-    | x, TEmpty -> x
-    | _ -> TBranch{prefix;branching_bit;tree0;tree1}
-
-  let view t =
-    let obj = Obj.repr t in
-    if Obj.is_block obj && Obj.tag obj != 0 then
-      let weak = Obj.magic obj in
-      let key = Weak.get weak 0 in
-      match key with
-      | Some key -> Leaf{key;value=()}
-      | _ -> Empty
-    else  match t with          (* Identity in memory. *)
-    | TEmpty -> Empty
-    | TBranch{prefix;branching_bit;tree0;tree1} -> Branch{prefix;branching_bit;tree0;tree1}
-
-end
-
-let sdbm x y = y + (x lsl 16) + (x lsl 6) - x
-(** Combine two numbers into a new hash *)
-
-module type HETEROGENEOUS_HASHED_VALUE = sig
-  include HETEROGENEOUS_VALUE
-
-  val hash : ('a, 'b) t -> int
-  val polyeq : ('a, 'b) t -> ('a, 'c) t -> bool
-end
-
-module type HASHED_VALUE = sig
-  type 'map t
-
-  val hash : 'map t -> int
-  val polyeq : 'a t -> 'b t -> bool
-end
-
-module HeterogeneousHashedValueFromHashedValue(Value: HASHED_VALUE)
-: HETEROGENEOUS_HASHED_VALUE with type ('a, 'map) t = ('a, 'map Value.t) snd = struct
-  type ('a, 'map) t = ('a, 'map Value.t) snd
-  let hash (Snd x) = Value.hash x
-  let polyeq (Snd a) (Snd b) = Value.polyeq a b
-end
-
-module HashconsedNode(Key:HETEROGENEOUS_KEY)(Value:HETEROGENEOUS_HASHED_VALUE)()
-(* : HASH_CONSED_NODE
-  with type 'key key = 'key Key.t
-   and type ('key, 'map) value = ('key, 'map) Value.t *)
-= struct
-
-  type 'a key = 'a Key.t
-  type ('key, 'map) value = ('key, 'map) Value.t
-
-  type 'map view =
-    | Empty: 'map view
-    | Branch: { prefix:intkey; branching_bit:mask; tree0:'map t; tree1:'map t } -> 'map view
-    | Leaf: { key:'key key; value:('key,'map) value } -> 'map view
-  and 'map t =
-    | NEmpty: 'map t
-    | NBranch: { prefix:intkey; branching_bit:mask; tree0:'map t; tree1:'map t; id:int } -> 'map t
-    | NLeaf: { key:'key key; value:('key, 'map) Value.t; id:int } -> 'map t
-
-  let view = function
-    | NEmpty -> Empty
-    | NBranch{prefix;branching_bit;tree0;tree1;_} -> Branch{prefix;branching_bit;tree0;tree1}
-    | NLeaf{key;value;_} -> Leaf{key;value}
-
-  let to_int = function
-    | NEmpty -> 0
-    | NBranch{ id; _ } -> id
-    | NLeaf{ id; _ } -> id
-
-  let count = ref 1 (** Start at 1 as we increment in post *)
-
-  type any_map = AnyMap : 'a t -> any_map [@@unboxed]
-
-  module HashArg = struct
-    type t = any_map
-    let equal (AnyMap a) (AnyMap b) = match a, b with
-      | NEmpty, NEmpty -> true
-      | NLeaf{key=key1;value=value1;_}, NLeaf{key=key2;value=value2;_} ->
-        begin match Key.polyeq key1 key2 with
-        | Eq -> Value.polyeq value1 value2
-        | Diff -> false
-        end
-      | NBranch{prefix=prefixa;branching_bit=branching_bita;tree0=tree0a;tree1=tree1a;_},
-        NBranch{prefix=prefixb;branching_bit=branching_bitb;tree0=tree0b;tree1=tree1b;_} ->
-        prefixa == prefixb && branching_bita == branching_bitb &&
-        to_int tree0a = to_int tree0b && to_int tree1a = to_int tree1b
-      | _ -> false
-
-    let hash (AnyMap x) = match x with
-      | NEmpty -> 0
-      | NLeaf{key; value; _} ->
-          let hash = sdbm (Key.to_int key) (Value.hash value) in
-          (hash lsl 1) lor 1
-          (* All leaf hashes are odd *)
-      | NBranch{prefix; branching_bit; tree0; tree1; _} -> (* All branch hashes are even *)
-        (sdbm (prefix lor branching_bit) @@ sdbm (to_int tree0) (to_int tree1)) lsl 1
-  end
-
-  module WeakHash = Weak.Make(HashArg)
-
-  let weakh = WeakHash.create 120
-
-  let empty = NEmpty
-  let is_empty x = x == NEmpty
-
-  let try_find (tentative : 'a t) =
-    let AnyMap x = WeakHash.merge weakh (AnyMap tentative) in
-    let x : 'a t = Obj.magic x in
-    if x == tentative then incr count;
-    x
-
-  let leaf key value = try_find (NLeaf{key;value;id= !count})
-
-  let branch ~prefix ~branching_bit ~tree0 ~tree1 =
-    match tree0,tree1 with
-    | NEmpty, x -> x
-    | x, NEmpty -> x
-    | _ -> try_find (NBranch{prefix;branching_bit;tree0;tree1;id=(!count)})
-
-  let equal x y = x == y
-  let compare x y = Int.compare (to_int x) (to_int y)
-end
-
-module HashconsedSetNode(Key:HETEROGENEOUS_KEY)(): HASH_CONSED_NODE
-  with type 'key key = 'key Key.t
-   and type ('key,'map) value = unit
-= struct
-
-  type 'a key = 'a Key.t
-  type ('key,'map) value = unit
-
-  type map =
-    | NEmpty: map
-    | NBranch: { prefix:intkey; branching_bit:mask; tree0:map; tree1:map; id:int } -> map
-    | NLeaf: { key:'key key; id:int } -> map
-  type 'map view =
-    | Empty: 'map view
-    | Branch: { prefix:intkey; branching_bit:mask; tree0:'map t; tree1:'map t } -> 'map view
-    | Leaf: { key:'key key; value:unit } -> 'map view
-  and _ t = map
-
-  let view = function
-    | NEmpty -> Empty
-    | NBranch{prefix;branching_bit;tree0;tree1;_} -> Branch{prefix;branching_bit;tree0;tree1}
-    | NLeaf{ key; _ } -> Leaf{ key; value=() }
-
-  let to_int = function
-    | NEmpty -> 0
-    | NBranch{ id; _ } -> id
-    | NLeaf{ id; _ } -> id
-
-  let count = ref 1 (** Start at 1 as we increment in post *)
-
-  module HashArg = struct
-    type t = map
-    let equal a b = match a, b with
-      | NEmpty, NEmpty -> true
-      | NLeaf{key=key1;_}, NLeaf{key=key2;_} ->
-        begin match Key.polyeq key1 key2 with
-        | Eq -> true
-        | Diff -> false
-        end
-      | NBranch{prefix=prefixa;branching_bit=branching_bita;tree0=tree0a;tree1=tree1a;_},
-        NBranch{prefix=prefixb;branching_bit=branching_bitb;tree0=tree0b;tree1=tree1b;_} ->
-        prefixa == prefixb && branching_bita == branching_bitb &&
-        tree0a == tree0b && tree1a == tree1b
-      | _ -> false
-
-    let hash a = match a with
-      | NEmpty -> 0
-      | NLeaf{key; _} -> ((Key.to_int key) lsl 1) lor 1 (* All leaf hashes are odd *)
-      | NBranch{prefix; branching_bit; tree0; tree1; _} -> (* All branch hashes are even *)
-        (sdbm (prefix lor branching_bit) @@ sdbm (to_int tree0) (to_int tree1)) lsl 1
-  end
-
-  module WeakHash = Weak.Make(HashArg)
-
-  let weakh = WeakHash.create 120
-
-  let empty = NEmpty
-  let is_empty x = x == NEmpty
-
-  let try_find tentative =
-    let x = WeakHash.merge weakh tentative in
-    if x == tentative then incr count;
-    x
-
-  let leaf key () = try_find (NLeaf{ key; id = !count })
-
-  let branch ~prefix ~branching_bit ~tree0 ~tree1 =
-    match tree0,tree1 with
-    | NEmpty, x -> x
-    | x, NEmpty -> x
-    | _ -> try_find (NBranch{prefix;branching_bit;tree0;tree1;id=(!count)})
-
-  let equal x y = x == y
-  let compare x y = Int.compare (to_int x) (to_int y)
-end
-
-(** {1 Keys and values} *)
-
-module HomogeneousValue = struct
-  type ('a,'map) t = 'map
-end
-
-module WrappedHomogeneousValue = struct
-  type ('a, 'map) t = ('a, 'map) snd
-end
-
-module HeterogeneousKeyFromKey(Key:KEY):(HETEROGENEOUS_KEY with type 'a t = Key.t)  = struct
-  type _ t = Key.t
-
-  (** The type-safe way to do it would be to define this type, to
-      guarantee that 'a is always bound to the same type, and Eq is
-      safe. But this requires a lot of conversion code, and identity
-      functions that may not be well detected. [polyeq] is unsafe in
-      that it allows arbitrary conversion of t1 by t2 in t1 t, but
-      this unsafety is not exported, and I don't think we can do
-      something wrong using it. *)
-  (* type 'a t = K: Key.t -> unit t [@@unboxed] *)
-  let polyeq: type a b. a t -> b t -> (a,b) cmp =
-    fun a b -> match a,b with
-      | a, b when (Key.to_int a) == (Key.to_int b) -> Obj.magic Eq
-      | _ -> Diff
-  let to_int = Key.to_int
-end
-
-
-(** {1 Functors} *)
 
 module MakeCustomHeterogeneousMap
     (Key:HETEROGENEOUS_KEY)
@@ -823,16 +57,15 @@ module MakeCustomHeterogeneousMap
   (* Merge trees whose prefix disagree. *)
   let join pa treea pb treeb =
     (* Printf.printf "join %d %d\n" pa pb; *)
-    let m = branching_bit pa pb in
-    let p = mask pa (* for instance *) m in
-    if (pa land m) = 0 then
+    let m = branching_bit (pa :> int) (pb :> int) in
+    let p = mask (pa :> int) (* for instance *) m in
+    if ((pa :> int) land (m :> int)) = 0 then
       branch ~prefix:p ~branching_bit:m ~tree0:treea ~tree1:treeb
     else
       branch ~prefix:p ~branching_bit:m ~tree0:treeb ~tree1:treea
 
 
-  (** [match_prefix k p m] returns [true] if and only if the key [k] has prefix [p] up to bit [m]. *)
-  let match_prefix k p m = mask k m = p
+
 
   let singleton = leaf
 
@@ -856,7 +89,7 @@ module MakeCustomHeterogeneousMap
         end
       | Branch{branching_bit;tree0;tree1;_} ->
         (* Optional if not (match_prefix searched prefix branching_bit) then raise Not_found
-           else *) if (branching_bit land searched == 0)
+           else *) if ((branching_bit :> int) land searched == 0)
         then findint witness searched tree0
         else findint witness searched tree1
       | Empty -> raise Not_found
@@ -873,10 +106,10 @@ module MakeCustomHeterogeneousMap
         end
       | Branch{prefix;branching_bit;tree0;tree1} ->
           if not (match_prefix split_key_int prefix branching_bit) then
-            if unsigned_lt prefix split_key_int
+            if unsigned_lt (prefix :> int) split_key_int
             then m, None, NODE.empty
             else NODE.empty, None, m
-          else if (branching_bit land split_key_int == 0) then
+          else if ((branching_bit :> int) land split_key_int == 0) then
             let left, found, right = split split_key split_key_int tree0 in
             left, found, NODE.branch ~prefix ~branching_bit ~tree0:right ~tree1
           else
@@ -958,7 +191,7 @@ module MakeCustomHeterogeneousMap
     | Leaf{key;_} when (Key.to_int key) == to_remove -> empty
     | (Empty | Leaf _) -> m
     | Branch{prefix;branching_bit;tree0;tree1} ->
-      if (branching_bit land to_remove) == 0
+      if ((branching_bit :> int) land to_remove) == 0
       then begin
         let tree0' = removeint to_remove tree0 in
         if tree0' == empty then tree1
@@ -1018,10 +251,10 @@ module MakeCustomHeterogeneousMap
           end
         | Branch{prefix;branching_bit;tree0;tree1} ->
           if match_prefix thekeyint prefix branching_bit then
-            if (thekeyint land branching_bit) == 0
+            if ((branching_bit :> int) land thekeyint) == 0
             then branch ~prefix ~branching_bit ~tree0:(loop tree0) ~tree1
             else branch ~prefix ~branching_bit ~tree0 ~tree1:(loop tree1)
-          else join thekeyint (leaf thekey (f None)) prefix t
+          else join thekeyint (leaf thekey (f None)) (prefix :> int) t
       in loop t
     with Unmodified -> t
 
@@ -1057,12 +290,12 @@ module MakeCustomHeterogeneousMap
           end
         | Branch{prefix;branching_bit;tree0;tree1} ->
           if match_prefix thekeyint prefix branching_bit then
-            if (thekeyint land branching_bit) == 0
+            if (thekeyint land (branching_bit :> int)) == 0
             then branch ~prefix ~branching_bit ~tree0:(loop tree0) ~tree1
             else branch ~prefix ~branching_bit ~tree0 ~tree1:(loop tree1)
           else begin match f None with
             | None -> raise Unmodified
-            | Some value -> join thekeyint (leaf thekey value) prefix t
+            | Some value -> join thekeyint (leaf thekey value) (prefix :> int) t
           end
       in loop t
     with Unmodified -> t
@@ -1090,10 +323,10 @@ module MakeCustomHeterogeneousMap
           end
         | Branch{prefix;branching_bit;tree0;tree1} ->
           if match_prefix thekeyint prefix branching_bit then
-            if (thekeyint land branching_bit) == 0
+            if (thekeyint land (branching_bit :> int)) == 0
             then branch ~prefix ~branching_bit ~tree0:(loop tree0) ~tree1
             else branch ~prefix ~branching_bit ~tree0 ~tree1:(loop tree1)
-          else join thekeyint (leaf thekey value) prefix t
+          else join thekeyint (leaf thekey value) (prefix :> int) t
       in loop t
     with Unmodified -> t
 
@@ -1147,7 +380,7 @@ module MakeCustomHeterogeneousMap
             | Eq -> f.f keya valuea valueb
           end
         | Branch{branching_bit;tree0;tree1;_} ->
-          if (branching_bit land searched == 0)
+          if ((branching_bit :> int) land searched == 0)
           then search (NODE.view tree0)
           else search (NODE.view tree1)
         | Empty -> false (* Can only happen on weak nodes. *)
@@ -1160,12 +393,13 @@ module MakeCustomHeterogeneousMap
         (reflexive_subset_domain_for_all2 f ta0 tb0) &&
         (reflexive_subset_domain_for_all2 f ta1 tb1)
         (* Case where ta have to be included in one of tb0 or tb1. *)
-      else if unsigned_lt ma mb && match_prefix pa pb mb
-      then if mb land pa == 0
+      else if branches_before pb mb pa ma
+      then if (mb :> int) land (pa :> int) == 0
         then reflexive_subset_domain_for_all2 f ta tb0
         else reflexive_subset_domain_for_all2 f ta tb1
         (* Any other case: there are elements in ta that are unmatched in tb. *)
       else false
+
 
   let rec disjoint ta tb =
     if ta == tb then is_empty ta
@@ -1178,12 +412,12 @@ module MakeCustomHeterogeneousMap
         if ma == mb && pa == pb
         (* Same prefix: check both subtrees *)
         then disjoint ta0 tb0 && disjoint ta1 tb1
-        else if unsigned_lt mb ma && match_prefix pb pa ma (* tb included in ta0 or ta1 *)
-        then if ma land pb == 0
+        else if branches_before pa ma pb mb (* tb included in ta0 or ta1 *)
+        then if (ma :> int) land (pb :> int) == 0
           then disjoint ta0 tb
           else disjoint ta1 tb
-        else if unsigned_lt ma mb && match_prefix pa pb mb (* ta included in tb0 or tb1 *)
-        then if mb land pa == 0
+        else if branches_before pb mb pa ma (* ta included in tb0 or tb1 *)
+        then if (mb :> int) land (pa :> int) == 0
           then disjoint ta tb0
           else disjoint ta tb1
         else true (* Different prefixes => no intersection *)
@@ -1207,15 +441,15 @@ module MakeCustomHeterogeneousMap
           let tree0 = idempotent_union f ta0 tb0 in
           let tree1 = idempotent_union f ta1 tb1 in
           branch ~prefix:pa ~branching_bit:ma ~tree0 ~tree1
-        else if unsigned_lt mb ma && match_prefix pb pa ma
-        then if ma land pb == 0
+        else if branches_before pa ma pb mb
+        then if (ma :> int) land (pb :> int) == 0
           then branch ~prefix:pa ~branching_bit:ma ~tree0:(idempotent_union f ta0 tb) ~tree1:ta1
           else branch ~prefix:pa ~branching_bit:ma ~tree0:ta0 ~tree1:(idempotent_union f ta1 tb)
-        else if unsigned_lt ma mb && match_prefix pa pb mb
-        then if mb land pa == 0
+        else if branches_before pb mb pa ma
+        then if (mb :> int) land (pa :> int) == 0
           then branch ~prefix:pb ~branching_bit:mb ~tree0:(idempotent_union f ta tb0) ~tree1:tb1
           else branch ~prefix:pb ~branching_bit:mb ~tree0:tb0 ~tree1:(idempotent_union f ta tb1)
-        else join pa ta pb tb
+        else join (pa :> int) ta (pb :> int) tb
 
   type ('map1,'map2,'map3) polyinter = { f: 'a. 'a Key.t -> ('a,'map1) Value.t -> ('a,'map2) Value.t -> ('a,'map3) Value.t } [@@unboxed]
   let rec idempotent_inter f ta tb =
@@ -1244,12 +478,12 @@ module MakeCustomHeterogeneousMap
           let tree0 = idempotent_inter f ta0 tb0 in
           let tree1 = idempotent_inter f ta1 tb1 in
           branch ~prefix:pa ~branching_bit:ma ~tree0 ~tree1
-        else if unsigned_lt mb ma && match_prefix pb pa ma
-        then if ma land pb == 0
+        else if branches_before pa ma pb mb
+        then if (ma :> int) land (pb :> int) == 0
           then idempotent_inter f ta0 tb
           else idempotent_inter f ta1 tb
-        else if unsigned_lt ma mb && match_prefix pa pb mb
-        then if mb land pa == 0
+        else if branches_before pb mb pa ma
+        then if (mb :> int) land (pa :> int) == 0
           then idempotent_inter f ta tb0
           else idempotent_inter f ta tb1
         else empty
@@ -1274,12 +508,12 @@ module MakeCustomHeterogeneousMap
         let tree0 = nonidempotent_inter_no_share f ta0 tb0 in
         let tree1 = nonidempotent_inter_no_share f ta1 tb1 in
         branch ~prefix:pa ~branching_bit:ma ~tree0 ~tree1
-      else if unsigned_lt mb ma && match_prefix pb pa ma
-      then if ma land pb == 0
+      else if branches_before pa ma pb mb
+      then if (ma :> int) land (pb :> int) == 0
         then nonidempotent_inter_no_share f ta0 tb
         else nonidempotent_inter_no_share f ta1 tb
-      else if unsigned_lt ma mb && match_prefix pa pb mb
-      then if mb land pa == 0
+      else if branches_before pb mb pa ma
+      then if (mb :> int) land (pa :> int) == 0
         then nonidempotent_inter_no_share f ta tb0
         else nonidempotent_inter_no_share f ta tb1
       else empty
@@ -1313,12 +547,12 @@ module MakeCustomHeterogeneousMap
           let tree0 = idempotent_inter_filter f ta0 tb0 in
           let tree1 = idempotent_inter_filter f ta1 tb1 in
           branch ~prefix:pa ~branching_bit:ma ~tree0 ~tree1
-        else if unsigned_lt mb ma && match_prefix pb pa ma
-        then if ma land pb == 0
+        else if branches_before pa ma pb mb
+        then if (ma :> int) land (pb :> int) == 0
           then idempotent_inter_filter f ta0 tb
           else idempotent_inter_filter f ta1 tb
-        else if unsigned_lt ma mb && match_prefix pa pb mb
-        then if mb land pa == 0
+        else if branches_before pb mb pa ma
+        then if (mb :> int) land (pa :> int) == 0
           then idempotent_inter_filter f ta tb0
           else idempotent_inter_filter f ta tb1
         else empty
@@ -1368,15 +602,15 @@ module MakeCustomHeterogeneousMap
       (* Same prefix: merge the subtrees *)
       then
         branch ~prefix:pa ~branching_bit:ma ~tree0:(slow_merge f ta0 tb0) ~tree1:(slow_merge f ta1 tb1)
-      else if unsigned_lt mb ma && match_prefix pb pa ma
-      then if ma land pb == 0
+      else if branches_before pa ma pb mb
+      then if (ma :> int) land (pb :> int) == 0
         then branch ~prefix:pa ~branching_bit:ma ~tree0:(slow_merge f ta0 tb) ~tree1:(upd_ta ta1)
         else branch ~prefix:pa ~branching_bit:ma ~tree0:(upd_ta ta0) ~tree1:(slow_merge f ta1 tb)
-      else if unsigned_lt ma mb && match_prefix pa pb mb
-      then if mb land pa == 0
+      else if branches_before pb mb pa ma
+      then if (mb :> int) land (pa :> int) == 0
         then branch ~prefix:pb ~branching_bit:mb ~tree0:(slow_merge f ta tb0) ~tree1:(upd_tb tb1)
         else branch ~prefix:pb ~branching_bit:mb ~tree0:(upd_tb tb0) ~tree1:(slow_merge f ta tb1)
-      else join pa (upd_ta ta) pb (upd_tb tb)
+      else join (pa :> int) (upd_ta ta) (pb :> int) (upd_tb tb)
 
   type 'map polyiter = { f: 'a. 'a Key.t -> ('a,'map) Value.t -> unit } [@@unboxed]
   let rec iter f x = match NODE.view x with
@@ -1416,12 +650,12 @@ module MakeCustomHeterogeneousMap
           let acc = fold_on_nonequal_inter f ta0 tb0 acc in
           let acc = fold_on_nonequal_inter f ta1 tb1 acc in
           acc
-        else if unsigned_lt mb ma && match_prefix pb pa ma
-        then if ma land pb == 0
+        else if branches_before pa ma pb mb
+        then if (ma :> int) land (pb :> int) == 0
           then fold_on_nonequal_inter f ta0 tb acc
           else fold_on_nonequal_inter f ta1 tb acc
-        else if unsigned_lt ma mb && match_prefix pa pb mb
-        then if mb land pa == 0
+        else if branches_before pb mb pa ma
+        then if (mb :> int) land (pa :> int) == 0
           then fold_on_nonequal_inter f ta tb0 acc
           else fold_on_nonequal_inter f ta tb1 acc
         else acc
@@ -1496,8 +730,8 @@ module MakeCustomHeterogeneousMap
           let acc = fold_on_nonequal_union f ta0 tb0 acc in
           let acc = fold_on_nonequal_union f ta1 tb1 acc in
           acc
-        else if unsigned_lt mb ma && match_prefix pb pa ma
-        then if ma land pb == 0
+        else if branches_before pa ma pb mb
+        then if (ma :> int) land (pb :> int) == 0
           then
             let acc = fold_on_nonequal_union f ta0 tb acc in
             let acc = fold fleft ta1 acc in
@@ -1506,8 +740,8 @@ module MakeCustomHeterogeneousMap
             let acc = fold fleft ta0 acc in
             let acc = fold_on_nonequal_union f ta1 tb acc in
             acc
-        else if unsigned_lt ma mb && match_prefix pa pb mb
-        then if mb land pa == 0
+        else if branches_before pb mb pa ma
+        then if (mb :> int) land (pa :> int) == 0
           then
             let acc = fold_on_nonequal_union f ta tb0 acc in
             let acc = fold fright tb1 acc in
@@ -1518,7 +752,7 @@ module MakeCustomHeterogeneousMap
             acc
         else
         (* Distinct subtrees: process them in increasing order of keys. *)
-        if unsigned_lt pa pb then
+        if unsigned_lt (pa :> int) (pb :> int) then
           let acc = fold fleft ta acc in
           let acc = fold fright tb acc in
           acc
@@ -1563,12 +797,12 @@ module MakeCustomHeterogeneousMap
           if(ta0 == tree0 && ta1 == tree1)
           then ta
           else NODE.branch ~prefix:pa ~branching_bit:ma ~tree0 ~tree1
-        else if unsigned_lt mb ma && match_prefix pb pa ma
-        then if ma land pb == 0
+        else if branches_before pa ma pb mb
+        then if (ma :> int) land (pb :> int) == 0
           then nonidempotent_inter f ta0 tb
           else nonidempotent_inter f ta1 tb
-        else if unsigned_lt ma mb && match_prefix pa pb mb
-        then if mb land pa == 0
+        else if branches_before pb mb pa ma
+        then if (mb :> int) land (pa :> int) == 0
           then nonidempotent_inter f ta tb0
           else nonidempotent_inter f ta tb1
         else NODE.empty
@@ -1610,8 +844,8 @@ module MakeCustomHeterogeneousMap
         let tree1 = update_multiple_from_foreign tb1 f ta1 in
         if tree0 == ta0 && tree1 == ta1 then ta
         else branch ~prefix:pa ~branching_bit:ma ~tree0 ~tree1
-      else if unsigned_lt mb ma && match_prefix pb pa ma
-      then if ma land pb == 0
+      else if branches_before pa ma pb mb
+      then if (ma :> int) land (pb :> int) == 0
         then
           let ta0' = update_multiple_from_foreign tb f ta0 in
           if ta0' == ta0 then ta
@@ -1620,8 +854,8 @@ module MakeCustomHeterogeneousMap
           let ta1' = update_multiple_from_foreign tb f ta1 in
           if ta1' == ta1 then ta
           else branch ~prefix:pa ~branching_bit:ma ~tree0:ta0 ~tree1:ta1'
-      else if unsigned_lt ma mb && match_prefix pa pb mb
-      then if mb land pa == 0
+      else if branches_before pb mb pa ma
+      then if (mb :> int) land (pa :> int) == 0
         then
           let tree0 = update_multiple_from_foreign tb0 f ta in
           let tree1 = upd_tb tb1 in
@@ -1630,7 +864,7 @@ module MakeCustomHeterogeneousMap
           let tree0 = upd_tb tb0 in
           let tree1 = update_multiple_from_foreign tb1 f ta in
           branch ~prefix:pb ~branching_bit:mb ~tree0 ~tree1
-      else join pa ta pb (upd_tb tb)
+      else join (pa :> int) ta (pb :> int) (upd_tb tb)
 
 
   (* Map difference: (possibly) remove from ta elements that are in tb, the other are preserved, no element is added. *)
@@ -1660,8 +894,8 @@ module MakeCustomHeterogeneousMap
         let tree1 = update_multiple_from_inter_with_foreign tb1 f ta1 in
         if tree0 == ta0 && tree1 == ta1 then ta
         else branch ~prefix:pa ~branching_bit:ma ~tree0 ~tree1
-      else if unsigned_lt mb ma && match_prefix pb pa ma
-      then if ma land pb == 0
+      else if branches_before pa ma pb mb
+      then if (ma :> int) land (pb :> int) == 0
         then
           let ta0' = update_multiple_from_inter_with_foreign tb f ta0 in
           if ta0' == ta0 then ta
@@ -1670,8 +904,8 @@ module MakeCustomHeterogeneousMap
           let ta1' = update_multiple_from_inter_with_foreign tb f ta1 in
           if ta1' == ta1 then ta
           else branch ~prefix:pa ~branching_bit:ma ~tree0:ta0 ~tree1:ta1'
-      else if unsigned_lt ma mb && match_prefix pa pb mb
-      then if mb land pa == 0
+      else if branches_before pb mb pa ma
+      then if (mb :> int) land (pa :> int) == 0
         then update_multiple_from_inter_with_foreign tb0 f ta
         else update_multiple_from_inter_with_foreign tb1 f ta
       else ta
@@ -1889,18 +1123,6 @@ module MakeCustomMap
   let to_list s = List.of_seq (to_seq s)
 end
 
-module Value : VALUE with type 'a t = 'a = struct type 'a t = 'a end
-
-module HashedValue : HASHED_VALUE with type 'a t = 'a = struct
-  include Value
-  let hash x = Hashtbl.hash x
-  let polyeq: type a b. a -> b -> bool = fun a b -> a == Obj.magic b
-end
-module HeterogeneousHashedValue : HETEROGENEOUS_HASHED_VALUE with type ('k, 'm) t = 'm = struct
-  include HomogeneousValue
-  let hash x = Hashtbl.hash x
-  let polyeq: type a b. a -> b -> bool = fun a b -> a == Obj.magic b
-end
 
 module MakeMap(Key: KEY) = struct
   module NKey = struct type 'a t = Key.t end

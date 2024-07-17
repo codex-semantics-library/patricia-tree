@@ -20,6 +20,7 @@
 (**************************************************************************)
 
 open PatriciaTree
+open Sigs
 
 let check_highest_bit x res  =
   (* Printf.printf "CHECK_HIGHEST_BIT: %x %x\n%!" x res; *)

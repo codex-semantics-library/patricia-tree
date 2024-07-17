@@ -307,7 +307,7 @@ let map2 =
 ## Release status
 
 This should be close to a stable release. It is already being
-used as part of a larger project successfully, and this usage as helped us mature
+used as part of a [larger project](https://codex.top) successfully, and this usage as helped us mature
 the interface. As is, we believe the project is usable, and we don't anticipate
 any major change before 1.0.0. We didn't commit to a stable release straight
 away as we would like a bit more time using this library before doing so.
@@ -322,7 +322,7 @@ type (_, 'b) snd = Snd of 'b [@@unboxed]
 It should not incur any extra performance cost as it is unboxed, but can appear
 when manipulating non-generic maps.
 
-For more details about this issue, see [the OCaml discourse discussion](https://discuss.ocaml.org/t/weird-behaviors-with-first-order-polymorphism/13783).
+For more details about this issue, see [the OCaml discourse discussion](https://discuss.ocaml.org/t/weird-behaviors-with-first-order-polymorphism/13783) or [the github issue](https://github.com/ocaml/ocaml/issues/13292).
 
 ## Comparison to other OCaml libraries
 
