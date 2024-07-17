@@ -115,17 +115,17 @@
     informative; log(n) corresponds to the real complexity in usual
     distributions. *)
 
-(** {1 Integer manipulations} *)
-
-include module type of Ints
-
 (** {1 Signatures} *)
 
-include module type of Signatures
+module Sigs = Sigs
 
 (** {1 Functors} *)
 
 include module type of Functors
+
+(** {1 Miscellaneous utilities} *)
+
+include module type of Ints
 
 (** {1 Default KEY and VALUE implementations} *)
 (** These can be used as parameters to {!MakeMap}/{!MakeSet} functors in the

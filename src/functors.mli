@@ -19,7 +19,7 @@
 (*  for more details (enclosed in the file LICENSE).                      *)
 (**************************************************************************)
 
-open Signatures
+open Sigs
 
 (** This section presents the functors which can be used to build patricia tree
     maps and sets. *)

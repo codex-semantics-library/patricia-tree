@@ -19,7 +19,7 @@
 (*  for more details (enclosed in the file LICENSE).                      *)
 (**************************************************************************)
 
-open Signatures
+open Sigs
 
 (** {1 Keys and values} *)
 
