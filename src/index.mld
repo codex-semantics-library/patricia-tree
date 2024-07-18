@@ -348,7 +348,10 @@ liberty of having a generic type as a key.
               | Diff -> Diff)
           | _ -> Diff
       end
-    ]}}
+    ]}
+    Note the full polymorphic equality, that returns a GADT term {!PatriciaTree.cmp}
+    which, when equal ({{!PatriciaTree.Eq}[Eq]}), it is a proof of type equality
+    between the type parameters.}
 {li We can now instanciate our map functor. Note that in the heterogeneous case,
     we must also specify the value type (second functor argument) and how it depends
     on the key type (first parameter) and the map type (second parameter).

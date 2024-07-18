@@ -29,7 +29,9 @@ open Ints
     interface used for pattern-matching. *)
 
 (** This module explains how a node is stored in memory, with
-    functions to create and view nodes. *)
+    functions to create and view nodes.
+
+    @canonical PatriciaTree.NODE *)
 module type NODE = sig
   (** We use a uniform type ['map view] to pattern match on maps and sets
       The actual types ['map t] can be a bit different from ['map view]
@@ -100,7 +102,9 @@ module type NODE = sig
   (** Convert the map to a view. Should be constant time. *)
 end
 
-(** Associate a unique number to each node, so they can be used as keys in sets or maps. *)
+(** Associate a unique number to each node, so they can be used as keys in sets or maps.
+
+    @canonical PatriciaTree.NODE_WITH_ID *)
 module type NODE_WITH_ID = sig
   include NODE (** @closed *)
 
@@ -121,7 +125,8 @@ end
 
     See {!hash_consed} for a details on strengths and limits of hash-consing.
 
-    @since v0.10.0 *)
+    @since v0.10.0
+    @canonical PatriciaTree.HASH_CONSED_NODE *)
 module type HASH_CONSED_NODE = sig
   include NODE (** @closed *)
 
@@ -170,7 +175,9 @@ end
     - {!HETEROGENEOUS_SET} specializes {!BASE_MAP} for sets ([('a,'b) value = unit]) and
       removes the value argument from most operations;
     - {!SET} specializes {!HETEROGENEOUS_SET} further by making elements (keys)
-      non-generic ([elt] instead of ['a elt]).  *)
+      non-generic ([elt] instead of ['a elt]).
+
+    @canonical PatriciaTree.BASE_MAP *)
 module type BASE_MAP = sig
   include NODE (** @closed *)
 
@@ -463,7 +470,9 @@ module type HETEROGENEOUS_MAP = sig
       - The type of {!type:value} depend on both the type of the key and the
         type of the map, hence the type [('k,'m) value].
       - The type of some return values, like key-value pairs, must be
-        concealed existentially, hence the {!KeyValue} constructor. *)
+        concealed existentially, hence the {!KeyValue} constructor.
+
+      @canonical PatriciaTree.HETEROGENEOUS_MAP *)
 
   include BASE_MAP (** @closed *)
 
@@ -504,14 +513,17 @@ end
 module type HETEROGENEOUS_SET = sig
   (** A set containing different keys, very similar to
       {!SET}, but with simple type [elt] being replaced by type
-      constructor ['a elt]. *)
-  (** The main changes from {!SET} are:
+      constructor ['a elt].
+
+      The main changes from {!SET} are:
       - The type of {!elt} is replaced by a type constructor ['k elt].
         Because of that, most higher-order arguments require higher-ranking
         polymorphism, and we provide records that allows to
         pass them as arguments (e.g. {!polyfold}, {!polypretty}, etc.)
       - The type of some return values, must be concealed existentially,
-        hence the {!Any} constructor. *)
+        hence the {!Any} constructor.
+
+      @canonical PatriciaTree.HETEROGENEOUS_SET *)
 
   type 'a elt
   (** Elements of the set *)
@@ -658,7 +670,9 @@ end
     are also close to the standard library's interface for sets and maps. *)
 
 (** Signature for sets implemented using Patricia trees.
-    Most of this interface should be shared with {{: https://ocaml.org/api/Set.S.html}[Stdlib.Set.S]}. *)
+    Most of this interface should be shared with {{: https://ocaml.org/api/Set.S.html}[Stdlib.Set.S]}.
+
+    @canonical PatriciaTree.SET *)
 module type SET = sig
   type elt
   (** The type of elements of the set *)
@@ -798,14 +812,19 @@ end
 
     This is due to a bug in the typechecker, more info on
     {{: https://discuss.ocaml.org/t/weird-behaviors-with-first-order-polymorphism/13783} the OCaml discourse post}
-    and {{: https://github.com/ocaml/ocaml/issues/13292}the github issue}. *)
+    and {{: https://github.com/ocaml/ocaml/issues/13292}the github issue}.
+
+    @canonical PatriciaTree.snd *)
 type (_, 'b) snd = Snd of 'b [@@unboxed]
 
 
 (** The signature for maps with a single type for keys and values,
     a ['a map] binds [key] to ['a value].
     This is slightly more generic than {!MAP}, which just binds to ['a].
-    It is used for maps that need to restrict their value type, namely {!hash_consed}. *)
+    It is used for maps that need to restrict their value type, namely {!hash_consed}.
+
+    @since 0.10.0
+    @canonical PatriciaTree.MAP_WITH_VALUE *)
 module type MAP_WITH_VALUE = sig
   type key
   (** The type of keys. *)
@@ -1152,10 +1171,14 @@ end
 
 (** The signature for maps with a single type for keys and values,
     a ['a map] binds [key] to ['a].
-    Most of this interface should be shared with {{: https://ocaml.org/api/Map.S.html}[Stdlib.Map.S]}. *)
+    Most of this interface should be shared with {{: https://ocaml.org/api/Map.S.html}[Stdlib.Map.S]}.
+
+    @canonical PatriciaTree.MAP *)
 module type MAP = MAP_WITH_VALUE with type 'a value = 'a
 
-(** Operations added/changed in {{!hash_consed}hash-consed} maps and sets. *)
+(** Operations added/changed in {{!hash_consed}hash-consed} maps and sets.
+
+    @canonical PatriciaTree.HASH_CONSED_OPERATIONS *)
 module type HASH_CONSED_OPERATIONS = sig
   type 'a t
 
@@ -1192,7 +1215,9 @@ end
 (** {1 Keys} *)
 (** Functor argument used to specify the key type when building the maps. *)
 
-(** The signature of homogeneous keys (non-generic, unparameterized keys).  *)
+(** The signature of homogeneous keys (non-generic, unparameterized keys).
+
+    @canonical PatriciaTree.KEY *)
 module type KEY = sig
   type t
   (** The type of keys.
@@ -1220,10 +1245,16 @@ end
 
 (** To have heterogeneous keys, we must define a polymorphic equality
     function.  Like in the homogeneous case, it should have the
-    requirement that [(to_int a) = (to_int b) ==> polyeq a b = Eq]. *)
-type (_, _) cmp = Eq : ('a, 'a) cmp | Diff : ('a, 'b) cmp
+    requirement that [(to_int a) = (to_int b) ==> polyeq a b = Eq].
 
-(** The signature of heterogeneous keys.  *)
+    @canonical PatriciaTree.cmp *)
+type (_, _) cmp =
+ | Eq : ('a, 'a) cmp  (** equality, which implies type equality. *)
+ | Diff : ('a, 'b) cmp
+
+(** The signature of heterogeneous keys.
+
+    @canonical PatriciaTree.HETEROGENEOUS_KEY *)
 module type HETEROGENEOUS_KEY = sig
   type 'key t
   (** The type of generic/heterogeneous keys.
@@ -1266,7 +1297,8 @@ end
     of values in order to implement [hash] and [polyeq] functions on values.
     See the {!HASHED_VALUE} module type for more details.
 
-    @since 0.10.0 *)
+    @since 0.10.0
+    @canonical PatriciaTree.VALUE *)
 module type VALUE = sig
   type 'a t
   (** The type of values. A ['map map] maps [key] to ['map value].
@@ -1276,7 +1308,9 @@ end
 (** The module type of values, which can be heterogeneous.
     This can be used to specify how the type of the value depends on that of the key.
     If the value doesn't depend on the key type, you can use the provided default
-    implementations {!HomogeneousValue} and {!WrappedHomogeneousValue}. *)
+    implementations {!HomogeneousValue} and {!WrappedHomogeneousValue}.
+
+    @canonical PatriciaTree.HETEROGENEOUS_VALUE *)
 module type HETEROGENEOUS_VALUE = sig
   type ('key, 'map) t
   (** The type of values. A ['map map] maps ['key key] to [('key, 'map) value].
@@ -1290,7 +1324,8 @@ end
     {{: https://ocaml.org/api/Hashtbl.html#VALhash}[Hashtbl.hash]}
     as [hash] function and physical equality as [polyeq].
 
-    @since 0.10.0 *)
+    @since 0.10.0
+    @canonical PatriciaTree.HASHED_VALUE *)
 module type HASHED_VALUE = sig
   type 'a t
   (** The type of values for a hash-consed maps.
@@ -1397,7 +1432,8 @@ end
     {{: https://ocaml.org/api/Hashtbl.html#VALhash}[Hashtbl.hash]}
     as [hash] function and physical equality as [polyeq].
 
-    @since 0.10.0 *)
+    @since 0.10.0
+    @canonical PatriciaTree.HETEROGENEOUS_HASHED_VALUE *)
 module type HETEROGENEOUS_HASHED_VALUE = sig
   type ('key, 'map) t
   (** The type of values for a hash-consed maps.
