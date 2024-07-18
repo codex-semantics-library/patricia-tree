@@ -19,7 +19,7 @@
 (*  for more details (enclosed in the file LICENSE).                      *)
 (**************************************************************************)
 
-open Sigs
+open Signatures
 
 (** {1 Basic nodes} *)
 

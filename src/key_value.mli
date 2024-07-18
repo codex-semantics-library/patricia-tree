@@ -19,7 +19,7 @@
 (*  for more details (enclosed in the file LICENSE).                      *)
 (**************************************************************************)
 
-open Sigs
+open Signatures
 
 module Value : VALUE with type 'a t = 'a
 (** Default implementation of {!VALUE}, used in {!MakeMap}.

@@ -20,7 +20,7 @@
 (**************************************************************************)
 
 include Ints
-module Sigs = Sigs
+include Signatures
 include Key_value
 include Functors
 include Nodes
