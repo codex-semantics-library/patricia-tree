@@ -1,9 +1,6 @@
 # v0.11.0 - Unreleased
 
-- Move all signatures into a new `Sigs` module, also move the `cmp` and `snd` types
-  into `Sigs`. This is due to breaking up the single file into multiple modules.
-  Simply using includes would break the documentation
-  (see: https://github.com/ocaml/odoc/issues/1162)
+No public changes yet, but internal refactors.
 
 # v0.10.0 - 2024-06-01
 
