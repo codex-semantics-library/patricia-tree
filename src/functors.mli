@@ -28,18 +28,31 @@ open Sigs
 (** These are homogeneous maps and set, their keys/elements are a single
     non-generic type, just like the standard library's [Map] and [Set] modules. *)
 
+(** Create a Patricia tree based map, analogous to the standard library's
+    {{: https://ocaml.org/api/Map.Make.html}[Map.Make]} *)
 module MakeMap(Key: KEY) : MAP with type key = Key.t
+
+(** Create a Patricia tree based set, analogous to the standard library's
+    {{: https://ocaml.org/api/Set.Make.html}[Set.Make]}  *)
 module MakeSet(Key: KEY) : SET with type elt = Key.t
 
 (** {1 Heterogeneous maps and sets} *)
 (** Heterogeneous maps are ['map map], which store bindings of ['key key]
-    to [('key, 'map) value], where ['key key] is a GADT, as we must be able
+    to [('key, 'map) value]. Note that ['key] is quantified existentially,
+    so ['key key] should be a GADT, as we must be able
     to compare keys of different types together.
 
     Similarly, heterogeneous sets store sets of ['key key]. *)
 
+(** Create a Patricia tree based heterogeneous set, analogous to the standard library's
+  {{: https://ocaml.org/api/Set.Make.html}[Set.Make]}, but with an extra type
+  parameter: a set stores elements of type ['a elt]. *)
 module MakeHeterogeneousSet(Key: HETEROGENEOUS_KEY) : HETEROGENEOUS_SET
   with type 'a elt = 'a Key.t
+
+(** Create a Patricia tree based heterogeneous map, analogous to the standard library's
+    {{: https://ocaml.org/api/Map.Make.html}[Map.Make]}, but with an extra type
+    parameter: a ['map map] stores bindings of ['key key] to [('key, 'map) value]. *)
 module MakeHeterogeneousMap(Key: HETEROGENEOUS_KEY)(Value: HETEROGENEOUS_VALUE) : HETEROGENEOUS_MAP
   with type 'a key = 'a Key.t
     and type ('k,'m) value = ('k,'m) Value.t
