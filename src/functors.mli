@@ -67,9 +67,9 @@ module MakeHeterogeneousMap(Key: HETEROGENEOUS_KEY)(Value: HETEROGENEOUS_VALUE) 
     disk, lazy evaluation and/or caching, adding size information for
     constant time [cardinal] functions, etc.
 
-    See {!node_impl} for the provided implementations of {!Sigs.NODE}, or create your own. *)
+    See {!node_impl} for the provided implementations of {!NODE}, or create your own. *)
 
-(** Create a homogeneous map with a custom {!Sigs.NODE}. Also allows
+(** Create a homogeneous map with a custom {!NODE}. Also allows
     customizing the map values *)
 module MakeCustomMap
     (Key: KEY)
@@ -81,7 +81,7 @@ module MakeCustomMap
       and type 'm t = 'm Node.t
 
 
-(** Create a homogeneous set with a custom {!Sigs.NODE}.
+(** Create a homogeneous set with a custom {!NODE}.
     @since v0.10.0 *)
 module MakeCustomSet
     (Key: KEY)
@@ -90,7 +90,7 @@ module MakeCustomSet
     with type elt = Key.t
       and type 'a BaseMap.t = 'a Node.t
 
-(** Create an heterogeneous map with a custom {!Sigs.NODE}. *)
+(** Create an heterogeneous map with a custom {!NODE}. *)
 module MakeCustomHeterogeneousMap
     (Key: HETEROGENEOUS_KEY)
     (Value: HETEROGENEOUS_VALUE)
@@ -100,7 +100,7 @@ module MakeCustomHeterogeneousMap
       and type ('k,'m) value = ('k,'m) Value.t
       and type 'm t = 'm Node.t
 
-(** Create an heterogeneous set with a custom {!Sigs.NODE}.
+(** Create an heterogeneous set with a custom {!NODE}.
     @since v0.10.0 *)
 module MakeCustomHeterogeneousSet
     (Key: HETEROGENEOUS_KEY)
@@ -115,10 +115,10 @@ module MakeCustomHeterogeneousSet
     if so they return it, else they return a new node with a new number.
     With this unique numbering:
     - [equal] and [compare] become constant time operations;
-    - two maps with the same bindings (where keys are compared by {!Sigs.KEY.to_int} and
-      values by {!Sigs.HASHED_VALUE.polyeq}) will always be physically equal;
-    - functions that benefit from sharing, like {!Sigs.BASE_MAP.idempotent_union} and
-      {!Sigs.BASE_MAP.idempotent_inter} will see improved performance;
+    - two maps with the same bindings (where keys are compared by {!KEY.to_int} and
+      values by {!HASHED_VALUE.polyeq}) will always be physically equal;
+    - functions that benefit from sharing, like {!BASE_MAP.idempotent_union} and
+      {!BASE_MAP.idempotent_inter} will see improved performance;
     - constructors are slightly slower, as they now require a hash-table lookup;
     - memory usage is increased: nodes store their tags inside themselves, and
       a global hash-table of all built nodes must be maintained.
@@ -126,9 +126,9 @@ module MakeCustomHeterogeneousSet
       as only one will be kept in memory.
     - hash-consed maps assume their keys and values are immutable, where regular
       maps can mutate values freely;
-    - {b WARNING:} when using physical equality as {!Sigs.HASHED_VALUE.polyeq}, some
+    - {b WARNING:} when using physical equality as {!HASHED_VALUE.polyeq}, some
       {b maps of different types may be given the same identifier}. See the end of
-      the documentation of {!Sigs.HASHED_VALUE.polyeq} for details.
+      the documentation of {!HASHED_VALUE.polyeq} for details.
       Note that this is the case in the default implementations {!HashedValue}
       and {!HeterogeneousHashedValue}.
 
@@ -137,7 +137,7 @@ module MakeCustomHeterogeneousSet
     twice with same arguments will lead to two numbering systems for identifiers,
     and thus the types should not be considered compatible.  *)
 
-(** Hash-consed version of {!Sigs.MAP}. See {!hash_consed} for the differences between
+(** Hash-consed version of {!MAP}. See {!hash_consed} for the differences between
     hash-consed and non hash-consed maps.
 
     This is a generative functor, as calling it creates a new hash-table to store
@@ -153,7 +153,7 @@ module MakeHashconsedMap(Key: KEY)(Value: HASHED_VALUE)() : sig
   include HASH_CONSED_OPERATIONS with type 'a t := 'a t (** @inline *)
 end
 
-(** Hash-consed version of {!Sigs.SET}. See {!hash_consed} for the differences between
+(** Hash-consed version of {!SET}. See {!hash_consed} for the differences between
     hash-consed and non hash-consed sets.
 
     This is a generative functor, as calling it creates a new hash-table to store
@@ -169,7 +169,7 @@ module MakeHashconsedSet(Key: KEY)() : sig
   include HASH_CONSED_OPERATIONS with type 'a t := t (** @inline *)
 end
 
-(** Hash-consed version of {!Sigs.HETEROGENEOUS_SET}.  See {!hash_consed} for the differences between
+(** Hash-consed version of {!HETEROGENEOUS_SET}.  See {!hash_consed} for the differences between
     hash-consed and non hash-consed sets.
 
     This is a generative functor, as calling it creates a new hash-table to store
@@ -185,7 +185,7 @@ module MakeHashconsedHeterogeneousSet(Key: HETEROGENEOUS_KEY)() : sig
   include HASH_CONSED_OPERATIONS with type 'a t := t (** @inline *)
 end
 
-(** Hash-consed version of {!Sigs.HETEROGENEOUS_MAP}.  See {!hash_consed} for the differences between
+(** Hash-consed version of {!HETEROGENEOUS_MAP}.  See {!hash_consed} for the differences between
     hash-consed and non hash-consed maps.
 
     This is a generative functor, as calling it creates a new hash-table to store

@@ -19,8 +19,6 @@
 (*  for more details (enclosed in the file LICENSE).                      *)
 (**************************************************************************)
 
-exception Not_found
-
 (** Association maps from key to values, and sets, implemented with
     Patricia Trees, allowing fast merge operations by making use of
     physical equality between subtrees; and custom implementation of
@@ -99,8 +97,8 @@ exception Not_found
       notably (key,value) pairs or different types to be in the same map,
       or to choose the memory representation of the nodes of the tree.}
 
-    {- Some operations like {{!Sigs.BASE_MAP.pop_unsigned_minimum}[pop_unsigned_minimum]} and
-     {{!Sigs.BASE_MAP.pop_unsigned_maximum}[pop_unsigned_maximum]} make our Set
+    {- Some operations like {{!BASE_MAP.pop_unsigned_minimum}[pop_unsigned_minimum]} and
+     {{!BASE_MAP.pop_unsigned_maximum}[pop_unsigned_maximum]} make our Set
      suitable as priority queue (but remember that each element in the
      queue must map to a distinct integer, and that using the {{!unsigned_lt}unsigned order}
      means elements with negative priority are seen as greater than elements with
@@ -136,7 +134,7 @@ include module type of Ints
 include module type of Key_value
 
 (** {1:node_impl Some implementations of NODE} *)
-(** We provide a few different implementations of {!Sigs.NODE}, the internal representation
+(** We provide a few different implementations of {!NODE}, the internal representation
     of a PatriciaTree's nodes. They can be used with
     the {!MakeCustomMap}, {!MakeCustomSet}, {!MakeCustomHeterogeneousMap} and
     {!MakeCustomHeterogeneousSet} functors to build maps and sets with custom
