@@ -29,7 +29,9 @@ open Ints
     interface used for pattern-matching. *)
 
 (** This module explains how a node is stored in memory, with
-    functions to create and view nodes. *)
+    functions to create and view nodes.
+
+    @canonical PatriciaTree.NODE *)
 module type NODE = sig
   (** We use a uniform type ['map view] to pattern match on maps and sets
       The actual types ['map t] can be a bit different from ['map view]
@@ -53,7 +55,7 @@ module type NODE = sig
   (** The empty map *)
 
   val leaf : 'key key -> ('key, 'map) value -> 'map t
-  (** A singleton leaf, similar to {!Sigs.BASE_MAP.singleton} *)
+  (** A singleton leaf, similar to {!BASE_MAP.singleton} *)
 
   val branch :
     prefix:intkey ->
@@ -100,7 +102,9 @@ module type NODE = sig
   (** Convert the map to a view. Should be constant time. *)
 end
 
-(** Associate a unique number to each node, so they can be used as keys in sets or maps. *)
+(** Associate a unique number to each node, so they can be used as keys in sets or maps.
+
+    @canonical PatriciaTree.NODE_WITH_ID *)
 module type NODE_WITH_ID = sig
   include NODE (** @closed *)
 
@@ -114,37 +118,38 @@ module type NODE_WITH_ID = sig
 end
 
 (** Hash-consed nodes also associate a unique number to each node,
-    Unlike {!Sigs.NODE_WITH_ID}, they also check before instanciating the node whether
+    Unlike {!NODE_WITH_ID}, they also check before instanciating the node whether
     a similar node already exists. This results in slightly slower constructors
     (they perform an extra hash-table lookup), but allows for constant time
     equality and comparison.
 
     See {!hash_consed} for a details on strengths and limits of hash-consing.
 
-    @since v0.10.0 *)
+    @since v0.10.0
+    @canonical PatriciaTree.HASH_CONSED_NODE *)
 module type HASH_CONSED_NODE = sig
   include NODE (** @closed *)
 
   val to_int : 'a t -> int
   (** Returns a unique number for each map, the {{!hash_consed}hash-consed} identifier of the map.
-      Unlike {!Sigs.NODE_WITH_ID.to_int}, hash-consing ensures that maps
-      which contain the same keys (compared by {!Sigs.KEY.to_int}) and values (compared
-      by {!Sigs.HASHED_VALUE.polyeq}) will always be physically equal
+      Unlike {!NODE_WITH_ID.to_int}, hash-consing ensures that maps
+      which contain the same keys (compared by {!KEY.to_int}) and values (compared
+      by {!HASHED_VALUE.polyeq}) will always be physically equal
       and have the same identifier.
 
       Maps with the same identifier are also physically equal:
       [to_int m1 = to_int m2] implies [m1 == m2].
 
-      Note that when using physical equality as {!Sigs.HASHED_VALUE.polyeq}, some
+      Note that when using physical equality as {!HASHED_VALUE.polyeq}, some
       maps of different types [a t] and [b t] may be given the same identifier.
-      See the end of the documentation of {!Sigs.HASHED_VALUE.polyeq} for details. *)
+      See the end of the documentation of {!HASHED_VALUE.polyeq} for details. *)
 
   val equal : 'a t -> 'a t -> bool
   (** Constant time equality using the {{!hash_consed}hash-consed} nodes identifiers.
       This is equivalent to physical equality.
       Two nodes are equal if their trees contain the same bindings,
-      where keys are compared by {!Sigs.KEY.to_int} and values are compared by
-      {!Sigs.HASHED_VALUE.polyeq}. *)
+      where keys are compared by {!KEY.to_int} and values are compared by
+      {!HASHED_VALUE.polyeq}. *)
 
   val compare : 'a t -> 'a t -> int
   (** Constant time comparison using the {{!hash_consed}hash-consed} node identifiers.
@@ -164,13 +169,15 @@ end
     of ['a key] to [('a,'b) values].
     All maps and set are a variation of this type,
     sometimes with a simplified interface.
-    - {!Sigs.HETEROGENEOUS_MAP} is just a {!Sigs.BASE_MAP} with a functor {!Sigs.HETEROGENEOUS_MAP.WithForeign}
+    - {!HETEROGENEOUS_MAP} is just a {!BASE_MAP} with a functor {!HETEROGENEOUS_MAP.WithForeign}
       for building operations that operate on two maps of different base types;
-    - {!Sigs.MAP} specializes the interface for non-generic keys ([key] instead of ['a key]);
-    - {!Sigs.HETEROGENEOUS_SET} specializes {!Sigs.BASE_MAP} for sets ([('a,'b) value = unit]) and
+    - {!MAP} specializes the interface for non-generic keys ([key] instead of ['a key]);
+    - {!HETEROGENEOUS_SET} specializes {!BASE_MAP} for sets ([('a,'b) value = unit]) and
       removes the value argument from most operations;
-    - {!Sigs.SET} specializes {!Sigs.HETEROGENEOUS_SET} further by making elements (keys)
-      non-generic ([elt] instead of ['a elt]).  *)
+    - {!SET} specializes {!HETEROGENEOUS_SET} further by making elements (keys)
+      non-generic ([elt] instead of ['a elt]).
+
+    @canonical PatriciaTree.BASE_MAP *)
 module type BASE_MAP = sig
   include NODE (** @closed *)
 
@@ -182,12 +189,12 @@ module type BASE_MAP = sig
 
   val unsigned_min_binding : 'a t -> 'a key_value_pair
   (** [unsigned_min_binding m] is minimal binding [KeyValue(k,v)] of the map,
-      using the {{!unsigned_lt}unsigned order} on {!Sigs.KEY.to_int}.
+      using the {{!unsigned_lt}unsigned order} on {!KEY.to_int}.
       @raises Not_found if the map is empty *)
 
   val unsigned_max_binding : 'a t -> 'a key_value_pair
   (** [unsigned_max_binding m] is maximal binding [KeyValue(k,v)] of the map,
-      using the {{!unsigned_lt}unsigned order} on {!Sigs.KEY.to_int}.
+      using the {{!unsigned_lt}unsigned order} on {!KEY.to_int}.
       @raises Not_found if the map is empty *)
 
   val singleton : 'a key -> ('a, 'b) value -> 'b t
@@ -217,13 +224,13 @@ module type BASE_MAP = sig
   val pop_unsigned_minimum: 'map t -> ('map key_value_pair * 'map t) option
   (** [pop_unsigned_minimum m] returns [None] if [is_empty m], or [Some(key,value,m')] where
       [(key,value) = unsigned_min_binding m] and [m' = remove m key].
-      Uses the {{!unsigned_lt}unsigned order} on {!Sigs.KEY.to_int}.
+      Uses the {{!unsigned_lt}unsigned order} on {!KEY.to_int}.
       O(log(n)) complexity. *)
 
   val pop_unsigned_maximum: 'map t -> ('map key_value_pair * 'map t) option
   (** [pop_unsigned_maximum m] returns [None] if [is_empty m], or [Some(key,value,m')] where
       [(key,value) = unsigned_max_binding m] and [m' = remove m key].
-      Uses the {{!unsigned_lt}unsigned order} on {!Sigs.KEY.to_int}.
+      Uses the {{!unsigned_lt}unsigned order} on {!KEY.to_int}.
       O(log(n)) complexity. *)
 
   val insert: 'a key -> (('a,'map) value option -> ('a,'map) value) -> 'map t -> 'map t
@@ -255,18 +262,18 @@ module type BASE_MAP = sig
       - value associated to [key] (if present)
       - submap of [map] whose keys are bigger than [key]
 
-      Where the order is given by the {{!unsigned_lt}unsigned order} on {!Sigs.KEY.to_int}. *)
+      Where the order is given by the {{!unsigned_lt}unsigned order} on {!KEY.to_int}. *)
 
   type 'map polyiter = { f : 'a. 'a key -> ('a, 'map) value -> unit; } [@@unboxed]
   val iter : 'map polyiter -> 'map t -> unit
   (** [iter f m] calls [f.f] on all bindings of [m],
-      in the {{!unsigned_lt}unsigned order} on {!Sigs.KEY.to_int} *)
+      in the {{!unsigned_lt}unsigned order} on {!KEY.to_int} *)
 
   type ('acc,'map) polyfold = { f: 'a. 'a key -> ('a,'map) value -> 'acc -> 'acc } [@@unboxed]
   val fold : ('acc,'map) polyfold -> 'map t -> 'acc -> 'acc
   (** [fold f m acc] returns [f.f key_n value_n (... (f.f key_1 value_1 acc))]
       where [(key_1, value_1) ... (key_n, value_n)] are the bindings of [m], in
-      the {{!unsigned_lt}unsigned order} on {!Sigs.KEY.to_int}. *)
+      the {{!unsigned_lt}unsigned order} on {!KEY.to_int}. *)
 
   type ('acc,'map) polyfold2 = { f: 'a. 'a key -> ('a,'map) value -> ('a,'map) value -> 'acc -> 'acc } [@@unboxed]
   val fold_on_nonequal_inter : ('acc,'map) polyfold2 -> 'map t -> 'map t -> 'acc -> 'acc
@@ -274,7 +281,7 @@ module type BASE_MAP = sig
       [f.f key_n value1_n value2n (... (f.f key_1 value1_1 value2_1 acc))] where
       [(key_1, value1_1, value2_1) ... (key_n, value1_n, value2_n)] are the
       bindings that exist in both maps ([m1 ∩ m2]) whose values are physically different.
-      Calls to [f.f] are performed in the {{!unsigned_lt}unsigned order} of {!Sigs.KEY.to_int}. *)
+      Calls to [f.f] are performed in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
 
 
   type ('acc,'map) polyfold2_union = { f: 'a. 'a key -> ('a,'map) value option -> ('a,'map) value option -> 'acc -> 'acc } [@@unboxed]
@@ -284,13 +291,13 @@ module type BASE_MAP = sig
       [(key_1, value1_1, value2_1) ... (key_n, value1_n, value2_n)] are the
       bindings that exists in either map ([m1 ∪ m2]) whose values are physically
       different.
-      Calls to [f.f] are performed in the {{!unsigned_lt}unsigned order} of {!Sigs.KEY.to_int}. *)
+      Calls to [f.f] are performed in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
 
   type 'map polypredicate = { f: 'a. 'a key -> ('a,'map) value -> bool; } [@@unboxed]
   val filter : 'map polypredicate -> 'map t -> 'map t
   (** [filter f m] returns the submap of [m] containing the bindings [k->v]
       such that [f.f k v = true].
-      [f.f] is called in the {{!unsigned_lt}unsigned order} of {!Sigs.KEY.to_int} *)
+      [f.f] is called in the {{!unsigned_lt}unsigned order} of {!KEY.to_int} *)
 
   val for_all : 'map polypredicate -> 'map t -> bool
   (** [for_all f m] checks that [f] holds on all bindings of [m].
@@ -306,14 +313,14 @@ module type BASE_MAP = sig
   val map : ('map,'map) polymap -> 'map t -> 'map t
   val map_no_share : ('map1,'map2) polymap -> 'map1 t -> 'map2 t
   (** [map f m] and [map_no_share f m] replace all bindings [(k,v)] by [(k, f.f v)].
-      Bindings are examined in the {{!unsigned_lt}unsigned order} of {!Sigs.KEY.to_int}. *)
+      Bindings are examined in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
 
   type ('map1,'map2) polymapi =
     { f : 'a. 'a key -> ('a, 'map1) value -> ('a, 'map2) value; } [@@unboxed]
   val mapi : ('map,'map) polymapi -> 'map t -> 'map t
   val mapi_no_share : ('map1,'map2) polymapi -> 'map1 t -> 'map2 t
   (** [mapi f m] and [mapi_no_share f m] replace all bindings [(k,v)] by [(k, f.f k v)].
-      Bindings are examined in the {{!unsigned_lt}unsigned order} of {!Sigs.KEY.to_int}. *)
+      Bindings are examined in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
 
   type ('map1,'map2) polyfilter_map =
     { f : 'a. 'a key -> ('a, 'map1) value -> ('a, 'map2) value option; } [@@unboxed]
@@ -322,7 +329,7 @@ module type BASE_MAP = sig
   (** [filter_map m f] and [filter_map_no_share m f] remove the bindings
       [(k,v)] for which [f.f k v] is [None], and replaces the bindings [(k,v)]
       for which [f.f k v] is [Some v'] by [(k,v')].
-      Bindings are examined in the {{!unsigned_lt}unsigned order} of {!Sigs.KEY.to_int}. *)
+      Bindings are examined in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
 
   type 'map polypretty = { f: 'a. Format.formatter -> 'a key -> ('a, 'map) value -> unit } [@@unboxed]
   val pretty :
@@ -331,7 +338,7 @@ module type BASE_MAP = sig
   (** Pretty-prints a map using the given formatter.
       [pp_sep] is called once between each binding,
       it defaults to {{: https://v2.ocaml.org/api/Format.html#VALpp_print_cut}[Format.pp_print_cut]}.
-      Bindings are printed in the {{!unsigned_lt}unsigned order} of {!Sigs.KEY.to_int} *)
+      Bindings are printed in the {{!unsigned_lt}unsigned order} of {!KEY.to_int} *)
 
   (** {1 Functions on pairs of maps} *)
 
@@ -345,7 +352,7 @@ module type BASE_MAP = sig
       - for all bindings [(k, v1)] in [m1] and [(k, v2)] in [m2], [f.f k v1 v2] holds
 
       {b Assumes} [f.f] is reflexive, i.e. [f.f k v v = true] to skip calls to equal subtrees.
-      Calls [f.f] in ascending {{!unsigned_lt}unsigned order} of {!Sigs.KEY.to_int}.
+      Calls [f.f] in ascending {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
       Exits early if the domains mismatch or if [f.f] returns false.
 
       It is useful to implement equality on maps:
@@ -361,7 +368,7 @@ module type BASE_MAP = sig
     ('map1,'map2) polysame_domain_for_all2 -> 'map1 t -> 'map2 t -> bool
   (** [nonreflexive_same_domain_for_all2 f m1 m2] is the same as
       {!reflexive_same_domain_for_all2}, but doesn't assume [f.f] is reflexive.
-      It thus calls [f.f] on every binding, in ascending {{!unsigned_lt}unsigned order} of {!Sigs.KEY.to_int}.
+      It thus calls [f.f] on every binding, in ascending {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
       Exits early if the domains mismatch or if [f.f] returns false. *)
 
   val reflexive_subset_domain_for_all2 :
@@ -371,7 +378,7 @@ module type BASE_MAP = sig
       - for all bindings [(k, v1)] in [m1] and [(k, v2)] in [m2], [f.f k v1 v2] holds
 
       {b Assumes} [f.f] is reflexive, i.e. [f.f k v v = true] to skip calls to equal subtrees.
-      Calls [f.f] in ascending {{!unsigned_lt}unsigned order} of {!Sigs.KEY.to_int}.
+      Calls [f.f] in ascending {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
       Exits early if the domains mismatch. *)
 
   type ('map1, 'map2, 'map3) polyunion = {
@@ -382,7 +389,7 @@ module type BASE_MAP = sig
       the values of keys mapped in both maps.
 
       {b Assumes} [f.f] idempotent (i.e. [f key value value == value])
-      [f.f] is called in the {{!unsigned_lt}unsigned order} of {!Sigs.KEY.to_int}.
+      [f.f] is called in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
       [f.f] is never called on physically equal values.
       Preserves physical equality as much as possible.
       Complexity is O(log(n)*Delta) where Delta is the number of
@@ -397,7 +404,7 @@ module type BASE_MAP = sig
       the values a key is mapped in both maps.
 
       {b Assumes} [f.f] idempotent (i.e. [f key value value == value])
-      [f.f] is called in the {{!unsigned_lt}unsigned order} of {!Sigs.KEY.to_int}.
+      [f.f] is called in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
       [f.f] is never called on physically equal values.
       Preserves physical equality as much as possible.
       Complexity is O(log(n)*Delta) where Delta is the number of
@@ -427,10 +434,10 @@ module type BASE_MAP = sig
   (** {1 Conversion functions} *)
 
   val to_seq : 'a t -> 'a key_value_pair Seq.t
-  (** [to_seq m] iterates the whole map, in increasing {{!unsigned_lt}unsigned order} of {!Sigs.KEY.to_int} *)
+  (** [to_seq m] iterates the whole map, in increasing {{!unsigned_lt}unsigned order} of {!KEY.to_int} *)
 
   val to_rev_seq : 'a t -> 'a key_value_pair Seq.t
-  (** [to_rev_seq m] iterates the whole map, in decreasing {{!unsigned_lt}unsigned order} of {!Sigs.KEY.to_int} *)
+  (** [to_rev_seq m] iterates the whole map, in decreasing {{!unsigned_lt}unsigned order} of {!KEY.to_int} *)
 
   val add_seq : 'a key_value_pair Seq.t -> 'a t -> 'a t
   (** [add_seq s m] adds all bindings of the sequence [s] to [m] in order. *)
@@ -444,17 +451,17 @@ module type BASE_MAP = sig
       If a key is bound multiple times in [l], the latest binding is kept *)
 
   val to_list : 'a t -> 'a key_value_pair list
-  (** [to_list m] returns the bindings of [m] as a list, in increasing {{!unsigned_lt}unsigned order} of {!Sigs.KEY.to_int} *)
+  (** [to_list m] returns the bindings of [m] as a list, in increasing {{!unsigned_lt}unsigned order} of {!KEY.to_int} *)
 end
 
 (** {2 Heterogeneous maps and sets} *)
 (** Maps and sets with generic keys ['a key] and values [('a,'b) value]  *)
 
 module type HETEROGENEOUS_MAP = sig
-  (** This is the same as {!Sigs.MAP}, but with simple type [key] being replaced by type
+  (** This is the same as {!MAP}, but with simple type [key] being replaced by type
       constructor ['a key] and ['b value] being replaced by [('a,'b) value].
 
-      The main changes from {!Sigs.MAP} are:
+      The main changes from {!MAP} are:
       - The type of {!key} is replaced by a type constructor ['k key].
         Because of that, most higher-order arguments require higher-ranking
         polymorphism, and we provide records that allows to
@@ -463,22 +470,24 @@ module type HETEROGENEOUS_MAP = sig
       - The type of {!type:value} depend on both the type of the key and the
         type of the map, hence the type [('k,'m) value].
       - The type of some return values, like key-value pairs, must be
-        concealed existentially, hence the {!KeyValue} constructor. *)
+        concealed existentially, hence the {!KeyValue} constructor.
+
+      @canonical PatriciaTree.HETEROGENEOUS_MAP *)
 
   include BASE_MAP (** @closed *)
 
   (** Operation with maps/set of different types.
-      [Map2] must use the same {!Sigs.KEY.to_int} function. *)
+      [Map2] must use the same {!KEY.to_int} function. *)
   module WithForeign(Map2:BASE_MAP with type 'a key = 'a key):sig
     type ('map1,'map2) polyinter_foreign = { f: 'a. 'a key -> ('a,'map1) value -> ('a,'map2) Map2.value -> ('a,'map1) value } [@@unboxed]
 
     val nonidempotent_inter : ('a,'b) polyinter_foreign -> 'a t -> 'b Map2.t -> 'a t
-    (** Like {!Sigs.BASE_MAP.idempotent_inter}. Tries to preserve physical equality on the first argument when possible. *)
+    (** Like {!BASE_MAP.idempotent_inter}. Tries to preserve physical equality on the first argument when possible. *)
 
     type ('map2,'map1) polyfilter_map_foreign =
       { f : 'a. 'a key -> ('a, 'map2) Map2.value -> ('a, 'map1) value option; } [@@unboxed]
     val filter_map_no_share : ('map2,'map1) polyfilter_map_foreign -> 'map2 Map2.t -> 'map1 t
-    (** Like {!Sigs.BASE_MAP.filter_map_no_share}, but allows to transform a foreigh map into the current one. *)
+    (** Like {!BASE_MAP.filter_map_no_share}, but allows to transform a foreigh map into the current one. *)
 
     type ('map1,'map2) polyupdate_multiple = { f: 'a. 'a key -> ('a,'map1) value option -> ('a,'map2) Map2.value -> ('a,'map1) value option } [@@unboxed]
     val update_multiple_from_foreign : 'b Map2.t -> ('a,'b) polyupdate_multiple -> 'a t -> 'a t
@@ -489,7 +498,7 @@ module type HETEROGENEOUS_MAP = sig
         i.e. [update_multiple_from_foreign m_from f m_to] calls [f.f] on every
         key of [m_from], says if the corresponding value also exists in [m_to],
         and adds or remove the element in [m_to] depending on the value of [f.f].
-        [f.f] is called in the {{!unsigned_lt}unsigned order} of {!Sigs.KEY.to_int}.
+        [f.f] is called in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
         O(size(m_from) + size(m_to)) complexity. *)
 
     type ('map1,'map2) polyupdate_multiple_inter = { f: 'a. 'a key -> ('a,'map1) value -> ('a,'map2) Map2.value -> ('a,'map1) value option } [@@unboxed]
@@ -503,15 +512,18 @@ end
 
 module type HETEROGENEOUS_SET = sig
   (** A set containing different keys, very similar to
-      {!Sigs.SET}, but with simple type [elt] being replaced by type
-      constructor ['a elt]. *)
-  (** The main changes from {!Sigs.SET} are:
+      {!SET}, but with simple type [elt] being replaced by type
+      constructor ['a elt].
+
+      The main changes from {!SET} are:
       - The type of {!elt} is replaced by a type constructor ['k elt].
         Because of that, most higher-order arguments require higher-ranking
         polymorphism, and we provide records that allows to
         pass them as arguments (e.g. {!polyfold}, {!polypretty}, etc.)
       - The type of some return values, must be concealed existentially,
-        hence the {!Any} constructor. *)
+        hence the {!Any} constructor.
+
+      @canonical PatriciaTree.HETEROGENEOUS_SET *)
 
   type 'a elt
   (** Elements of the set *)
@@ -608,22 +620,22 @@ module type HETEROGENEOUS_SET = sig
 
   type polyiter = { f: 'a. 'a elt -> unit; } [@@unboxed]
   val iter: polyiter -> t -> unit
-  (** [iter f set] calls [f.f] on all elements of [set], in the {{!unsigned_lt}unsigned order} of {!Sigs.KEY.to_int}. *)
+  (** [iter f set] calls [f.f] on all elements of [set], in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
 
   type polypredicate = { f: 'a. 'a elt -> bool; } [@@unboxed]
   val filter: polypredicate -> t -> t
   (** [filter f set] is the subset of [set] that only contains the elements that
-      satisfy [f.f]. [f.f] is called in the {{!unsigned_lt}unsigned order} of {!Sigs.KEY.to_int}. *)
+      satisfy [f.f]. [f.f] is called in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
 
   val for_all: polypredicate -> t -> bool
   (** [for_all f set] is [true] if [f.f] is [true] on all elements of [set].
-      Short-circuits on first [false]. [f.f] is called in the {{!unsigned_lt}unsigned order} of {!Sigs.KEY.to_int}. *)
+      Short-circuits on first [false]. [f.f] is called in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
 
   type 'acc polyfold = { f: 'a. 'a elt -> 'acc -> 'acc } [@@unboxed]
   val fold: 'acc polyfold -> t -> 'acc -> 'acc
   (** [fold f set acc] returns [f.f elt_n (... (f.f elt_1 acc) ...)], where
       [elt_1, ..., elt_n] are the elements of [set], in increasing {{!unsigned_lt}unsigned order} of
-      {!Sigs.KEY.to_int} *)
+      {!KEY.to_int} *)
 
   type polypretty = { f: 'a. Format.formatter -> 'a elt -> unit; } [@@unboxed]
   val pretty :
@@ -634,10 +646,10 @@ module type HETEROGENEOUS_SET = sig
   (** {3 Conversion functions} *)
 
   val to_seq : t -> any_elt Seq.t
-  (** [to_seq st] iterates the whole set, in increasing {{!unsigned_lt}unsigned order} of {!Sigs.KEY.to_int} *)
+  (** [to_seq st] iterates the whole set, in increasing {{!unsigned_lt}unsigned order} of {!KEY.to_int} *)
 
   val to_rev_seq : t -> any_elt Seq.t
-  (** [to_rev_seq st] iterates the whole set, in decreasing {{!unsigned_lt}unsigned order} of {!Sigs.KEY.to_int} *)
+  (** [to_rev_seq st] iterates the whole set, in decreasing {{!unsigned_lt}unsigned order} of {!KEY.to_int} *)
 
   val add_seq : any_elt Seq.t -> t -> t
   (** [add_seq s st] adds all elements of the sequence [s] to [st] in order. *)
@@ -649,7 +661,7 @@ module type HETEROGENEOUS_SET = sig
   (** [of_list l] creates a new set from the elements of [l]. *)
 
   val to_list : t -> any_elt list
-  (** [to_list s] returns the elements of [s] as a list, in increasing {{!unsigned_lt}unsigned order} of {!Sigs.KEY.to_int} *)
+  (** [to_list s] returns the elements of [s] as a list, in increasing {{!unsigned_lt}unsigned order} of {!KEY.to_int} *)
 end
 
 
@@ -658,7 +670,9 @@ end
     are also close to the standard library's interface for sets and maps. *)
 
 (** Signature for sets implemented using Patricia trees.
-    Most of this interface should be shared with {{: https://ocaml.org/api/Set.S.html}[Stdlib.Set.S]}. *)
+    Most of this interface should be shared with {{: https://ocaml.org/api/Set.S.html}[Stdlib.Set.S]}.
+
+    @canonical PatriciaTree.SET *)
 module type SET = sig
   type elt
   (** The type of elements of the set *)
@@ -704,46 +718,46 @@ module type SET = sig
       Returns a value physically equal to [set] if [elt] is not present. *)
 
   val unsigned_min_elt: t -> elt
-  (** The minimal element (according to the {{!unsigned_lt}unsigned order} on {!Sigs.KEY.to_int}) if non empty.
+  (** The minimal element (according to the {{!unsigned_lt}unsigned order} on {!KEY.to_int}) if non empty.
       @raises Not_found *)
 
   val unsigned_max_elt: t -> elt
-  (** The maximal element (according to the {{!unsigned_lt}unsigned order} on {!Sigs.KEY.to_int}) if non empty.
+  (** The maximal element (according to the {{!unsigned_lt}unsigned order} on {!KEY.to_int}) if non empty.
       @raises Not_found *)
 
   val pop_unsigned_minimum: t -> (elt * t) option
   (** [pop_unsigned_minimum s] is [Some (elt, s')] where [elt = unsigned_min_elt s] and [s' = remove elt s]
       if [s] is non empty.
-      Uses the {{!unsigned_lt}unsigned order} on {!Sigs.KEY.to_int}. *)
+      Uses the {{!unsigned_lt}unsigned order} on {!KEY.to_int}. *)
 
   val pop_unsigned_maximum: t -> (elt * t) option
   (** [pop_unsigned_maximum s] is [Some (elt, s')] where [elt = unsigned_max_elt s] and [s' = remove elt s]
       if [s] is non empty.
-      Uses the {{!unsigned_lt}unsigned order} on {!Sigs.KEY.to_int}. *)
+      Uses the {{!unsigned_lt}unsigned order} on {!KEY.to_int}. *)
 
   (** {3 Iterators} *)
 
   val iter: (elt -> unit) -> t -> unit
-  (** [iter f set] calls [f] on all elements of [set], in the {{!unsigned_lt}unsigned order} of {!Sigs.KEY.to_int}. *)
+  (** [iter f set] calls [f] on all elements of [set], in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
 
   val filter: (elt -> bool) -> t -> t
   (** [filter f set] is the subset of [set] that only contains the elements that
-      satisfy [f]. [f] is called in the {{!unsigned_lt}unsigned order} of {!Sigs.KEY.to_int}. *)
+      satisfy [f]. [f] is called in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
 
   val for_all: (elt -> bool) -> t -> bool
   (** [for_all f set] is [true] if [f] is [true] on all elements of [set].
-      Short-circuits on first [false]. [f] is called in the {{!unsigned_lt}unsigned order} of {!Sigs.KEY.to_int}. *)
+      Short-circuits on first [false]. [f] is called in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
 
   val fold: (elt -> 'acc -> 'acc) -> t -> 'acc -> 'acc
   (** [fold f set acc] returns [f elt_n (... (f elt_1 acc) ...)], where
       [elt_1, ..., elt_n] are the elements of [set], in increasing {{!unsigned_lt}unsigned order} of
-      {!Sigs.KEY.to_int} *)
+      {!KEY.to_int} *)
 
   val split: elt -> t -> t * bool * t
   (** [split elt set] returns [s_lt, present, s_gt] where
       [s_lt] contains all elements of [set] smaller than [elt], [s_gt]
       all those greater than [elt], and [present] is [true] if [elt] is in [set].
-      Uses the {{!unsigned_lt}unsigned order} on {!Sigs.KEY.to_int}.*)
+      Uses the {{!unsigned_lt}unsigned order} on {!KEY.to_int}.*)
 
   val pretty :
     ?pp_sep:(Format.formatter -> unit -> unit) ->
@@ -773,10 +787,10 @@ module type SET = sig
   (** {3 Conversion functions} *)
 
   val to_seq : t -> elt Seq.t
-  (** [to_seq st] iterates the whole set, in increasing {{!unsigned_lt}unsigned order} of {!Sigs.KEY.to_int} *)
+  (** [to_seq st] iterates the whole set, in increasing {{!unsigned_lt}unsigned order} of {!KEY.to_int} *)
 
   val to_rev_seq : t -> elt Seq.t
-  (** [to_rev_seq st] iterates the whole set, in decreasing {{!unsigned_lt}unsigned order} of {!Sigs.KEY.to_int} *)
+  (** [to_rev_seq st] iterates the whole set, in decreasing {{!unsigned_lt}unsigned order} of {!KEY.to_int} *)
 
   val add_seq : elt Seq.t -> t -> t
   (** [add_seq s st] adds all elements of the sequence [s] to [st] in order. *)
@@ -788,7 +802,7 @@ module type SET = sig
   (** [of_list l] creates a new set from the elements of [l]. *)
 
   val to_list : t -> elt list
-  (** [to_list s] returns the elements of [s] as a list, in increasing {{!unsigned_lt}unsigned order} of {!Sigs.KEY.to_int} *)
+  (** [to_list s] returns the elements of [s] as a list, in increasing {{!unsigned_lt}unsigned order} of {!KEY.to_int} *)
 end
 
 (** The typechecker struggles with forall quantification on values if they
@@ -798,14 +812,19 @@ end
 
     This is due to a bug in the typechecker, more info on
     {{: https://discuss.ocaml.org/t/weird-behaviors-with-first-order-polymorphism/13783} the OCaml discourse post}
-    and {{: https://github.com/ocaml/ocaml/issues/13292}the github issue}. *)
+    and {{: https://github.com/ocaml/ocaml/issues/13292}the github issue}.
+
+    @canonical PatriciaTree.snd *)
 type (_, 'b) snd = Snd of 'b [@@unboxed]
 
 
 (** The signature for maps with a single type for keys and values,
     a ['a map] binds [key] to ['a value].
-    This is slightly more generic than {!Sigs.MAP}, which just binds to ['a].
-    It is used for maps that need to restrict their value type, namely {!hash_consed}. *)
+    This is slightly more generic than {!MAP}, which just binds to ['a].
+    It is used for maps that need to restrict their value type, namely {!hash_consed}.
+
+    @since 0.10.0
+    @canonical PatriciaTree.MAP_WITH_VALUE *)
 module type MAP_WITH_VALUE = sig
   type key
   (** The type of keys. *)
@@ -815,7 +834,7 @@ module type MAP_WITH_VALUE = sig
 
   type 'a value
   (** Type for values, this is a divergence from Stdlib's [Map],
-      but becomes equivalent to it when using {!Sigs.MAP},
+      but becomes equivalent to it when using {!MAP},
       which is just [MAP_WITH_VALUE with type 'a value = 'a].
       On the other hand, it allows defining maps with fixed values, which is useful
       for hash-consing.
@@ -872,12 +891,12 @@ module type MAP_WITH_VALUE = sig
   val pop_unsigned_minimum : 'a t -> (key * 'a value * 'a t) option
   (** [pop_unsigned_minimum m] returns [None] if [is_empty m], or [Some(key,value,m')] where
       [(key,value) = unsigned_min_binding m] and [m' = remove m key]. O(log(n)) complexity.
-      Uses the {{!unsigned_lt}unsigned order} on {!Sigs.KEY.to_int}. *)
+      Uses the {{!unsigned_lt}unsigned order} on {!KEY.to_int}. *)
 
   val pop_unsigned_maximum : 'a t -> (key * 'a value * 'a t) option
   (** [pop_unsigned_maximum m] returns [None] if [is_empty m], or [Some(key,value,m')] where
       [(key,value) = unsigned_max_binding m] and [m' = remove m key]. O(log(n)) complexity.
-      Uses the {{!unsigned_lt}unsigned order} on {!Sigs.KEY.to_int}. *)
+      Uses the {{!unsigned_lt}unsigned order} on {!KEY.to_int}. *)
 
   val insert : key -> ('a value option -> 'a value) -> 'a t -> 'a t
   (** [insert key f map] modifies or insert an element of the map; [f]
@@ -908,13 +927,13 @@ module type MAP_WITH_VALUE = sig
       - value associated to [key] (if present)
       - submap of [map] whose keys are bigger than [key]
 
-      Uses the {{!unsigned_lt}unsigned order} on {!Sigs.KEY.to_int}. *)
+      Uses the {{!unsigned_lt}unsigned order} on {!KEY.to_int}. *)
 
   val iter : (key -> 'a value -> unit) -> 'a t -> unit
-  (** Iterate on each [(key,value)] pair of the map, in increasing {{!unsigned_lt}unsigned order} of {!Sigs.KEY.to_int}. *)
+  (** Iterate on each [(key,value)] pair of the map, in increasing {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
 
   val fold : (key -> 'a value -> 'acc -> 'acc) ->  'a t -> 'acc -> 'acc
-  (** Fold on each [(key,value)] pair of the map, in increasing {{!unsigned_lt}unsigned order} of {!Sigs.KEY.to_int}. *)
+  (** Fold on each [(key,value)] pair of the map, in increasing {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
 
   val fold_on_nonequal_inter : (key -> 'a value -> 'a value -> 'acc -> 'acc) ->
     'a t -> 'a t -> 'acc -> 'acc
@@ -922,7 +941,7 @@ module type MAP_WITH_VALUE = sig
       [f key_n value1_n value2n (... (f key_1 value1_1 value2_1 acc))] where
       [(key_1, value1_1, value2_1) ... (key_n, value1_n, value2_n)] are the
       bindings that exist in both maps ([m1 ∩ m2]) whose values are physically different.
-      Calls to [f] are performed in the {{!unsigned_lt}unsigned order} of {!Sigs.KEY.to_int}. *)
+      Calls to [f] are performed in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
 
   val fold_on_nonequal_union: (key -> 'a value option -> 'a value option -> 'acc -> 'acc) ->
     'a t -> 'a t -> 'acc -> 'acc
@@ -931,15 +950,15 @@ module type MAP_WITH_VALUE = sig
       [(key_1, value1_1, value2_1) ... (key_n, value1_n, value2_n)] are the
       bindings that exists in either map ([m1 ∪ m2]) whose values are physically
       different.
-      Calls to [f.f] are performed in the {{!unsigned_lt}unsigned order} of {!Sigs.KEY.to_int}. *)
+      Calls to [f.f] are performed in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
 
   val filter : (key -> 'a value -> bool) -> 'a t -> 'a t
   (** Returns the submap containing only the key->value pairs satisfying the
-      given predicate. [f] is called in increasing {{!unsigned_lt}unsigned order} of {!Sigs.KEY.to_int}. *)
+      given predicate. [f] is called in increasing {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
 
   val for_all : (key -> 'a value -> bool) -> 'a t -> bool
   (** Returns true if the predicate holds on all map bindings. Short-circuiting.
-      [f] is called in increasing {{!unsigned_lt}unsigned order} of {!Sigs.KEY.to_int}. *)
+      [f] is called in increasing {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
 
   (** In the following, the *no_share function allows taking arguments
       of different types (but cannot share subtrees of the map), while
@@ -953,12 +972,12 @@ module type MAP_WITH_VALUE = sig
       value is physically the same (i.e. [f key value == value] for
       all the keys in the subtree) are guaranteed to be physically
       equal to the original subtree. O(n) complexity.
-      [f] is called in increasing {{!unsigned_lt}unsigned order} of {!Sigs.KEY.to_int}. *)
+      [f] is called in increasing {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
 
   val map_no_share : ('a value -> 'b value) -> 'a t -> 'b t
   (** [map_no_share f m] returns a map where the [value] bound to each
       [key] is replaced by [f value]. O(n) complexity.
-      [f] is called in increasing {{!unsigned_lt}unsigned order} of {!Sigs.KEY.to_int}. *)
+      [f] is called in increasing {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
 
   val mapi : (key -> 'a value -> 'a value) -> 'a t -> 'a t
   (** [mapi f m] returns a map where the [value] bound to each [key] is
@@ -966,12 +985,12 @@ module type MAP_WITH_VALUE = sig
       value is physically the same (i.e. [f key value == value] for
       all the keys in the subtree) are guaranteed to be physically
       equal to the original subtree. O(n) complexity.
-      [f] is called in increasing {{!unsigned_lt}unsigned order} of {!Sigs.KEY.to_int}. *)
+      [f] is called in increasing {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
 
   val mapi_no_share : (key -> 'a value -> 'b value) -> 'a t -> 'b t
   (** [mapi_no_share f m] returns a map where the [value] bound to each
       [key] is replaced by [f key value]. O(n) complexity.
-      [f] is called in increasing {{!unsigned_lt}unsigned order} of {!Sigs.KEY.to_int}. *)
+      [f] is called in increasing {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
 
   val filter_map : (key -> 'a value -> 'a value option) -> 'a t -> 'a t
   (** [filter_map m f] returns a map where the [value] bound to each
@@ -981,14 +1000,14 @@ module type MAP_WITH_VALUE = sig
       (i.e. [f key value = Some v] with [value == v] for all the keys
       in the subtree) are guaranteed to be physically equal to the
       original subtree. O(n) complexity.
-      [f] is called in increasing {{!unsigned_lt}unsigned order} of {!Sigs.KEY.to_int}. *)
+      [f] is called in increasing {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
 
   val filter_map_no_share : (key -> 'a value -> 'b value option) -> 'a t -> 'b t
   (** [filter_map m f] returns a map where the [value] bound to each
       [key] is removed (if [f key value] returns [None]), or is
       replaced by [v] ((if [f key value] returns [Some v]). O(n)
       complexity.
-      [f] is called in increasing {{!unsigned_lt}unsigned order} of {!Sigs.KEY.to_int}. *)
+      [f] is called in increasing {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
 
 
   (** {3 Operations on pairs of maps} *)
@@ -1043,7 +1062,7 @@ module type MAP_WITH_VALUE = sig
       preserve physical equality of the subtreess in that case.  The
       complexity is O(log(n)*Delta) where Delta is the number of
       different keys between [map1] and [map2].
-      [f] is called in increasing {{!unsigned_lt}unsigned order} of {!Sigs.KEY.to_int}.
+      [f] is called in increasing {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
       [f] is never called on physically equal values. *)
 
   val idempotent_inter : (key -> 'a value -> 'a value -> 'a value) -> 'a t -> 'a t -> 'a t
@@ -1055,7 +1074,7 @@ module type MAP_WITH_VALUE = sig
       preserve physical equality of the subtrees in that case.  The
       complexity is O(log(n)*Delta) where Delta is the number of
       different keys between [map1] and [map2].
-      [f] is called in increasing {{!unsigned_lt}unsigned order} of {!Sigs.KEY.to_int}!.
+      [f] is called in increasing {{!unsigned_lt}unsigned order} of {!KEY.to_int}!.
       [f] is never called on physically equal values. *)
 
   val nonidempotent_inter_no_share : (key -> 'a value -> 'b value -> 'c value) -> 'a t -> 'b t -> 'c t
@@ -1065,7 +1084,7 @@ module type MAP_WITH_VALUE = sig
       need to be idempotent, which imply that we have to visit
       physically equal subtrees of [map1] and [map2].  The complexity
       is O(log(n)*min(|map1|,|map2|)).
-      [f] is called in increasing {{!unsigned_lt}unsigned order} of {!Sigs.KEY.to_int}.
+      [f] is called in increasing {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
       [f] is called on every shared binding. *)
 
   val idempotent_inter_filter : (key -> 'a value -> 'a value -> 'a value option) -> 'a t -> 'a t -> 'a t
@@ -1085,7 +1104,7 @@ module type MAP_WITH_VALUE = sig
   (** [disjoint a b] is [true] if and only if [a] and [b] have disjoint domains. *)
 
   (** Combination with other kinds of maps.
-      [Map2] must use the same {!Sigs.KEY.to_int} function. *)
+      [Map2] must use the same {!KEY.to_int} function. *)
   module WithForeign(Map2 : BASE_MAP with type _ key = key):sig
 
     type ('b,'c) polyfilter_map_foreign = { f: 'a. key -> ('a,'b) Map2.value -> 'c value option } [@@unboxed]
@@ -1107,7 +1126,7 @@ module type MAP_WITH_VALUE = sig
         i.e. [update_multiple_from_foreign m_from f m_to] calls [f.f] on every
         key of [m_from], says if the corresponding value also exists in [m_to],
         and adds or remove the element in [m_to] depending on the value of [f.f].
-        [f.f] is called in the {{!unsigned_lt}unsigned order} of {!Sigs.KEY.to_int}.
+        [f.f] is called in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
         O(size(m_from) + size(m_to)) complexity. *)
 
 
@@ -1129,10 +1148,10 @@ module type MAP_WITH_VALUE = sig
   (** {3 Conversion functions} *)
 
   val to_seq : 'a t -> (key * 'a value) Seq.t
-  (** [to_seq m] iterates the whole map, in increasing {{!unsigned_lt}unsigned order} of {!Sigs.KEY.to_int} *)
+  (** [to_seq m] iterates the whole map, in increasing {{!unsigned_lt}unsigned order} of {!KEY.to_int} *)
 
   val to_rev_seq : 'a t -> (key * 'a value) Seq.t
-  (** [to_rev_seq m] iterates the whole map, in decreasing {{!unsigned_lt}unsigned order} of {!Sigs.KEY.to_int} *)
+  (** [to_rev_seq m] iterates the whole map, in decreasing {{!unsigned_lt}unsigned order} of {!KEY.to_int} *)
 
   val add_seq : (key * 'a value) Seq.t -> 'a t -> 'a t
   (** [add_seq s m] adds all bindings of the sequence [s] to [m] in order. *)
@@ -1147,15 +1166,19 @@ module type MAP_WITH_VALUE = sig
 
   val to_list : 'a t -> (key * 'a value) list
   (** [to_list m] returns the bindings of [m] as a list,
-      in increasing {{!unsigned_lt}unsigned order} of {!Sigs.KEY.to_int} *)
+      in increasing {{!unsigned_lt}unsigned order} of {!KEY.to_int} *)
 end
 
 (** The signature for maps with a single type for keys and values,
     a ['a map] binds [key] to ['a].
-    Most of this interface should be shared with {{: https://ocaml.org/api/Map.S.html}[Stdlib.Map.S]}. *)
+    Most of this interface should be shared with {{: https://ocaml.org/api/Map.S.html}[Stdlib.Map.S]}.
+
+    @canonical PatriciaTree.MAP *)
 module type MAP = MAP_WITH_VALUE with type 'a value = 'a
 
-(** Operations added/changed in {{!hash_consed}hash-consed} maps and sets. *)
+(** Operations added/changed in {{!hash_consed}hash-consed} maps and sets.
+
+    @canonical PatriciaTree.HASH_CONSED_OPERATIONS *)
 module type HASH_CONSED_OPERATIONS = sig
   type 'a t
 
@@ -1163,21 +1186,21 @@ module type HASH_CONSED_OPERATIONS = sig
 
   val to_int : 'a t -> int
   (** Returns the {{!hash_consed}hash-consed} id of the map.
-      Unlike {!Sigs.NODE_WITH_ID.to_int}, hash-consing ensures that maps
-      which contain the same keys (compared by {!Sigs.KEY.to_int}) and values (compared
-      by {!Sigs.HASHED_VALUE.polyeq}) will always be physically equal
+      Unlike {!NODE_WITH_ID.to_int}, hash-consing ensures that maps
+      which contain the same keys (compared by {!KEY.to_int}) and values (compared
+      by {!HASHED_VALUE.polyeq}) will always be physically equal
       and have the same identifier.
 
-      Note that when using physical equality as {!Sigs.HASHED_VALUE.polyeq}, some
+      Note that when using physical equality as {!HASHED_VALUE.polyeq}, some
       maps of different types [a t] and [b t] may be given the same identifier.
-      See the end of the documentation of {!Sigs.HASHED_VALUE.polyeq} for details. *)
+      See the end of the documentation of {!HASHED_VALUE.polyeq} for details. *)
 
   val equal : 'a t -> 'a t -> bool
   (** Constant time equality using the {{!hash_consed}hash-consed} nodes identifiers.
       This is equivalent to physical equality.
       Two nodes are equal if their trees contain the same bindings,
-      where keys are compared by {!Sigs.KEY.to_int} and values are compared by
-      {!Sigs.HASHED_VALUE.polyeq}. *)
+      where keys are compared by {!KEY.to_int} and values are compared by
+      {!HASHED_VALUE.polyeq}. *)
 
   val compare : 'a t -> 'a t -> int
   (** Constant time comparison using the {{!hash_consed}hash-consed} node identifiers.
@@ -1192,7 +1215,9 @@ end
 (** {1 Keys} *)
 (** Functor argument used to specify the key type when building the maps. *)
 
-(** The signature of homogeneous keys (non-generic, unparameterized keys).  *)
+(** The signature of homogeneous keys (non-generic, unparameterized keys).
+
+    @canonical PatriciaTree.KEY *)
 module type KEY = sig
   type t
   (** The type of keys.
@@ -1214,16 +1239,22 @@ module type KEY = sig
       Note that since Patricia Trees use {{!unsigned_lt}unsigned order}, negative
       keys are seen as bigger than positive keys.
       Be wary of this when using negative keys combined with functions like
-      {{!Sigs.BASE_MAP.unsigned_max_binding}[unsigned_max_binding]} and {{!Sigs.BASE_MAP.pop_unsigned_maximum}[pop_unsigned_maximum]}. *)
+      {{!BASE_MAP.unsigned_max_binding}[unsigned_max_binding]} and {{!BASE_MAP.pop_unsigned_maximum}[pop_unsigned_maximum]}. *)
   val to_int: t -> int
 end
 
 (** To have heterogeneous keys, we must define a polymorphic equality
     function.  Like in the homogeneous case, it should have the
-    requirement that [(to_int a) = (to_int b) ==> polyeq a b = Eq]. *)
-type (_, _) cmp = Eq : ('a, 'a) cmp | Diff : ('a, 'b) cmp
+    requirement that [(to_int a) = (to_int b) ==> polyeq a b = Eq].
 
-(** The signature of heterogeneous keys.  *)
+    @canonical PatriciaTree.cmp *)
+type (_, _) cmp =
+ | Eq : ('a, 'a) cmp  (** equality, which implies type equality. *)
+ | Diff : ('a, 'b) cmp
+
+(** The signature of heterogeneous keys.
+
+    @canonical PatriciaTree.HETEROGENEOUS_KEY *)
 module type HETEROGENEOUS_KEY = sig
   type 'key t
   (** The type of generic/heterogeneous keys.
@@ -1247,7 +1278,7 @@ module type HETEROGENEOUS_KEY = sig
       Note that since Patricia Trees use {{!unsigned_lt}unsigned order}, negative
       keys are seen as bigger than positive keys.
       Be wary of this when using negative keys combined with functions like
-      {{!Sigs.BASE_MAP.unsigned_max_binding}[unsigned_max_binding]} and {{!Sigs.BASE_MAP.pop_unsigned_maximum}[pop_unsigned_maximum]}. *)
+      {{!BASE_MAP.unsigned_max_binding}[unsigned_max_binding]} and {{!BASE_MAP.pop_unsigned_maximum}[pop_unsigned_maximum]}. *)
 
   val polyeq : 'a t -> 'b t -> ('a, 'b) cmp
   (** Polymorphic equality function used to compare our keys.
@@ -1264,9 +1295,10 @@ end
     This is the case in {!MakeMap}.
     However, for maps like {!hash_consed}, it can be useful to restrict the type
     of values in order to implement [hash] and [polyeq] functions on values.
-    See the {!Sigs.HASHED_VALUE} module type for more details.
+    See the {!HASHED_VALUE} module type for more details.
 
-    @since 0.10.0 *)
+    @since 0.10.0
+    @canonical PatriciaTree.VALUE *)
 module type VALUE = sig
   type 'a t
   (** The type of values. A ['map map] maps [key] to ['map value].
@@ -1276,26 +1308,29 @@ end
 (** The module type of values, which can be heterogeneous.
     This can be used to specify how the type of the value depends on that of the key.
     If the value doesn't depend on the key type, you can use the provided default
-    implementations {!HomogeneousValue} and {!WrappedHomogeneousValue}. *)
+    implementations {!HomogeneousValue} and {!WrappedHomogeneousValue}.
+
+    @canonical PatriciaTree.HETEROGENEOUS_VALUE *)
 module type HETEROGENEOUS_VALUE = sig
   type ('key, 'map) t
   (** The type of values. A ['map map] maps ['key key] to [('key, 'map) value].
       Can be mutable if desired, unless it is being used in {!hash_consed}. *)
 end
 
-(** {!Sigs.VALUE} parameter for {!hash_consed}, as hash-consing requires hashing and comparing values.
+(** {!VALUE} parameter for {!hash_consed}, as hash-consing requires hashing and comparing values.
 
     This is the parameter type for homogeneous maps, used in {!MakeHashconsedMap}.
     A default implementation is provided in {!HashedValue}, using
     {{: https://ocaml.org/api/Hashtbl.html#VALhash}[Hashtbl.hash]}
     as [hash] function and physical equality as [polyeq].
 
-    @since 0.10.0 *)
+    @since 0.10.0
+    @canonical PatriciaTree.HASHED_VALUE *)
 module type HASHED_VALUE = sig
   type 'a t
   (** The type of values for a hash-consed maps.
 
-      Unlike {!Sigs.VALUE.t}, {b hash-consed values should be immutable}.
+      Unlike {!VALUE.t}, {b hash-consed values should be immutable}.
       Or, if they do mutate, they must not change their {!hash} value, and
       still be equal to the same values via {!polyeq} *)
 
@@ -1391,18 +1426,19 @@ end
 
 (** In order to build {!hash_consed}, we need to be able to hash and compare values.
 
-    This is the heterogeneous version of {!Sigs.HASHED_VALUE}, used to specify a value
+    This is the heterogeneous version of {!HASHED_VALUE}, used to specify a value
     for heterogeneous maps (in {!MakeHashconsedHeterogeneousMap}).
     A default implementation is provided in {!HeterogeneousHashedValue}, using
     {{: https://ocaml.org/api/Hashtbl.html#VALhash}[Hashtbl.hash]}
     as [hash] function and physical equality as [polyeq].
 
-    @since 0.10.0 *)
+    @since 0.10.0
+    @canonical PatriciaTree.HETEROGENEOUS_HASHED_VALUE *)
 module type HETEROGENEOUS_HASHED_VALUE = sig
   type ('key, 'map) t
   (** The type of values for a hash-consed maps.
 
-      Unlike {!Sigs.HETEROGENEOUS_VALUE.t}, {b hash-consed values should be immutable}.
+      Unlike {!HETEROGENEOUS_VALUE.t}, {b hash-consed values should be immutable}.
       Or, if they do mutate, they must not change their {!hash} value, and
       still be equal to the same values via {!polyeq} *)
 
@@ -1453,5 +1489,5 @@ module type HETEROGENEOUS_HASHED_VALUE = sig
 
           This is the implementation used in {!HeterogeneousHashedValue}. Note however that
           using this function can lead to {b identifiers no longer being unique across
-          types}. See {!Sigs.HASHED_VALUE.polyeq} for more information on this.}} *)
+          types}. See {!HASHED_VALUE.polyeq} for more information on this.}} *)
 end

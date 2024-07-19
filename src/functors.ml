@@ -20,7 +20,7 @@
 (**************************************************************************)
 
 open Ints
-open Sigs
+open Signatures
 open Key_value
 open Nodes
 

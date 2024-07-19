@@ -20,7 +20,7 @@
 (**************************************************************************)
 
 open Ints
-open Sigs
+open Signatures
 
 let sdbm x y = y + (x lsl 16) + (x lsl 6) - x
 (** Combine two numbers into a new hash *)

@@ -23,7 +23,6 @@
     comments don't have to *)
 
 open PatriciaTree
-open Sigs
 
 type foo
 

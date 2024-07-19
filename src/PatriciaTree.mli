@@ -97,8 +97,8 @@
       notably (key,value) pairs or different types to be in the same map,
       or to choose the memory representation of the nodes of the tree.}
 
-    {- Some operations like {{!Sigs.BASE_MAP.pop_unsigned_minimum}[pop_unsigned_minimum]} and
-     {{!Sigs.BASE_MAP.pop_unsigned_maximum}[pop_unsigned_maximum]} make our Set
+    {- Some operations like {{!BASE_MAP.pop_unsigned_minimum}[pop_unsigned_minimum]} and
+     {{!BASE_MAP.pop_unsigned_maximum}[pop_unsigned_maximum]} make our Set
      suitable as priority queue (but remember that each element in the
      queue must map to a distinct integer, and that using the {{!unsigned_lt}unsigned order}
      means elements with negative priority are seen as greater than elements with
@@ -115,17 +115,17 @@
     informative; log(n) corresponds to the real complexity in usual
     distributions. *)
 
+(** {1 Integer manipulations} *)
+
+include module type of Ints
+
 (** {1 Signatures} *)
 
-module Sigs = Sigs
+include module type of Signatures
 
 (** {1 Functors} *)
 
 include module type of Functors
-
-(** {1 Miscellaneous utilities} *)
-
-include module type of Ints
 
 (** {1 Default KEY and VALUE implementations} *)
 (** These can be used as parameters to {!MakeMap}/{!MakeSet} functors in the
@@ -134,7 +134,7 @@ include module type of Ints
 include module type of Key_value
 
 (** {1:node_impl Some implementations of NODE} *)
-(** We provide a few different implementations of {!Sigs.NODE}, the internal representation
+(** We provide a few different implementations of {!NODE}, the internal representation
     of a PatriciaTree's nodes. They can be used with
     the {!MakeCustomMap}, {!MakeCustomSet}, {!MakeCustomHeterogeneousMap} and
     {!MakeCustomHeterogeneousSet} functors to build maps and sets with custom
