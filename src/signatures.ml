@@ -645,6 +645,9 @@ module type HETEROGENEOUS_SET = sig
       all those greater than [elt], and [present] is [true] if [elt] is in [set].
       Uses the {{!unsigned_lt}unsigned order} on elements. *)
 
+  val diff: t -> t -> t
+  (** [diff s1 s2] is the set of all elements of [s1] that aren't in [s2]. *)
+
   (** {3 Iterators} *)
 
   type polyiter = { f: 'a. 'a elt -> unit; } [@@unboxed]
@@ -812,6 +815,9 @@ module type SET = sig
 
   val subset : t -> t -> bool
   (** [subset a b] is [true] if all elements of [a] are also in [b]. *)
+
+  val diff: t -> t -> t
+  (** [diff s1 s2] is the set of all elements of [s1] that aren't in [s2]. *)
 
   (** {3 Conversion functions} *)
 

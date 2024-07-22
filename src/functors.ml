@@ -1070,6 +1070,7 @@ module MakeCustomHeterogeneousSet
 
   let equal t1 t2 = BaseMap.reflexive_same_domain_for_all2 {f=fun _ _ _ -> true} t1 t2
   let subset t1 t2 = BaseMap.reflexive_subset_domain_for_all2 {f=fun _ _ _ -> true} t1 t2
+  let diff = BaseMap.domain_difference
 
   let split k m = let (l, present, r) = BaseMap.split k m in
     (l, Option.is_some present, r)
@@ -1237,7 +1238,6 @@ module MakeCustomSet
   let is_singleton m = match BaseMap.is_singleton m with
     | None -> None
     | Some(KeyValue(k,())) -> Some k
-
   let unsigned_min_elt t = let Any x = unsigned_min_elt t in x
   let unsigned_max_elt t = let Any x = unsigned_max_elt t in x
   let pop_unsigned_minimum t = Option.map (fun (Any x, t) -> (x,t)) (pop_unsigned_minimum t)
