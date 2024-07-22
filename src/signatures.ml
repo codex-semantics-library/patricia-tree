@@ -340,7 +340,41 @@ module type BASE_MAP = sig
       it defaults to {{: https://v2.ocaml.org/api/Format.html#VALpp_print_cut}[Format.pp_print_cut]}.
       Bindings are printed in the {{!unsigned_lt}unsigned order} of {!KEY.to_int} *)
 
-  (** {1 Functions on pairs of maps} *)
+  (** {1:functions_on_pairs Functions on pairs of maps} *)
+  (** This section regroups functions that act on pairs of maps.
+
+      Due to {{: https://ocaml.org/manual/5.2/polymorphism.html#s%3Ahigher-rank-poly}restrictions with higher-order polymorphism},
+      we need to wrap the function [f] in a record, which has a single field [f].
+      These is what the [polyXXX] types are for.
+
+      {b These functions are where Patricia trees offer substantial speedup
+      compared to Stdlib's Maps:}
+      - We can often avoid exploring physically equal subtrees
+        (for equality tests, inclusion tests, union, intersection, difference).
+        This yields important performance gains when combining maps that derive
+        from a common ancestor or when using {!hash_consed} maps which have a lot
+        of elements in common.
+      - We can also avoid visiting a subtree when merging with [Empty] (for union,
+        intersection and difference).
+
+      To do so safely, we have
+      specialized versions of these functions that assume properties
+      of the function parameter (reflexive relation, idempotent
+      operation, etc.)
+
+      When we cannot enjoy these properties, our functions explicitly
+      say so (with a nonreflexive or nonidempotent prefix). The names
+      are a bit long, but having these names avoids using an
+      ineffective code by default, by forcing to know and choose
+      between the fast and slow version.
+
+      In general, the fast versions of these function will be on [O(log n + d)] where
+      [n] is the size of the maps being joined and [d] the size of their difference
+      (number of keys bound in both maps to non-physically equal values). The slow
+      version is [O(n)]. *)
+
+  (** {2 Comparing two maps} *)
+  (** Functions for equality, inclusion, and test for disjointness. *)
 
   type ('map1,'map2) polysame_domain_for_all2 =
     { f : 'a. 'a key -> ('a, 'map1) value -> ('a, 'map2) value -> bool; } [@@unboxed]
@@ -381,6 +415,32 @@ module type BASE_MAP = sig
       Calls [f.f] in ascending {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
       Exits early if the domains mismatch. *)
 
+  val disjoint : 'a t -> 'a t -> bool
+  (** [disjoint m1 m2] is [true] iff [m1] and [m2] have disjoint domains *)
+
+  (** {2:combining_maps Combining two maps} *)
+  (** We provide many functions that operate on pairs of maps for computing intersection,
+      union, difference... Here is a short summary of what each of one returns when
+      applied to two maps [m1] and [m2]. Here [y] is physically the same value in
+      [m1] and [m2].
+      {t
+        | Keys | [a] | [b] | [c] | [d] |
+        |:-----|:---:|:---:|:---:|:---:|
+        | [m1] | [x] | [y] | [z] |     |
+        | [m2] |     | [y] | [u] | [v] |
+        | {{!idempotent_union}[idempotent_union f m1 m2]} | [x] | [y] | [f c z u] | [v] |
+        | {{!slow_merge}[slow_merge f m1 m2]}{^ \[1\]}{^ \[2\]} | [f a x _] | [f b y y] | [f c z u] | [f d _ v] |
+        | {{!idempotent_inter}[idempotent_inter f m1 m2]} |    | [y] | [f c z u] |   |
+        | {{!idempotent_inter_filter}[idempotent_inter_filter f m1 m2]}{^ \[1\]} |    | [y] | [f c z u] |   |
+        | {{!nonidempotent_inter_no_share}[nonidempotent_inter_no_share f m1 m2]} |    | [f b y y] | [f c z u] |   |
+        | {{!difference}[difference f m1 m2]}{^ \[1\]} | [x] | [f b y y] | [f c z u] |   |
+        | {{!symmetric_difference}[symmetric_difference f m1 m2]}{^ \[1\]} | [x] |  | [f c z u] | [v] |
+      }
+      {b \[1\]}: Here [f] returns an optional value, returning [None] removes the binding.
+
+      {b \[2\]}: Here the function [f] actually takes [option] as arguments,
+        omitted for brevity. [_] is [None]. *)
+
   type ('map1, 'map2, 'map3) polyunion = {
     f : 'a. 'a key -> ('a, 'map1) value -> ('a, 'map2) value -> ('a, 'map3) value; } [@@unboxed]
   val idempotent_union : ('a, 'a, 'a) polyunion -> 'a t -> 'a t -> 'a t
@@ -410,7 +470,7 @@ module type BASE_MAP = sig
       Complexity is O(log(n)*Delta) where Delta is the number of
       different keys between [map1] and [map2]. *)
 
-  val nonidempotent_inter_no_share :('a, 'b, 'c) polyinter -> 'a t -> 'b t -> 'c t
+  val nonidempotent_inter_no_share: ('a, 'b, 'c) polyinter -> 'a t -> 'b t -> 'c t
   (** [nonidempotent_inter_no_share f map1 map2] is the same as {!idempotent_inter}
       but doesn't preverse physical equality, doesn't assume [f.f] is idempotent,
       and can change the type of values. [f.f] is called on every shared binding.
@@ -456,8 +516,7 @@ module type BASE_MAP = sig
 
       @since 0.11.0 *)
 
-  val disjoint : 'a t -> 'a t -> bool
-  (** [disjoint m1 m2] is [true] iff [m1] and [m2] have disjoint domains *)
+
 
   (** {1 Conversion functions} *)
 
@@ -1061,22 +1120,12 @@ module type MAP_WITH_VALUE = sig
 
 
   (** {3 Operations on pairs of maps} *)
-  (** The following functions combine two maps. It is key for the
-      performance, when we have large maps who share common subtrees,
-      not to visit the nodes in these subtrees. Hence, we have
-      specialized versions of these functions that assume properties
-      of the function parameter (reflexive relation, idempotent
-      operation, etc.)
+  (** See {{!BASE_MAP.functions_on_pairs}the same section for [BASE_MAP]} for
+      an overview of what these functions do, and a quick overview of the differences
+      between them. *)
 
-      When we cannot enjoy these properties, our functions explicitly
-      say so (with a nonreflexive or nonidempotent prefix). The names
-      are a bit long, but having these names avoids using an
-      ineffective code by default, by forcing to know and choose
-      between the fast and slow version.
-
-      It is also important to not visit a subtree when there merging
-      this subtree with Empty; hence we provide union and inter
-      operations. *)
+  (** {4 Comparing two maps} *)
+  (** Equality, inclusion and test for disjoint maps. *)
 
   val reflexive_same_domain_for_all2 : (key -> 'a value -> 'a value -> bool) -> 'a t -> 'a t ->  bool
   (** [reflexive_same_domain_for_all2 f map1 map2] returns [true] if
@@ -1102,6 +1151,14 @@ module type MAP_WITH_VALUE = sig
       of [map1] and [map2]. The complexity is O(log(n)*Delta) where
       Delta is the number of different keys between [map1] and
       [map2]. *)
+
+  val disjoint : 'a t -> 'a t -> bool
+  (** [disjoint a b] is [true] if and only if [a] and [b] have disjoint domains. *)
+
+  (** {4 Combining two maps} *)
+  (** Union, intersection, difference...
+      See {{!BASE_MAP.combining_maps}the same section in [BASE_MAP]} for a table showcasing
+      the differences between them. *)
 
   val idempotent_union : (key -> 'a value -> 'a value -> 'a value) -> 'a t -> 'a t -> 'a t
   (** [idempotent_union f map1 map2] returns a map whose keys is the
@@ -1178,8 +1235,7 @@ module type MAP_WITH_VALUE = sig
 
       @since 0.11.0 *)
 
-  val disjoint : 'a t -> 'a t -> bool
-  (** [disjoint a b] is [true] if and only if [a] and [b] have disjoint domains. *)
+
 
   (** Combination with other kinds of maps.
       [Map2] must use the same {!KEY.to_int} function. *)
