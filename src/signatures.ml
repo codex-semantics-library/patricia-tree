@@ -414,7 +414,7 @@ module type BASE_MAP = sig
   (** [nonidempotent_inter_no_share f map1 map2] is the same as {!idempotent_inter}
       but doesn't preverse physical equality, doesn't assume [f.f] is idempotent,
       and can change the type of values. [f.f] is called on every shared binding.
-      [f.f] is called in increasing {{!unsigned_lt}unsigned order} of keys.
+      [f.f] is called in increasing {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
       O(n) complexity *)
 
 
@@ -424,9 +424,33 @@ module type BASE_MAP = sig
       but [f.f] can return [None] to remove a binding from the resutling map. *)
 
   type ('map1, 'map2, 'map3) polymerge = {
-    f : 'a. 'a key -> ('a, 'map1) value option -> ('a, 'map2) value option -> ('a, 'map3) value  option; } [@@unboxed]
+    f : 'a. 'a key -> ('a, 'map1) value option -> ('a, 'map2) value option -> ('a, 'map3) value option; } [@@unboxed]
   val slow_merge : ('map1, 'map2, 'map3) polymerge -> 'map1 t -> 'map2 t -> 'map3 t
   (** This is the same as {{: https://ocaml.org/api/Map.S.html#VALmerge}Stdlib.Map.S.merge} *)
+
+  val difference: ('a, 'a, 'a) polyinterfilter -> 'a t -> 'a t -> 'a t
+  (** [difference f map1 map2] returns a map comprising of the bindings
+      of [map1] that aren't in [map2], and the bindings of [map2] that aren't in [map1].
+
+      Bindings that are both in [map1] and [map2], but with non-physically equal values
+      are passed to [f.f]. If [f.f] returns [Some v] then [v] is used as the new value,
+      otherwise the binding is dropped.
+
+      {b Assumes} [f.f] is none on equal values (i.e. [f key value value == None])
+      [f.f] is called in increasing {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
+      [f.f] is never called on physically equal values.
+
+      Complexity is [O(log n + d)] where [n] is the size of the maps, and [d] the
+      size of the difference.
+
+      @since 0.11.0 *)
+
+  val domain_difference: 'a t -> 'b t -> 'a t
+  (** [domain_difference map1 map2] returns a map comprising of the bindings
+      of [map1] whose keys aren't in [map2]. It it the same as
+      [filter (fun k _ -> not (mem k map2)) map1], but faster.
+
+      @since 0.11.0 *)
 
   val disjoint : 'a t -> 'a t -> bool
   (** [disjoint m1 m2] is [true] iff [m1] and [m2] have disjoint domains *)

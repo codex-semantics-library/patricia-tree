@@ -612,6 +612,69 @@ module MakeCustomHeterogeneousMap
         else branch ~prefix:pb ~branching_bit:mb ~tree0:(upd_tb tb0) ~tree1:(slow_merge f ta tb1)
       else join (pa :> int) (upd_ta ta) (pb :> int) (upd_tb tb)
 
+  let rec difference (f : (_,_,_) polyinterfilter) ta tb =
+    if ta == tb then empty
+    else match NODE.view ta, NODE.view tb with
+      | Empty, _ -> tb
+      | _, Empty -> ta
+      | Leaf{key;value},_ ->
+        (try let res = find key tb in
+            if res == value then remove key ta else
+            match (f.f key value res) with
+            | Some v when v == res -> ta
+            | Some v -> add key v ta
+            | None -> remove key ta
+          with Not_found -> add key value ta)
+      | _,Leaf{key;value} ->
+        (try let res = find key ta in
+            if res == value then remove key tb else
+            match f.f key res value with
+            | Some v when v == res -> tb
+            | Some v -> add key v tb
+            | None -> remove key tb
+          with Not_found -> add key value tb)
+      | Branch{prefix=pa;branching_bit=ma;tree0=ta0;tree1=ta1},
+        Branch{prefix=pb;branching_bit=mb;tree0=tb0;tree1=tb1} ->
+        if ma == mb && pa == pb
+        (* Same prefix: merge the subtrees *)
+        then
+          let tree0 = difference f ta0 tb0 in
+          let tree1 = difference f ta1 tb1 in
+          branch ~prefix:pa ~branching_bit:ma ~tree0 ~tree1
+
+        else if branches_before pa ma pb mb
+        then if (ma :> int) land (pb :> int) == 0
+          then branch ~prefix:pa ~branching_bit:ma ~tree0:(difference f ta0 tb) ~tree1:ta1
+          else branch ~prefix:pa ~branching_bit:ma ~tree0:ta0 ~tree1:(difference f ta1 tb)
+        else if branches_before pb mb pa ma
+        then if (mb :> int) land (pa :> int) == 0
+          then branch ~prefix:pb ~branching_bit:mb ~tree0:(difference f ta tb0) ~tree1:tb1
+          else branch ~prefix:pb ~branching_bit:mb ~tree0:tb0 ~tree1:(difference f ta tb1)
+        else join (pa :> int) ta (pb :> int) tb
+
+  let rec domain_difference ta tb =
+      match NODE.view ta, NODE.view tb with
+      | Empty, _
+      | _, Empty -> ta
+      | Leaf{key;_},_ -> (if mem key tb then empty else ta)
+      | _,Leaf{key;_} -> remove key ta
+      | Branch{prefix=pa;branching_bit=ma;tree0=ta0;tree1=ta1},
+        Branch{prefix=pb;branching_bit=mb;tree0=tb0;tree1=tb1} ->
+        if ma == mb && pa == pb
+        then
+          let tree0 = domain_difference ta0 tb0 in
+          let tree1 = domain_difference ta1 tb1 in
+          branch ~prefix:pa ~branching_bit:ma ~tree0 ~tree1
+        else if branches_before pa ma pb mb
+        then if (ma :> int) land (pb :> int) == 0
+          then branch ~prefix:pa ~branching_bit:ma ~tree0:(domain_difference ta0 tb) ~tree1:ta1
+          else branch ~prefix:pa ~branching_bit:ma ~tree0:ta0 ~tree1:(domain_difference ta1 tb)
+        else if branches_before pb mb pa ma
+        then if (mb :> int) land (pa :> int) == 0
+          then domain_difference ta tb0
+          else domain_difference ta tb1
+        else ta
+
   type 'map polyiter = { f: 'a. 'a Key.t -> ('a,'map) Value.t -> unit } [@@unboxed]
   let rec iter f x = match NODE.view x with
     | Empty -> ()
