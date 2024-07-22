@@ -433,7 +433,7 @@ module type BASE_MAP = sig
         | {{!idempotent_inter}[idempotent_inter f m1 m2]} |    | [y] | [f c z u] |   |
         | {{!idempotent_inter_filter}[idempotent_inter_filter f m1 m2]}{^ \[1\]} |    | [y] | [f c z u] |   |
         | {{!nonidempotent_inter_no_share}[nonidempotent_inter_no_share f m1 m2]} |    | [f b y y] | [f c z u] |   |
-        | {{!difference}[difference f m1 m2]}{^ \[1\]} | [x] | [f b y y] | [f c z u] |   |
+        | {{!difference}[difference f m1 m2]}{^ \[1\]} | [x] |  | [f c z u] |   |
         | {{!symmetric_difference}[symmetric_difference f m1 m2]}{^ \[1\]} | [x] |  | [f c z u] | [v] |
       }
       {b \[1\]}: Here [f] returns an optional value, returning [None] removes the binding.
@@ -506,17 +506,17 @@ module type BASE_MAP = sig
 
       @since 0.11.0 *)
 
-  val difference: ('a, 'b) polydifference -> 'a t -> 'b t -> 'a t
+  val difference: ('a, 'a) polydifference -> 'a t -> 'a t -> 'a t
   (** [difference f map1 map2] returns the map containing the bindings of [map1]
       that aren't in [map2]. For keys present in both maps but with different
       values, [f.f] is called. If it returns [Some v], then binding [k,v] is kept,
       else [k] is dropped.
 
+      {b Assumes} [f.f] is [None] on the diagonal: [f.f k v v = None].
       [f.f] is called in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
+      [f.f] is never called on physically equal values.
 
       @since 0.11.0 *)
-
-
 
   (** {1 Conversion functions} *)
 
@@ -604,8 +604,8 @@ module type HETEROGENEOUS_MAP = sig
 
         [f.f] is called in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
 
-        This is the same as {!BASE_MAP.difference}
-        but allows the second map to be of a different type.
+        This is the same as {!BASE_MAP.difference} but allows the second map to
+        be of a different type.
 
         @since 0.11.0 *)
   end
@@ -1225,13 +1225,14 @@ module type MAP_WITH_VALUE = sig
 
       @since 0.11.0 *)
 
-  val difference: (key -> 'a value -> 'b value -> 'a value option) -> 'a t -> 'b t -> 'a t
+  val difference: (key -> 'a value -> 'a value -> 'a value option) -> 'a t -> 'a t -> 'a t
   (** [difference f map1 map2] returns a map comprising of the bindings
       of [map1] which aren't in [map2]. For keys present in both maps but with different
       values, [f] is called. If it returns [Some v], then binding [k,v] is kept,
       else [k] is dropped.
 
-      [f.f] is called in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
+      {b Assumes} [f] is none on equal values (i.e. [f key value value == None])
+      [f] is called in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
 
       @since 0.11.0 *)
 

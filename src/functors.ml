@@ -653,29 +653,34 @@ module MakeCustomHeterogeneousMap
         else join (pa :> int) ta (pb :> int) tb
 
   let rec difference (f: (_,_) polydifference) ta tb =
-      match NODE.view ta, NODE.view tb with
-      | Empty, _ | _, Empty -> ta
-      | Leaf{key;value=va},_ -> (try let vb = find key tb in
-            match f.f key va vb with
-            | None -> empty
-            | Some v -> if v == va then ta else leaf key v
-          with Not_found -> ta)
-      | _,Leaf{key;value} -> update key (function None -> None | Some v -> f.f key v value) ta
-      | Branch{prefix=pa;branching_bit=ma;tree0=ta0;tree1=ta1},
-        Branch{prefix=pb;branching_bit=mb;tree0=tb0;tree1=tb1} ->
-        if ma == mb && pa == pb then
-          let tree0 = difference f ta0 tb0 in
-          let tree1 = difference f ta1 tb1 in
-          branch ~prefix:pa ~branching_bit:ma ~tree0 ~tree1
-        else if branches_before pa ma pb mb
-        then if (ma :> int) land (pb :> int) == 0
-          then branch ~prefix:pa ~branching_bit:ma ~tree0:(difference f ta0 tb) ~tree1:ta1
-          else branch ~prefix:pa ~branching_bit:ma ~tree0:ta0 ~tree1:(difference f ta1 tb)
-        else if branches_before pb mb pa ma
-        then if (mb :> int) land (pa :> int) == 0
-          then difference f ta tb0
-          else difference f ta tb1
-        else ta
+    if ta == tb then empty else
+    match NODE.view ta, NODE.view tb with
+    | Empty, _ | _, Empty -> ta
+    | Leaf{key;value=va},_ -> (try let vb = find key tb in
+          if va == vb then empty else
+          match f.f key va vb with
+          | None -> empty
+          | Some v -> if v == va then ta else leaf key v
+        with Not_found -> ta)
+    | _,Leaf{key;value} -> update key (function
+        | None -> None
+        | Some v when v == value -> None
+        | Some v -> f.f key v value) ta
+    | Branch{prefix=pa;branching_bit=ma;tree0=ta0;tree1=ta1},
+      Branch{prefix=pb;branching_bit=mb;tree0=tb0;tree1=tb1} ->
+      if ma == mb && pa == pb then
+        let tree0 = difference f ta0 tb0 in
+        let tree1 = difference f ta1 tb1 in
+        branch ~prefix:pa ~branching_bit:ma ~tree0 ~tree1
+      else if branches_before pa ma pb mb
+      then if (ma :> int) land (pb :> int) == 0
+        then branch ~prefix:pa ~branching_bit:ma ~tree0:(difference f ta0 tb) ~tree1:ta1
+        else branch ~prefix:pa ~branching_bit:ma ~tree0:ta0 ~tree1:(difference f ta1 tb)
+      else if branches_before pb mb pa ma
+      then if (mb :> int) land (pa :> int) == 0
+        then difference f ta tb0
+        else difference f ta tb1
+      else ta
 
   type 'map polyiter = { f: 'a. 'a Key.t -> ('a,'map) Value.t -> unit } [@@unboxed]
   let rec iter f x = match NODE.view x with
