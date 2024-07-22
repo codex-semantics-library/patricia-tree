@@ -403,7 +403,7 @@ module type BASE_MAP = sig
       intersection of the keys of [map1] and [map2]. [f.f] is used to combine
       the values a key is mapped in both maps.
 
-      {b Assumes} [f.f] idempotent (i.e. [f key value value == value])
+      {b Assumes} [f.f] idempotent (i.e. [f.f key value value == value])
       [f.f] is called in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
       [f.f] is never called on physically equal values.
       Preserves physical equality as much as possible.
@@ -436,7 +436,7 @@ module type BASE_MAP = sig
       are passed to [f.f]. If [f.f] returns [Some v] then [v] is used as the new value,
       otherwise the binding is dropped.
 
-      {b Assumes} [f.f] is none on equal values (i.e. [f key value value == None])
+      {b Assumes} [f.f] is none on equal values (i.e. [f.f key value value == None])
       [f.f] is called in increasing {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
       [f.f] is never called on physically equal values.
 
@@ -646,7 +646,8 @@ module type HETEROGENEOUS_SET = sig
       Uses the {{!unsigned_lt}unsigned order} on elements. *)
 
   val diff: t -> t -> t
-  (** [diff s1 s2] is the set of all elements of [s1] that aren't in [s2]. *)
+  (** [diff s1 s2] is the set of all elements of [s1] that aren't in [s2].
+      @since 0.11.0 *)
 
   (** {3 Iterators} *)
 
@@ -817,7 +818,8 @@ module type SET = sig
   (** [subset a b] is [true] if all elements of [a] are also in [b]. *)
 
   val diff: t -> t -> t
-  (** [diff s1 s2] is the set of all elements of [s1] that aren't in [s2]. *)
+  (** [diff s1 s2] is the set of all elements of [s1] that aren't in [s2].
+      @since 0.11.0 *)
 
   (** {3 Conversion functions} *)
 
@@ -1134,6 +1136,31 @@ module type MAP_WITH_VALUE = sig
       keys, similarly to the [Map.merge] function.  This funcion has
       to traverse all the bindings in [m1] and [m2]; its complexity is
       O(|m1|+|m2|). Use one of faster functions above if you can. *)
+
+
+  val difference: (key -> 'a value -> 'a value -> 'a value option) -> 'a t -> 'a t -> 'a t
+  (** [difference f map1 map2] returns a map comprising of the bindings
+      of [map1] that aren't in [map2], and the bindings of [map2] that aren't in [map1].
+
+      Bindings that are both in [map1] and [map2], but with non-physically equal values
+      are passed to [f]. If [f] returns [Some v] then [v] is used as the new value,
+      otherwise the binding is dropped.
+
+      {b Assumes} [f] is none on equal values (i.e. [f key value value == None])
+      [f] is called in increasing {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
+      [f] is never called on physically equal values.
+
+      Complexity is [O(log n + d)] where [n] is the size of the maps, and [d] the
+      size of the difference.
+
+      @since 0.11.0 *)
+
+  val domain_difference: 'a t -> 'b t -> 'a t
+  (** [domain_difference map1 map2] returns a map comprising of the bindings
+      of [map1] whose keys aren't in [map2]. It it the same as
+      [filter (fun k _ -> not (mem k map2)) map1], but faster.
+
+      @since 0.11.0 *)
 
   val disjoint : 'a t -> 'a t -> bool
   (** [disjoint a b] is [true] if and only if [a] and [b] have disjoint domains. *)
