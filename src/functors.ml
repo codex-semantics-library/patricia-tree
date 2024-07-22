@@ -612,7 +612,8 @@ module MakeCustomHeterogeneousMap
         else branch ~prefix:pb ~branching_bit:mb ~tree0:(upd_tb tb0) ~tree1:(slow_merge f ta tb1)
       else join (pa :> int) (upd_ta ta) (pb :> int) (upd_tb tb)
 
-  let rec difference (f : (_,_,_) polyinterfilter) ta tb =
+  type ('a, 'b) polydifference = ('a, 'b, 'a) polyinterfilter
+  let rec symmetric_difference (f : (_,_) polydifference) ta tb =
     if ta == tb then empty
     else match NODE.view ta, NODE.view tb with
       | Empty, _ -> tb
@@ -638,6 +639,31 @@ module MakeCustomHeterogeneousMap
         if ma == mb && pa == pb
         (* Same prefix: merge the subtrees *)
         then
+          let tree0 = symmetric_difference f ta0 tb0 in
+          let tree1 = symmetric_difference f ta1 tb1 in
+          branch ~prefix:pa ~branching_bit:ma ~tree0 ~tree1
+        else if branches_before pa ma pb mb
+        then if (ma :> int) land (pb :> int) == 0
+          then branch ~prefix:pa ~branching_bit:ma ~tree0:(symmetric_difference f ta0 tb) ~tree1:ta1
+          else branch ~prefix:pa ~branching_bit:ma ~tree0:ta0 ~tree1:(symmetric_difference f ta1 tb)
+        else if branches_before pb mb pa ma
+        then if (mb :> int) land (pa :> int) == 0
+          then branch ~prefix:pb ~branching_bit:mb ~tree0:(symmetric_difference f ta tb0) ~tree1:tb1
+          else branch ~prefix:pb ~branching_bit:mb ~tree0:tb0 ~tree1:(symmetric_difference f ta tb1)
+        else join (pa :> int) ta (pb :> int) tb
+
+  let rec difference (f: (_,_) polydifference) ta tb =
+      match NODE.view ta, NODE.view tb with
+      | Empty, _ | _, Empty -> ta
+      | Leaf{key;value=va},_ -> (try let vb = find key tb in
+            match f.f key va vb with
+            | None -> empty
+            | Some v -> if v == va then ta else leaf key v
+          with Not_found -> ta)
+      | _,Leaf{key;value} -> update key (function None -> None | Some v -> f.f key v value) ta
+      | Branch{prefix=pa;branching_bit=ma;tree0=ta0;tree1=ta1},
+        Branch{prefix=pb;branching_bit=mb;tree0=tb0;tree1=tb1} ->
+        if ma == mb && pa == pb then
           let tree0 = difference f ta0 tb0 in
           let tree1 = difference f ta1 tb1 in
           branch ~prefix:pa ~branching_bit:ma ~tree0 ~tree1
@@ -647,29 +673,8 @@ module MakeCustomHeterogeneousMap
           else branch ~prefix:pa ~branching_bit:ma ~tree0:ta0 ~tree1:(difference f ta1 tb)
         else if branches_before pb mb pa ma
         then if (mb :> int) land (pa :> int) == 0
-          then branch ~prefix:pb ~branching_bit:mb ~tree0:(difference f ta tb0) ~tree1:tb1
-          else branch ~prefix:pb ~branching_bit:mb ~tree0:tb0 ~tree1:(difference f ta tb1)
-        else join (pa :> int) ta (pb :> int) tb
-
-  let rec domain_difference ta tb =
-      match NODE.view ta, NODE.view tb with
-      | Empty, _ | _, Empty -> ta
-      | Leaf{key;_},_ -> if mem key tb then empty else ta
-      | _,Leaf{key;_} -> remove key ta
-      | Branch{prefix=pa;branching_bit=ma;tree0=ta0;tree1=ta1},
-        Branch{prefix=pb;branching_bit=mb;tree0=tb0;tree1=tb1} ->
-        if ma == mb && pa == pb then
-          let tree0 = domain_difference ta0 tb0 in
-          let tree1 = domain_difference ta1 tb1 in
-          branch ~prefix:pa ~branching_bit:ma ~tree0 ~tree1
-        else if branches_before pa ma pb mb
-        then if (ma :> int) land (pb :> int) == 0
-          then branch ~prefix:pa ~branching_bit:ma ~tree0:(domain_difference ta0 tb) ~tree1:ta1
-          else branch ~prefix:pa ~branching_bit:ma ~tree0:ta0 ~tree1:(domain_difference ta1 tb)
-        else if branches_before pb mb pa ma
-        then if (mb :> int) land (pa :> int) == 0
-          then domain_difference ta tb0
-          else domain_difference ta tb1
+          then difference f ta tb0
+          else difference f ta tb1
         else ta
 
   type 'map polyiter = { f: 'a. 'a Key.t -> ('a,'map) Value.t -> unit } [@@unboxed]
@@ -970,27 +975,32 @@ module MakeCustomHeterogeneousMap
           else update_multiple_from_inter_with_foreign tb1 f ta
         else ta
 
-    let rec domain_difference ta tb =
+    type ('map1, 'map2) polydifference = ('map1,'map2) polyupdate_multiple_inter
+    let rec difference f ta tb =
       match NODE.view ta, Map2.view tb with
       | Empty, _
       | _, Empty -> ta
-      | Leaf{key;_},_ -> (if Map2.mem key tb then empty else ta)
-      | _,Leaf{key;_} -> remove key ta
+      | Leaf{key;value=va},_ -> (try let vb = Map2.find key tb in
+            match f.f key va vb with
+            | None -> empty
+            | Some v -> if v == va then ta else leaf key v
+          with Not_found -> ta)
+      | _,Leaf{key;value} -> update key (function None -> None | Some v -> f.f key v value) ta
       | Branch{prefix=pa;branching_bit=ma;tree0=ta0;tree1=ta1},
         Branch{prefix=pb;branching_bit=mb;tree0=tb0;tree1=tb1} ->
         if ma == mb && pa == pb
         then
-          let tree0 = domain_difference ta0 tb0 in
-          let tree1 = domain_difference ta1 tb1 in
+          let tree0 = difference f ta0 tb0 in
+          let tree1 = difference f ta1 tb1 in
           branch ~prefix:pa ~branching_bit:ma ~tree0 ~tree1
         else if branches_before pa ma pb mb
         then if (ma :> int) land (pb :> int) == 0
-          then branch ~prefix:pa ~branching_bit:ma ~tree0:(domain_difference ta0 tb) ~tree1:ta1
-          else branch ~prefix:pa ~branching_bit:ma ~tree0:ta0 ~tree1:(domain_difference ta1 tb)
+          then branch ~prefix:pa ~branching_bit:ma ~tree0:(difference f ta0 tb) ~tree1:ta1
+          else branch ~prefix:pa ~branching_bit:ma ~tree0:ta0 ~tree1:(difference f ta1 tb)
         else if branches_before pb mb pa ma
         then if (mb :> int) land (pa :> int) == 0
-          then domain_difference ta tb0
-          else domain_difference ta tb1
+          then difference f ta tb0
+          else difference f ta tb1
         else ta
   end
 
@@ -1067,7 +1077,7 @@ module MakeCustomHeterogeneousSet
 
   let equal t1 t2 = BaseMap.reflexive_same_domain_for_all2 {f=fun _ _ _ -> true} t1 t2
   let subset t1 t2 = BaseMap.reflexive_subset_domain_for_all2 {f=fun _ _ _ -> true} t1 t2
-  let diff = BaseMap.domain_difference
+  let diff = BaseMap.difference { f = fun _ () () -> None }
 
   let split k m = let (l, present, r) = BaseMap.split k m in
     (l, Option.is_some present, r)
@@ -1159,7 +1169,8 @@ module MakeCustomMap
   let reflexive_subset_domain_for_all2 (f: key -> 'a value -> 'a value -> bool) a b =
     BaseMap.reflexive_subset_domain_for_all2 {f=fun k (Snd v1) (Snd v2) -> f k v1 v2} a b
   let slow_merge (f : key -> 'a value option -> 'b value option -> 'c value option) a b = BaseMap.slow_merge {f=fun k v1 v2 -> snd_opt (f k (opt_snd v1) (opt_snd v2))} a b
-  let difference (f: key -> 'a value -> 'a value -> 'a value option) a b = BaseMap.difference {f=fun k (Snd v1) (Snd v2) -> snd_opt (f k v1 v2)} a b
+  let symmetric_difference (f: key -> 'a value -> 'a value -> 'a value option) a b = BaseMap.symmetric_difference {f=fun k (Snd v1) (Snd v2) -> snd_opt (f k v1 v2)} a b
+  let difference (f: key -> 'a value -> 'b value -> 'a value option) a b = BaseMap.difference { f=fun k (Snd v1) (Snd v2) -> snd_opt (f k v1 v2) } a b
   let iter (f: key -> 'a value -> unit) a = BaseMap.iter {f=fun k (Snd v) -> f k v} a
   let fold (f: key -> 'a value -> 'acc -> 'acc) m acc = BaseMap.fold {f=fun k (Snd v) acc -> f k v acc} m acc
   let fold_on_nonequal_inter (f: key -> 'a value -> 'a value -> 'acc -> 'acc) ma mb acc =
@@ -1185,18 +1196,21 @@ module MakeCustomMap
       BaseForeign.filter_map_no_share { f=fun k v-> snd_opt (f.f k v)} m2
 
 
-  type ('value,'map2) polyinter_foreign =
-    { f: 'a. 'a Map2.key -> 'value value -> ('a, 'map2) Map2.value -> 'value value } [@@unboxed]
-  let nonidempotent_inter f m1 m2 =
-    BaseForeign.nonidempotent_inter {f = fun k (Snd v) v2 -> Snd (f.f k v v2)} m1 m2
+    type ('value,'map2) polyinter_foreign =
+      { f: 'a. 'a Map2.key -> 'value value -> ('a, 'map2) Map2.value -> 'value value } [@@unboxed]
+    let nonidempotent_inter f m1 m2 =
+      BaseForeign.nonidempotent_inter {f = fun k (Snd v) v2 -> Snd (f.f k v v2)} m1 m2
 
-  type ('map1,'map2) polyupdate_multiple = { f: 'a. key -> 'map1 value option -> ('a,'map2) Map2.value -> 'map1 value option } [@@unboxed]
-  let update_multiple_from_foreign m2 f m =
-    BaseForeign.update_multiple_from_foreign m2 {f = fun k v1 v2 -> snd_opt (f.f k (opt_snd v1) v2)} m
+    type ('map1,'map2) polyupdate_multiple = { f: 'a. key -> 'map1 value option -> ('a,'map2) Map2.value -> 'map1 value option } [@@unboxed]
+    let update_multiple_from_foreign m2 f m =
+      BaseForeign.update_multiple_from_foreign m2 {f = fun k v1 v2 -> snd_opt (f.f k (opt_snd v1) v2)} m
 
-  type ('map1,'map2) polyupdate_multiple_inter = { f: 'a. key -> 'map1 value -> ('a,'map2) Map2.value -> 'map1 value option } [@@unboxed]
-  let update_multiple_from_inter_with_foreign m2 f m =
-    BaseForeign.update_multiple_from_inter_with_foreign m2 {f = fun k (Snd v1) v2 -> snd_opt (f.f k v1 v2)} m
+    type ('map1,'map2) polyupdate_multiple_inter = { f: 'a. key -> 'map1 value -> ('a,'map2) Map2.value -> 'map1 value option } [@@unboxed]
+    let update_multiple_from_inter_with_foreign m2 f m =
+      BaseForeign.update_multiple_from_inter_with_foreign m2 {f = fun k (Snd v1) v2 -> snd_opt (f.f k v1 v2)} m
+
+    type ('map1, 'map2) polydifference = ('map1,'map2) polyupdate_multiple_inter
+    let difference f m1 m2 = BaseForeign.difference {f=fun k (Snd v) v2 -> snd_opt (f.f k v v2) } m1 m2
   end
 
   let to_seq m = Seq.map (fun (KeyValue(key,Snd value)) -> (key,value)) (BaseMap.to_seq m)

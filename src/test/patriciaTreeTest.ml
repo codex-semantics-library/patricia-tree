@@ -226,7 +226,7 @@ module IntMap = struct
         | None, _ | _, None -> None
         | Some a, Some b -> Some (f key a b)) m1 m2
 
-  let difference f m1 m2 =
+  let symmetric_difference f m1 m2 =
     M.merge (fun key a b ->
       match a, b with
       | None, x | x, None -> x
@@ -234,7 +234,7 @@ module IntMap = struct
       | Some a, Some b -> f key a b
       ) m1 m2
 
-  let domain_difference m1 m2 = filter (fun k _ -> not (mem k m2)) m1
+  let difference m1 m2 = filter (fun k _ -> not (mem k m2)) m1
 
   let update_multiple_from_foreign m1 m2 f =
     M.merge (fun key a b ->
@@ -646,14 +646,14 @@ end) = struct
       )
   let () = if Param.test_id then QCheck.Test.check_exn test_id_unique
 
-  let test_difference = QCheck.Test.make ~count:1000 ~name:"difference"
+  let test_difference = QCheck.Test.make ~count:1000 ~name:"symmetric_difference"
     gen (fun x ->
       let (m1,model1,m2,model2) = model_from_gen x in
       let orig_f _ x y = if x=y then None else Some (x+y) in
       let chk_calls = check_increases_and_neq () in
       let f k x y = chk_calls k x y; orig_f k x y in
-      let myres = intmap_of_mymap @@ MyMap.difference f m1 m2 in
-      let modelres = IntMap.difference orig_f model1 model2 in
+      let myres = intmap_of_mymap @@ MyMap.symmetric_difference f m1 m2 in
+      let modelres = IntMap.symmetric_difference orig_f model1 model2 in
       IntMap.equal (=) modelres myres
       (* if not b then
         Format.printf "[%a] diff [%a] is [%a] or [%a]@."
@@ -664,11 +664,11 @@ end) = struct
   let () = QCheck.Test.check_exn test_difference
 
 
-  let test_domain_difference = QCheck.Test.make ~count:1000 ~name:"domain_difference"
+  let test_domain_difference = QCheck.Test.make ~count:1000 ~name:"difference"
     gen (fun x ->
       let (m1,model1,m2,model2) = model_from_gen x in
-      let myres = intmap_of_mymap @@ MyMap.domain_difference m1 m2 in
-      let modelres = IntMap.domain_difference model1 model2 in
+      let myres = intmap_of_mymap @@ MyMap.difference m1 m2 in
+      let modelres = IntMap.difference model1 model2 in
       IntMap.equal (=) modelres myres)
   let () = QCheck.Test.check_exn test_difference
 end

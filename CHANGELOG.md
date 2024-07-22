@@ -1,6 +1,7 @@
 # v0.11.0 - Unreleased
 
-- Add `difference`, `domain_difference` and `diff` functions
+- Add `difference` and `symmetric_difference` function to maps (and add `difference` to `WithForeign`)
+- Add `diff` functions to sets
 - Internal refactor.
 
 # v0.10.0 - 2024-06-01

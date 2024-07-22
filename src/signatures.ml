@@ -428,8 +428,9 @@ module type BASE_MAP = sig
   val slow_merge : ('map1, 'map2, 'map3) polymerge -> 'map1 t -> 'map2 t -> 'map3 t
   (** This is the same as {{: https://ocaml.org/api/Map.S.html#VALmerge}Stdlib.Map.S.merge} *)
 
-  val difference: ('a, 'a, 'a) polyinterfilter -> 'a t -> 'a t -> 'a t
-  (** [difference f map1 map2] returns a map comprising of the bindings
+  type ('a, 'b) polydifference = ('a, 'b, 'a) polyinterfilter
+  val symmetric_difference: ('a, 'a) polydifference -> 'a t -> 'a t -> 'a t
+  (** [symmetric_difference f map1 map2] returns a map comprising of the bindings
       of [map1] that aren't in [map2], and the bindings of [map2] that aren't in [map1].
 
       Bindings that are both in [map1] and [map2], but with non-physically equal values
@@ -445,8 +446,8 @@ module type BASE_MAP = sig
 
       @since 0.11.0 *)
 
-  val domain_difference: 'a t -> 'b t -> 'a t
-  (** [domain_difference map1 map2] returns a map comprising of the bindings
+  val difference: ('a, 'b) polydifference -> 'a t -> 'b t -> 'a t
+  (** [difference map1 map2] returns a map comprising of the bindings
       of [map1] whose keys aren't in [map2]. It it the same as
       [filter (fun k _ -> not (mem k map2)) map1], but faster.
 
@@ -532,9 +533,10 @@ module type HETEROGENEOUS_MAP = sig
         keys in [m_from], it only updates for keys that are both in [m_from] and
         [m_to]. *)
 
-    val domain_difference: 'a t -> 'b Map2.t -> 'a t
-    (** [domain_difference map1 map2], returns the map containing the keys of [map1]
-        that aren't in [map2]. This is the same as {!BASE_MAP.domain_difference}
+    type ('map1, 'map2) polydifference = ('map1,'map2) polyupdate_multiple_inter
+    val difference: ('a,'b) polydifference -> 'a t -> 'b Map2.t -> 'a t
+    (** [difference map1 map2], returns the map containing the keys of [map1]
+        that aren't in [map2]. This is the same as {!BASE_MAP.difference}
         but allows the second map to be of a different type.
 
         @since 0.11.0 *)
@@ -1140,8 +1142,8 @@ module type MAP_WITH_VALUE = sig
       O(|m1|+|m2|). Use one of faster functions above if you can. *)
 
 
-  val difference: (key -> 'a value -> 'a value -> 'a value option) -> 'a t -> 'a t -> 'a t
-  (** [difference f map1 map2] returns a map comprising of the bindings
+  val symmetric_difference: (key -> 'a value -> 'a value -> 'a value option) -> 'a t -> 'a t -> 'a t
+  (** [symmetric_difference f map1 map2] returns a map comprising of the bindings
       of [map1] that aren't in [map2], and the bindings of [map2] that aren't in [map1].
 
       Bindings that are both in [map1] and [map2], but with non-physically equal values
@@ -1157,8 +1159,8 @@ module type MAP_WITH_VALUE = sig
 
       @since 0.11.0 *)
 
-  val domain_difference: 'a t -> 'b t -> 'a t
-  (** [domain_difference map1 map2] returns a map comprising of the bindings
+  val difference: (key -> 'a value -> 'b value -> 'a value option) -> 'a t -> 'b t -> 'a t
+  (** [difference map1 map2] returns a map comprising of the bindings
       of [map1] whose keys aren't in [map2]. It it the same as
       [filter (fun k _ -> not (mem k map2)) map1], but faster.
 
@@ -1200,6 +1202,14 @@ module type MAP_WITH_VALUE = sig
         {!update_multiple_from_foreign}, except that instead of updating for all
         keys in [m_from], it only updates for keys that are both in [m_from] and
         [m_to]. *)
+
+    type ('map1, 'map2) polydifference = ('map1,'map2) polyupdate_multiple_inter
+    val difference: ('a,'b) polydifference -> 'a t -> 'b Map2.t -> 'a t
+    (** [difference map1 map2], returns the map containing the keys of [map1]
+        that aren't in [map2]. This is the same as {!BASE_MAP.difference}
+        but allows the second map to be of a different type.
+
+        @since 0.11.0 *)
   end
 
   val pretty :
