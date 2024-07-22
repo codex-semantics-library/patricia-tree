@@ -234,7 +234,11 @@ module IntMap = struct
       | Some a, Some b -> f key a b
       ) m1 m2
 
-  let difference m1 m2 = filter (fun k _ -> not (mem k m2)) m1
+  let difference f m1 m2 = filter_map (fun k v ->
+    match find_opt k m2 with
+    | None -> Some v
+    | Some v' -> f k v v'
+    ) m1
 
   let update_multiple_from_foreign m1 m2 f =
     M.merge (fun key a b ->
@@ -667,8 +671,11 @@ end) = struct
   let test_domain_difference = QCheck.Test.make ~count:1000 ~name:"difference"
     gen (fun x ->
       let (m1,model1,m2,model2) = model_from_gen x in
-      let myres = intmap_of_mymap @@ MyMap.difference m1 m2 in
-      let modelres = IntMap.difference model1 model2 in
+      let orig_f _ x y = if x=y then None else Some (x+y) in
+      let chk_calls = check_increases_and_neq () in
+      let f k x y = chk_calls k x y; orig_f k x y in
+      let myres = intmap_of_mymap @@ MyMap.difference f m1 m2 in
+      let modelres = IntMap.difference orig_f model1 model2 in
       IntMap.equal (=) modelres myres)
   let () = QCheck.Test.check_exn test_difference
 end
