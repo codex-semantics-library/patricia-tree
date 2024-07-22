@@ -447,9 +447,12 @@ module type BASE_MAP = sig
       @since 0.11.0 *)
 
   val difference: ('a, 'b) polydifference -> 'a t -> 'b t -> 'a t
-  (** [difference map1 map2] returns a map comprising of the bindings
-      of [map1] whose keys aren't in [map2]. It it the same as
-      [filter (fun k _ -> not (mem k map2)) map1], but faster.
+  (** [difference f map1 map2] returns the map containing the bindings of [map1]
+      that aren't in [map2]. For keys present in both maps but with different
+      values, [f.f] is called. If it returns [Some v], then binding [k,v] is kept,
+      else [k] is dropped.
+
+      [f.f] is called in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
 
       @since 0.11.0 *)
 
@@ -535,8 +538,14 @@ module type HETEROGENEOUS_MAP = sig
 
     type ('map1, 'map2) polydifference = ('map1,'map2) polyupdate_multiple_inter
     val difference: ('a,'b) polydifference -> 'a t -> 'b Map2.t -> 'a t
-    (** [difference map1 map2], returns the map containing the keys of [map1]
-        that aren't in [map2]. This is the same as {!BASE_MAP.difference}
+    (** [difference f map1 map2] returns the map containing the bindings of [map1]
+        that aren't in [map2]. For keys present in both maps but with different
+        values, [f.f] is called. If it returns [Some v], then binding [k,v] is kept,
+        else [k] is dropped.
+
+        [f.f] is called in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
+
+        This is the same as {!BASE_MAP.difference}
         but allows the second map to be of a different type.
 
         @since 0.11.0 *)
@@ -1160,9 +1169,12 @@ module type MAP_WITH_VALUE = sig
       @since 0.11.0 *)
 
   val difference: (key -> 'a value -> 'b value -> 'a value option) -> 'a t -> 'b t -> 'a t
-  (** [difference map1 map2] returns a map comprising of the bindings
-      of [map1] whose keys aren't in [map2]. It it the same as
-      [filter (fun k _ -> not (mem k map2)) map1], but faster.
+  (** [difference f map1 map2] returns a map comprising of the bindings
+      of [map1] which aren't in [map2]. For keys present in both maps but with different
+      values, [f] is called. If it returns [Some v], then binding [k,v] is kept,
+      else [k] is dropped.
+
+      [f.f] is called in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
 
       @since 0.11.0 *)
 
@@ -1205,9 +1217,14 @@ module type MAP_WITH_VALUE = sig
 
     type ('map1, 'map2) polydifference = ('map1,'map2) polyupdate_multiple_inter
     val difference: ('a,'b) polydifference -> 'a t -> 'b Map2.t -> 'a t
-    (** [difference map1 map2], returns the map containing the keys of [map1]
-        that aren't in [map2]. This is the same as {!BASE_MAP.difference}
-        but allows the second map to be of a different type.
+    (** [difference f map1 map2] returns the map containing the bindings of [map1]
+        that aren't in [map2]. For keys present in both maps but with different
+        values, [f.f] is called. If it returns [Some v], then binding [k,v] is kept,
+        else [k] is dropped.
+
+        [f.f] is called in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
+        This is the same as {!MAP_WITH_VALUE.difference}, but allows the second
+        map to be of a different type.
 
         @since 0.11.0 *)
   end
