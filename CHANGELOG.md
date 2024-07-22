@@ -1,6 +1,7 @@
 # v0.11.0 - Unreleased
 
-No public changes yet, but internal refactors.
+- Add `difference`, `domain_difference` and `diff` functions
+- Internal refactor.
 
 # v0.10.0 - 2024-06-01
 
