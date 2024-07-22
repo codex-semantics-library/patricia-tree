@@ -619,20 +619,20 @@ module MakeCustomHeterogeneousMap
       | _, Empty -> ta
       | Leaf{key;value},_ ->
         (try let res = find key tb in
-            if res == value then remove key ta else
-            match (f.f key value res) with
-            | Some v when v == res -> ta
-            | Some v -> add key v ta
-            | None -> remove key ta
-          with Not_found -> add key value ta)
-      | _,Leaf{key;value} ->
-        (try let res = find key ta in
             if res == value then remove key tb else
-            match f.f key res value with
+            match (f.f key value res) with
             | Some v when v == res -> tb
             | Some v -> add key v tb
             | None -> remove key tb
           with Not_found -> add key value tb)
+      | _,Leaf{key;value} ->
+        (try let res = find key ta in
+            if res == value then remove key ta else
+            match f.f key res value with
+            | Some v when v == res -> ta
+            | Some v -> add key v ta
+            | None -> remove key ta
+          with Not_found -> add key value ta)
       | Branch{prefix=pa;branching_bit=ma;tree0=ta0;tree1=ta1},
         Branch{prefix=pb;branching_bit=mb;tree0=tb0;tree1=tb1} ->
         if ma == mb && pa == pb

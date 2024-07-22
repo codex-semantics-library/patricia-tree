@@ -226,6 +226,16 @@ module IntMap = struct
         | None, _ | _, None -> None
         | Some a, Some b -> Some (f key a b)) m1 m2
 
+  let difference f m1 m2 =
+    M.merge (fun key a b ->
+      match a, b with
+      | None, x | x, None -> x
+      | Some a, Some b when a == b -> None
+      | Some a, Some b -> f key a b
+      ) m1 m2
+
+  let domain_difference m1 m2 = filter (fun k _ -> not (mem k m2)) m1
+
   let update_multiple_from_foreign m1 m2 f =
     M.merge (fun key a b ->
         match a, b with
@@ -396,7 +406,7 @@ end) = struct
           IntValue.pretty v1 IntValue.pretty v2
     in f
 
- let test_map_filter = QCheck.Test.make ~count:1000 ~name:"map_filter"
+  let test_map_filter = QCheck.Test.make ~count:1000 ~name:"map_filter"
       QCheck.(small_list (pair number_gen number_gen)) (fun x ->
           let m1 = extend_map MyMap.empty x in
           let model1 = intmap_of_mymap m1 in
@@ -597,10 +607,11 @@ end) = struct
       modelres == myres)
   let () = QCheck.Test.check_exn test_fold_on_nonequal_union
 
+  let _pp_l fmt = Format.pp_print_list ~pp_sep:(fun fmt () -> Format.fprintf fmt "; ")
+    (fun fmt (k,l) -> Format.fprintf fmt "(%x, %x)" k l) fmt
+
   let%test "negative_keys" =
     let map = MyMap.add 0 0 MyMap.empty in
-    let _pp_l fmt = Format.pp_print_list ~pp_sep:(fun fmt () -> Format.fprintf fmt "; ")
-      (fun fmt (k,l) -> Format.fprintf fmt "(%x, %x)" k l) fmt in
     let map2 = MyMap.add min_int 5 map in
     let map3 = MyMap.add max_int 8 map2 in
     let map4 = MyMap.add 25 8 map2 in
@@ -634,6 +645,32 @@ end) = struct
       MyMap.empty == remove_map m one
       )
   let () = if Param.test_id then QCheck.Test.check_exn test_id_unique
+
+  let test_difference = QCheck.Test.make ~count:1000 ~name:"difference"
+    gen (fun x ->
+      let (m1,model1,m2,model2) = model_from_gen x in
+      let orig_f _ x y = if x=y then None else Some (x+y) in
+      let chk_calls = check_increases_and_neq () in
+      let f k x y = chk_calls k x y; orig_f k x y in
+      let myres = intmap_of_mymap @@ MyMap.difference f m1 m2 in
+      let modelres = IntMap.difference orig_f model1 model2 in
+      IntMap.equal (=) modelres myres
+      (* if not b then
+        Format.printf "[%a] diff [%a] is [%a] or [%a]@."
+        _pp_l (MyMap.to_list m1) _pp_l (MyMap.to_list m2) _pp_l (List.of_seq (IntMap.to_seq myres))
+        _pp_l (List.of_seq (IntMap.to_seq modelres));
+        b *)
+      )
+  let () = QCheck.Test.check_exn test_difference
+
+
+  let test_domain_difference = QCheck.Test.make ~count:1000 ~name:"domain_difference"
+    gen (fun x ->
+      let (m1,model1,m2,model2) = model_from_gen x in
+      let myres = intmap_of_mymap @@ MyMap.domain_difference m1 m2 in
+      let modelres = IntMap.domain_difference model1 model2 in
+      IntMap.equal (=) modelres myres)
+  let () = QCheck.Test.check_exn test_difference
 end
 
 module MyMap = MakeMap(HIntKey)
