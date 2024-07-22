@@ -643,7 +643,7 @@ module type HETEROGENEOUS_SET = sig
   (** Existential wrapper for set elements. *)
   type any_elt = Any : 'a elt -> any_elt
 
-  (** {3 Basic functions} *)
+  (** {1 Basic functions} *)
 
   val empty: t
   (** The empty set *)
@@ -692,7 +692,7 @@ module type HETEROGENEOUS_SET = sig
       if [s] is non empty.
       Uses the {{!unsigned_lt}unsigned order} on elements. *)
 
-  (** {3 Functions on pairs of sets} *)
+  (** {1 Functions on pairs of sets} *)
 
   val union: t -> t -> t
   (** [union a b] is the set union of [a] and [b], i.e. the set containing all
@@ -721,7 +721,7 @@ module type HETEROGENEOUS_SET = sig
   (** [diff s1 s2] is the set of all elements of [s1] that aren't in [s2].
       @since 0.11.0 *)
 
-  (** {3 Iterators} *)
+  (** {1 Iterators} *)
 
   type polyiter = { f: 'a. 'a elt -> unit; } [@@unboxed]
   val iter: polyiter -> t -> unit
@@ -748,7 +748,7 @@ module type HETEROGENEOUS_SET = sig
   (** Pretty prints the set, [pp_sep] is called once between each element,
       it defaults to {{: https://v2.ocaml.org/api/Format.html#VALpp_print_cut}[Format.pp_print_cut]} *)
 
-  (** {3 Conversion functions} *)
+  (** {1 Conversion functions} *)
 
   val to_seq : t -> any_elt Seq.t
   (** [to_seq st] iterates the whole set, in increasing {{!unsigned_lt}unsigned order} of {!KEY.to_int} *)
@@ -793,7 +793,7 @@ module type SET = sig
   type t = unit BaseMap.t
   (** The set type *)
 
-  (** {3 Basic functions}                         *)
+  (** {1 Basic functions}                         *)
 
   val empty: t
   (** The empty set *)
@@ -840,7 +840,7 @@ module type SET = sig
       if [s] is non empty.
       Uses the {{!unsigned_lt}unsigned order} on {!KEY.to_int}. *)
 
-  (** {3 Iterators} *)
+  (** {1 Iterators} *)
 
   val iter: (elt -> unit) -> t -> unit
   (** [iter f set] calls [f] on all elements of [set], in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
@@ -870,7 +870,7 @@ module type SET = sig
   (** Pretty prints the set, [pp_sep] is called once between each element,
       it defaults to {{: https://v2.ocaml.org/api/Format.html#VALpp_print_cut}[Format.pp_print_cut]} *)
 
-  (** {3 Functions on pairs of sets} *)
+  (** {1 Functions on pairs of sets} *)
 
   val union: t -> t -> t
   (** [union a b] is the set union of [a] and [b], i.e. the set containing all
@@ -893,7 +893,7 @@ module type SET = sig
   (** [diff s1 s2] is the set of all elements of [s1] that aren't in [s2].
       @since 0.11.0 *)
 
-  (** {3 Conversion functions} *)
+  (** {1 Conversion functions} *)
 
   val to_seq : t -> elt Seq.t
   (** [to_seq st] iterates the whole set, in increasing {{!unsigned_lt}unsigned order} of {!KEY.to_int} *)
@@ -956,7 +956,7 @@ module type MAP_WITH_VALUE = sig
     and type _ key = key
     and type ('a,'b) value = ('a,'b value) snd
 
-  (** {3 Basic functions} *)
+  (** {1 Basic functions} *)
 
   val empty : 'a t
   (** The empty map. *)
@@ -1028,7 +1028,7 @@ module type MAP_WITH_VALUE = sig
       whether the old value existed). O(log(n)) complexity.
       Preserves physical equality if the new value is physically equal to the old. *)
 
-  (** {3 Iterators} *)
+  (** {1 Iterators} *)
 
   val split : key -> 'a t -> 'a t * 'a value option * 'a t
   (** [split key map] splits the map into:
@@ -1119,12 +1119,12 @@ module type MAP_WITH_VALUE = sig
       [f] is called in increasing {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
 
 
-  (** {3 Operations on pairs of maps} *)
+  (** {1 Operations on pairs of maps} *)
   (** See {{!BASE_MAP.functions_on_pairs}the same section for [BASE_MAP]} for
       an overview of what these functions do, and a quick overview of the differences
       between them. *)
 
-  (** {4 Comparing two maps} *)
+  (** {2 Comparing two maps} *)
   (** Equality, inclusion and test for disjoint maps. *)
 
   val reflexive_same_domain_for_all2 : (key -> 'a value -> 'a value -> bool) -> 'a t -> 'a t ->  bool
@@ -1155,7 +1155,7 @@ module type MAP_WITH_VALUE = sig
   val disjoint : 'a t -> 'a t -> bool
   (** [disjoint a b] is [true] if and only if [a] and [b] have disjoint domains. *)
 
-  (** {4 Combining two maps} *)
+  (** {2 Combining two maps} *)
   (** Union, intersection, difference...
       See {{!BASE_MAP.combining_maps}the same section in [BASE_MAP]} for a table showcasing
       the differences between them. *)
@@ -1293,7 +1293,7 @@ module type MAP_WITH_VALUE = sig
   (** Pretty prints all bindings of the map.
       [pp_sep] is called once between each binding pair and defaults to {{: https://v2.ocaml.org/api/Format.html#VALpp_print_cut}[Format.pp_print_cut]}. *)
 
-  (** {3 Conversion functions} *)
+  (** {1 Conversion functions} *)
 
   val to_seq : 'a t -> (key * 'a value) Seq.t
   (** [to_seq m] iterates the whole map, in increasing {{!unsigned_lt}unsigned order} of {!KEY.to_int} *)
