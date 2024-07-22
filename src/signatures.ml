@@ -531,6 +531,11 @@ module type HETEROGENEOUS_MAP = sig
         {!update_multiple_from_foreign}, except that instead of updating for all
         keys in [m_from], it only updates for keys that are both in [m_from] and
         [m_to]. *)
+
+    val domain_difference: 'a t -> 'b Map2.t -> 'a t
+    (** [domain_difference map1 map2], returns the map containing the keys of [map1]
+        that aren't in [map2]. This is the same as {!BASE_MAP.domain_difference}
+        but allows the second map to be of a different type. *)
   end
 end
 

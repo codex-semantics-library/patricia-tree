@@ -870,108 +870,131 @@ module MakeCustomHeterogeneousMap
           else nonidempotent_inter f ta tb1
         else NODE.empty
 
-  type ('map2,'map1) polyfilter_map_foreign = { f: 'a. 'a Key.t -> ('a,'map2) Map2.value -> ('a,'map1) value option } [@@unboxed]
-  let rec filter_map_no_share (f:('b,'c) polyfilter_map_foreign) m = match Map2.view m with
-    | Empty -> empty
-    | Leaf{key;value} -> (match (f.f key value) with Some v -> leaf key v | None -> empty)
-    | Branch{prefix;branching_bit;tree0;tree1} ->
-        let tree0 = filter_map_no_share f tree0 in
-        let tree1 = filter_map_no_share f tree1 in
-        branch ~prefix ~branching_bit ~tree0 ~tree1
+    type ('map2,'map1) polyfilter_map_foreign = { f: 'a. 'a Key.t -> ('a,'map2) Map2.value -> ('a,'map1) value option } [@@unboxed]
+    let rec filter_map_no_share (f:('b,'c) polyfilter_map_foreign) m = match Map2.view m with
+      | Empty -> empty
+      | Leaf{key;value} -> (match (f.f key value) with Some v -> leaf key v | None -> empty)
+      | Branch{prefix;branching_bit;tree0;tree1} ->
+          let tree0 = filter_map_no_share f tree0 in
+          let tree1 = filter_map_no_share f tree1 in
+          branch ~prefix ~branching_bit ~tree0 ~tree1
 
-  (** Add all the bindings in tb to ta (after transformation).  *)
-  type ('map1,'map2) polyupdate_multiple = { f: 'a. 'a Key.t -> ('a,'map1) value option -> ('a,'map2) Map2.value -> ('a,'map1) value option } [@@unboxed]
-  let rec update_multiple_from_foreign (tb:'map2 Map2.t) f (ta:'map1 t) =
-    let upd_tb tb = filter_map_no_share {f=fun key value -> f.f key None value} tb in
-    match NODE.view ta,Map2.view tb with
-    | Empty, _ -> upd_tb tb
-    | _, Empty -> ta
-    | _,Leaf{key;value} -> update key (fun maybeval -> f.f key maybeval value) ta
-    | Leaf{key;value},_ ->
-      let found = ref false in
-      let f: type a. a key -> (a,'map2) Map2.value -> (a,'map1) value option =
-        fun curkey curvalue ->
-          match Key.polyeq key curkey with
-          | Eq -> found := true; f.f curkey (Some value) curvalue
-          | Diff -> f.f curkey None curvalue
-      in
-      let res = filter_map_no_share {f} tb in
-      if !found then res
-      else add key value res
-    | Branch{prefix=pa;branching_bit=ma;tree0=ta0;tree1=ta1},
-      Branch{prefix=pb;branching_bit=mb;tree0=tb0;tree1=tb1} ->
-      if ma == mb && pa == pb
-      (* Same prefix: merge the subtrees *)
-      then
-        let tree0 = update_multiple_from_foreign tb0 f ta0 in
-        let tree1 = update_multiple_from_foreign tb1 f ta1 in
-        if tree0 == ta0 && tree1 == ta1 then ta
-        else branch ~prefix:pa ~branching_bit:ma ~tree0 ~tree1
-      else if branches_before pa ma pb mb
-      then if (ma :> int) land (pb :> int) == 0
+    (** Add all the bindings in tb to ta (after transformation).  *)
+    type ('map1,'map2) polyupdate_multiple = { f: 'a. 'a Key.t -> ('a,'map1) value option -> ('a,'map2) Map2.value -> ('a,'map1) value option } [@@unboxed]
+    let rec update_multiple_from_foreign (tb:'map2 Map2.t) f (ta:'map1 t) =
+      let upd_tb tb = filter_map_no_share {f=fun key value -> f.f key None value} tb in
+      match NODE.view ta,Map2.view tb with
+      | Empty, _ -> upd_tb tb
+      | _, Empty -> ta
+      | _,Leaf{key;value} -> update key (fun maybeval -> f.f key maybeval value) ta
+      | Leaf{key;value},_ ->
+        let found = ref false in
+        let f: type a. a key -> (a,'map2) Map2.value -> (a,'map1) value option =
+          fun curkey curvalue ->
+            match Key.polyeq key curkey with
+            | Eq -> found := true; f.f curkey (Some value) curvalue
+            | Diff -> f.f curkey None curvalue
+        in
+        let res = filter_map_no_share {f} tb in
+        if !found then res
+        else add key value res
+      | Branch{prefix=pa;branching_bit=ma;tree0=ta0;tree1=ta1},
+        Branch{prefix=pb;branching_bit=mb;tree0=tb0;tree1=tb1} ->
+        if ma == mb && pa == pb
+        (* Same prefix: merge the subtrees *)
         then
-          let ta0' = update_multiple_from_foreign tb f ta0 in
-          if ta0' == ta0 then ta
-          else branch ~prefix:pa ~branching_bit:ma ~tree0:ta0' ~tree1:ta1
-        else
-          let ta1' = update_multiple_from_foreign tb f ta1 in
-          if ta1' == ta1 then ta
-          else branch ~prefix:pa ~branching_bit:ma ~tree0:ta0 ~tree1:ta1'
-      else if branches_before pb mb pa ma
-      then if (mb :> int) land (pa :> int) == 0
-        then
-          let tree0 = update_multiple_from_foreign tb0 f ta in
-          let tree1 = upd_tb tb1 in
-          branch ~prefix:pb ~branching_bit:mb ~tree0 ~tree1
-        else
-          let tree0 = upd_tb tb0 in
-          let tree1 = update_multiple_from_foreign tb1 f ta in
-          branch ~prefix:pb ~branching_bit:mb ~tree0 ~tree1
-      else join (pa :> int) ta (pb :> int) (upd_tb tb)
+          let tree0 = update_multiple_from_foreign tb0 f ta0 in
+          let tree1 = update_multiple_from_foreign tb1 f ta1 in
+          if tree0 == ta0 && tree1 == ta1 then ta
+          else branch ~prefix:pa ~branching_bit:ma ~tree0 ~tree1
+        else if branches_before pa ma pb mb
+        then if (ma :> int) land (pb :> int) == 0
+          then
+            let ta0' = update_multiple_from_foreign tb f ta0 in
+            if ta0' == ta0 then ta
+            else branch ~prefix:pa ~branching_bit:ma ~tree0:ta0' ~tree1:ta1
+          else
+            let ta1' = update_multiple_from_foreign tb f ta1 in
+            if ta1' == ta1 then ta
+            else branch ~prefix:pa ~branching_bit:ma ~tree0:ta0 ~tree1:ta1'
+        else if branches_before pb mb pa ma
+        then if (mb :> int) land (pa :> int) == 0
+          then
+            let tree0 = update_multiple_from_foreign tb0 f ta in
+            let tree1 = upd_tb tb1 in
+            branch ~prefix:pb ~branching_bit:mb ~tree0 ~tree1
+          else
+            let tree0 = upd_tb tb0 in
+            let tree1 = update_multiple_from_foreign tb1 f ta in
+            branch ~prefix:pb ~branching_bit:mb ~tree0 ~tree1
+        else join (pa :> int) ta (pb :> int) (upd_tb tb)
 
 
-  (* Map difference: (possibly) remove from ta elements that are in tb, the other are preserved, no element is added. *)
-  type ('map1,'map2) polyupdate_multiple_inter = { f: 'a. 'a Key.t -> ('a,'map1) value -> ('a,'map2) Map2.value -> ('a,'map1) value option } [@@unboxed]
-  let rec update_multiple_from_inter_with_foreign tb f ta =
-    match NODE.view ta, Map2.view tb with
-    | Empty, _ -> ta
-    | _, Empty -> ta
-    | Leaf{key;value},_ ->
-      begin match Map2.find key tb with
-      | exception Not_found -> ta
-      | foundv -> begin
-          match f.f key value foundv with
-          | None -> empty
-          | Some v when v == value -> ta
-          | Some v -> leaf key v
+    (* Map difference: (possibly) remove from ta elements that are in tb, the other are preserved, no element is added. *)
+    type ('map1,'map2) polyupdate_multiple_inter = { f: 'a. 'a Key.t -> ('a,'map1) value -> ('a,'map2) Map2.value -> ('a,'map1) value option } [@@unboxed]
+    let rec update_multiple_from_inter_with_foreign tb f ta =
+      match NODE.view ta, Map2.view tb with
+      | Empty, _ -> ta
+      | _, Empty -> ta
+      | Leaf{key;value},_ ->
+        begin match Map2.find key tb with
+        | exception Not_found -> ta
+        | foundv -> begin
+            match f.f key value foundv with
+            | None -> empty
+            | Some v when v == value -> ta
+            | Some v -> leaf key v
+          end
         end
-      end
-    | _,Leaf{key;value} ->
-      update key (fun v -> match v with None -> None | Some v -> f.f key v value) ta
-    | Branch{prefix=pa;branching_bit=ma;tree0=ta0;tree1=ta1},
-      Branch{prefix=pb;branching_bit=mb;tree0=tb0;tree1=tb1} ->
-      if ma == mb && pa == pb
-      (* Same prefix: merge the subtrees *)
-      then
-        let tree0 = update_multiple_from_inter_with_foreign tb0 f ta0 in
-        let tree1 = update_multiple_from_inter_with_foreign tb1 f ta1 in
-        if tree0 == ta0 && tree1 == ta1 then ta
-        else branch ~prefix:pa ~branching_bit:ma ~tree0 ~tree1
-      else if branches_before pa ma pb mb
-      then if (ma :> int) land (pb :> int) == 0
+      | _,Leaf{key;value} ->
+        update key (fun v -> match v with None -> None | Some v -> f.f key v value) ta
+      | Branch{prefix=pa;branching_bit=ma;tree0=ta0;tree1=ta1},
+        Branch{prefix=pb;branching_bit=mb;tree0=tb0;tree1=tb1} ->
+        if ma == mb && pa == pb
+        (* Same prefix: merge the subtrees *)
         then
-          let ta0' = update_multiple_from_inter_with_foreign tb f ta0 in
-          if ta0' == ta0 then ta
-          else branch ~prefix:pa ~branching_bit:ma ~tree0:ta0' ~tree1:ta1
-        else
-          let ta1' = update_multiple_from_inter_with_foreign tb f ta1 in
-          if ta1' == ta1 then ta
-          else branch ~prefix:pa ~branching_bit:ma ~tree0:ta0 ~tree1:ta1'
-      else if branches_before pb mb pa ma
-      then if (mb :> int) land (pa :> int) == 0
-        then update_multiple_from_inter_with_foreign tb0 f ta
-        else update_multiple_from_inter_with_foreign tb1 f ta
-      else ta
+          let tree0 = update_multiple_from_inter_with_foreign tb0 f ta0 in
+          let tree1 = update_multiple_from_inter_with_foreign tb1 f ta1 in
+          if tree0 == ta0 && tree1 == ta1 then ta
+          else branch ~prefix:pa ~branching_bit:ma ~tree0 ~tree1
+        else if branches_before pa ma pb mb
+        then if (ma :> int) land (pb :> int) == 0
+          then
+            let ta0' = update_multiple_from_inter_with_foreign tb f ta0 in
+            if ta0' == ta0 then ta
+            else branch ~prefix:pa ~branching_bit:ma ~tree0:ta0' ~tree1:ta1
+          else
+            let ta1' = update_multiple_from_inter_with_foreign tb f ta1 in
+            if ta1' == ta1 then ta
+            else branch ~prefix:pa ~branching_bit:ma ~tree0:ta0 ~tree1:ta1'
+        else if branches_before pb mb pa ma
+        then if (mb :> int) land (pa :> int) == 0
+          then update_multiple_from_inter_with_foreign tb0 f ta
+          else update_multiple_from_inter_with_foreign tb1 f ta
+        else ta
+
+    let rec domain_difference ta tb =
+      match NODE.view ta, Map2.view tb with
+      | Empty, _
+      | _, Empty -> ta
+      | Leaf{key;_},_ -> (if Map2.mem key tb then empty else ta)
+      | _,Leaf{key;_} -> remove key ta
+      | Branch{prefix=pa;branching_bit=ma;tree0=ta0;tree1=ta1},
+        Branch{prefix=pb;branching_bit=mb;tree0=tb0;tree1=tb1} ->
+        if ma == mb && pa == pb
+        then
+          let tree0 = domain_difference ta0 tb0 in
+          let tree1 = domain_difference ta1 tb1 in
+          branch ~prefix:pa ~branching_bit:ma ~tree0 ~tree1
+        else if branches_before pa ma pb mb
+        then if (ma :> int) land (pb :> int) == 0
+          then branch ~prefix:pa ~branching_bit:ma ~tree0:(domain_difference ta0 tb) ~tree1:ta1
+          else branch ~prefix:pa ~branching_bit:ma ~tree0:ta0 ~tree1:(domain_difference ta1 tb)
+        else if branches_before pb mb pa ma
+        then if (mb :> int) land (pa :> int) == 0
+          then domain_difference ta tb0
+          else domain_difference ta tb1
+        else ta
   end
 
   let rec to_seq m () = match NODE.view m with
