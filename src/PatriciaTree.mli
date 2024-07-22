@@ -44,12 +44,12 @@
         {td {!MakeHeterogeneousSet}}
       }
       {tr
-        {th {{!hash_consed}hashconsed} Homogeneous}
+        {th {{!hash_consed}Hash-consed} Homogeneous}
         {td {!MakeHashconsedMap}}
         {td {!MakeHashconsedSet}}
       }
       {tr
-        {th {{!hash_consed}Hashconsed} Heterogeneous}
+        {th {{!hash_consed}Hash-consed} Heterogeneous}
         {td {!MakeHashconsedHeterogeneousMap}}
         {td {!MakeHashconsedHeterogeneousSet}}
       }
