@@ -641,7 +641,6 @@ module MakeCustomHeterogeneousMap
           let tree0 = difference f ta0 tb0 in
           let tree1 = difference f ta1 tb1 in
           branch ~prefix:pa ~branching_bit:ma ~tree0 ~tree1
-
         else if branches_before pa ma pb mb
         then if (ma :> int) land (pb :> int) == 0
           then branch ~prefix:pa ~branching_bit:ma ~tree0:(difference f ta0 tb) ~tree1:ta1
@@ -654,14 +653,12 @@ module MakeCustomHeterogeneousMap
 
   let rec domain_difference ta tb =
       match NODE.view ta, NODE.view tb with
-      | Empty, _
-      | _, Empty -> ta
-      | Leaf{key;_},_ -> (if mem key tb then empty else ta)
+      | Empty, _ | _, Empty -> ta
+      | Leaf{key;_},_ -> if mem key tb then empty else ta
       | _,Leaf{key;_} -> remove key ta
       | Branch{prefix=pa;branching_bit=ma;tree0=ta0;tree1=ta1},
         Branch{prefix=pb;branching_bit=mb;tree0=tb0;tree1=tb1} ->
-        if ma == mb && pa == pb
-        then
+        if ma == mb && pa == pb then
           let tree0 = domain_difference ta0 tb0 in
           let tree1 = domain_difference ta1 tb1 in
           branch ~prefix:pa ~branching_bit:ma ~tree0 ~tree1
