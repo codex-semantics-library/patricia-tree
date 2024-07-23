@@ -343,10 +343,6 @@ module type BASE_MAP = sig
   (** {1:functions_on_pairs Functions on pairs of maps} *)
   (** This section regroups functions that act on pairs of maps.
 
-      Due to {{: https://ocaml.org/manual/5.2/polymorphism.html#s%3Ahigher-rank-poly}restrictions with higher-order polymorphism},
-      we need to wrap the function [f] in a record, which has a single field [f].
-      These is what the [polyXXX] types are for.
-
       {b These functions are where Patricia trees offer substantial speedup
       compared to Stdlib's Maps:}
       - We can often avoid exploring physically equal subtrees
@@ -371,7 +367,13 @@ module type BASE_MAP = sig
       In general, the fast versions of these function will be on [O(log n + d)] where
       [n] is the size of the maps being joined and [d] the size of their difference
       (number of keys bound in both maps to non-physically equal values). The slow
-      version is [O(n)]. *)
+      version is [O(n)].
+
+      Many of these are high-order functions, taking as argument a function [f]
+      that operates on elements.
+      Due to {{: https://ocaml.org/manual/5.2/polymorphism.html#s%3Ahigher-rank-poly}restrictions with higher-order polymorphism},
+      we need to wrap the function [f] in a record, which has a single field [f].
+      These is what the [polyXXX] types are for.*)
 
   (** {2 Comparing two maps} *)
   (** Functions for equality, inclusion, and test for disjointness. *)
@@ -395,8 +397,7 @@ module type BASE_MAP = sig
           { f = fun _ v1 v2 -> MyValue.equal v1 v2}
           m1 m2;;
         val equal : 'a MyMap.t -> 'a MyMap.t -> bool = <fun>
-      ]}
-      *)
+      ]} *)
 
   val nonreflexive_same_domain_for_all2:
     ('map1,'map2) polysame_domain_for_all2 -> 'map1 t -> 'map2 t -> bool
@@ -413,7 +414,15 @@ module type BASE_MAP = sig
 
       {b Assumes} [f.f] is reflexive, i.e. [f.f k v v = true] to skip calls to equal subtrees.
       Calls [f.f] in ascending {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
-      Exits early if the domains mismatch. *)
+      Exits early if the domains mismatch.
+
+      It is useful to implement inclusion test on maps:
+      {[
+        # let is_submap m1 m2 = MyMap.reflexive_subset_domain_for_all2
+          { f = fun _ v1 v2 -> MyValue.equal v1 v2}
+          m1 m2;;
+        val is_submap : 'a MyMap.t -> 'a MyMap.t -> bool = <fun>
+      ]} *)
 
   val disjoint : 'a t -> 'a t -> bool
   (** [disjoint m1 m2] is [true] iff [m1] and [m2] have disjoint domains *)
@@ -1118,11 +1127,10 @@ module type MAP_WITH_VALUE = sig
       complexity.
       [f] is called in increasing {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
 
-
-  (** {1 Operations on pairs of maps} *)
-  (** See {{!BASE_MAP.functions_on_pairs}the same section for [BASE_MAP]} for
-      an overview of what these functions do, and a quick overview of the differences
-      between them. *)
+  (** {1 Operations on pairs of maps}
+      See {{!BASE_MAP.functions_on_pairs}the same section for [BASE_MAP]} for
+      an overview of what these functions do, and an explaination of their main
+      differences with the equivalent functions in Stdlib's Map. *)
 
   (** {2 Comparing two maps} *)
   (** Equality, inclusion and test for disjoint maps. *)
@@ -1207,7 +1215,6 @@ module type MAP_WITH_VALUE = sig
       to traverse all the bindings in [m1] and [m2]; its complexity is
       O(|m1|+|m2|). Use one of faster functions above if you can. *)
 
-
   val symmetric_difference: (key -> 'a value -> 'a value -> 'a value option) -> 'a t -> 'a t -> 'a t
   (** [symmetric_difference f map1 map2] returns a map comprising of the bindings
       of [map1] that aren't in [map2], and the bindings of [map2] that aren't in [map1].
@@ -1235,8 +1242,6 @@ module type MAP_WITH_VALUE = sig
       [f] is called in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
 
       @since 0.11.0 *)
-
-
 
   (** Combination with other kinds of maps.
       [Map2] must use the same {!KEY.to_int} function. *)
