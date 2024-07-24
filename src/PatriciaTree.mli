@@ -44,12 +44,12 @@
         {td {!MakeHeterogeneousSet}}
       }
       {tr
-        {th {{!hash_consed}hashconsed} Homogeneous}
+        {th {{!hash_consed}Hash-consed} Homogeneous}
         {td {!MakeHashconsedMap}}
         {td {!MakeHashconsedSet}}
       }
       {tr
-        {th {{!hash_consed}Hashconsed} Heterogeneous}
+        {th {{!hash_consed}Hash-consed} Heterogeneous}
         {td {!MakeHashconsedHeterogeneousMap}}
         {td {!MakeHashconsedHeterogeneousSet}}
       }
@@ -87,8 +87,9 @@
       The main benefit of Patricia Tree is that their representation
       is stable (contrary to maps, inserting nodes in any order will
       return the same shape), which allows different versions of a map
-      to share more subtrees in memory, and the operations over two
-      maps to benefit from this sharing. The functions in this library
+      to share more subtrees in memory, and the
+      {{!BASE_MAP.functions_on_pairs}operations over two maps}
+      to benefit from this sharing. The functions in this library
       attempt to maximally preserve sharing and benefit from sharing,
       allowing very important improvements in complexity and running
       time when combining maps or sets is a frequent operation.}

@@ -340,7 +340,43 @@ module type BASE_MAP = sig
       it defaults to {{: https://v2.ocaml.org/api/Format.html#VALpp_print_cut}[Format.pp_print_cut]}.
       Bindings are printed in the {{!unsigned_lt}unsigned order} of {!KEY.to_int} *)
 
-  (** {1 Functions on pairs of maps} *)
+  (** {1:functions_on_pairs Functions on pairs of maps} *)
+  (** This section regroups functions that act on pairs of maps.
+
+      {b These functions are where Patricia trees offer substantial speedup
+      compared to Stdlib's Maps:}
+      - We can often avoid exploring physically equal subtrees
+        (for equality tests, inclusion tests, union, intersection, difference).
+        This yields important performance gains when combining maps that derive
+        from a common ancestor or when using {!hash_consed} maps which have a lot
+        of elements in common.
+      - We can also avoid visiting a subtree when merging with [Empty] (for union,
+        intersection and difference).
+
+      To do so safely, we have
+      specialized versions of these functions that assume properties
+      of the function parameter (reflexive relation, idempotent
+      operation, etc.)
+
+      When we cannot enjoy these properties, our functions explicitly
+      say so (with a nonreflexive or nonidempotent prefix). The names
+      are a bit long, but having these names avoids using an
+      ineffective code by default, by forcing to know and choose
+      between the fast and slow version.
+
+      In general, the fast versions of these function will be on [O(log n + d)] where
+      [n] is the size of the maps being joined and [d] the size of their difference
+      (number of keys bound in both maps to non-physically equal values). The slow
+      version is [O(n)].
+
+      Many of these are high-order functions, taking as argument a function [f]
+      that operates on elements.
+      Due to {{: https://ocaml.org/manual/5.2/polymorphism.html#s%3Ahigher-rank-poly}restrictions with higher-order polymorphism},
+      we need to wrap the function [f] in a record, which has a single field [f].
+      These is what the [polyXXX] types are for.*)
+
+  (** {2 Comparing two maps} *)
+  (** Functions for equality, inclusion, and test for disjointness. *)
 
   type ('map1,'map2) polysame_domain_for_all2 =
     { f : 'a. 'a key -> ('a, 'map1) value -> ('a, 'map2) value -> bool; } [@@unboxed]
@@ -361,8 +397,7 @@ module type BASE_MAP = sig
           { f = fun _ v1 v2 -> MyValue.equal v1 v2}
           m1 m2;;
         val equal : 'a MyMap.t -> 'a MyMap.t -> bool = <fun>
-      ]}
-      *)
+      ]} *)
 
   val nonreflexive_same_domain_for_all2:
     ('map1,'map2) polysame_domain_for_all2 -> 'map1 t -> 'map2 t -> bool
@@ -379,7 +414,41 @@ module type BASE_MAP = sig
 
       {b Assumes} [f.f] is reflexive, i.e. [f.f k v v = true] to skip calls to equal subtrees.
       Calls [f.f] in ascending {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
-      Exits early if the domains mismatch. *)
+      Exits early if the domains mismatch.
+
+      It is useful to implement inclusion test on maps:
+      {[
+        # let is_submap m1 m2 = MyMap.reflexive_subset_domain_for_all2
+          { f = fun _ v1 v2 -> MyValue.equal v1 v2}
+          m1 m2;;
+        val is_submap : 'a MyMap.t -> 'a MyMap.t -> bool = <fun>
+      ]} *)
+
+  val disjoint : 'a t -> 'a t -> bool
+  (** [disjoint m1 m2] is [true] iff [m1] and [m2] have disjoint domains *)
+
+  (** {2:combining_maps Combining two maps} *)
+  (** We provide many functions that operate on pairs of maps for computing intersection,
+      union, difference... Here is a short summary of what each of one returns when
+      applied to two maps [m1] and [m2]. Here [y] is physically the same value in
+      [m1] and [m2].
+      {t
+        | Keys | [a] | [b] | [c] | [d] |
+        |:-----|:---:|:---:|:---:|:---:|
+        | [m1] | [x] | [y] | [z] |     |
+        | [m2] |     | [y] | [u] | [v] |
+        | {{!idempotent_union}[idempotent_union f m1 m2]} | [x] | [y] | [f c z u] | [v] |
+        | {{!slow_merge}[slow_merge f m1 m2]}{^ \[1\]}{^ \[2\]} | [f a x _] | [f b y y] | [f c z u] | [f d _ v] |
+        | {{!idempotent_inter}[idempotent_inter f m1 m2]} |    | [y] | [f c z u] |   |
+        | {{!idempotent_inter_filter}[idempotent_inter_filter f m1 m2]}{^ \[1\]} |    | [y] | [f c z u] |   |
+        | {{!nonidempotent_inter_no_share}[nonidempotent_inter_no_share f m1 m2]} |    | [f b y y] | [f c z u] |   |
+        | {{!difference}[difference f m1 m2]}{^ \[1\]} | [x] |  | [f c z u] |   |
+        | {{!symmetric_difference}[symmetric_difference f m1 m2]}{^ \[1\]} | [x] |  | [f c z u] | [v] |
+      }
+      {b \[1\]}: Here [f] returns an optional value, returning [None] removes the binding.
+
+      {b \[2\]}: Here the function [f] actually takes [option] as arguments,
+        omitted for brevity. [_] is [None]. *)
 
   type ('map1, 'map2, 'map3) polyunion = {
     f : 'a. 'a key -> ('a, 'map1) value -> ('a, 'map2) value -> ('a, 'map3) value; } [@@unboxed]
@@ -403,18 +472,18 @@ module type BASE_MAP = sig
       intersection of the keys of [map1] and [map2]. [f.f] is used to combine
       the values a key is mapped in both maps.
 
-      {b Assumes} [f.f] idempotent (i.e. [f key value value == value])
+      {b Assumes} [f.f] idempotent (i.e. [f.f key value value == value])
       [f.f] is called in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
       [f.f] is never called on physically equal values.
       Preserves physical equality as much as possible.
       Complexity is O(log(n)*Delta) where Delta is the number of
       different keys between [map1] and [map2]. *)
 
-  val nonidempotent_inter_no_share :('a, 'b, 'c) polyinter -> 'a t -> 'b t -> 'c t
+  val nonidempotent_inter_no_share: ('a, 'b, 'c) polyinter -> 'a t -> 'b t -> 'c t
   (** [nonidempotent_inter_no_share f map1 map2] is the same as {!idempotent_inter}
       but doesn't preverse physical equality, doesn't assume [f.f] is idempotent,
       and can change the type of values. [f.f] is called on every shared binding.
-      [f.f] is called in increasing {{!unsigned_lt}unsigned order} of keys.
+      [f.f] is called in increasing {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
       O(n) complexity *)
 
 
@@ -424,12 +493,39 @@ module type BASE_MAP = sig
       but [f.f] can return [None] to remove a binding from the resutling map. *)
 
   type ('map1, 'map2, 'map3) polymerge = {
-    f : 'a. 'a key -> ('a, 'map1) value option -> ('a, 'map2) value option -> ('a, 'map3) value  option; } [@@unboxed]
+    f : 'a. 'a key -> ('a, 'map1) value option -> ('a, 'map2) value option -> ('a, 'map3) value option; } [@@unboxed]
   val slow_merge : ('map1, 'map2, 'map3) polymerge -> 'map1 t -> 'map2 t -> 'map3 t
   (** This is the same as {{: https://ocaml.org/api/Map.S.html#VALmerge}Stdlib.Map.S.merge} *)
 
-  val disjoint : 'a t -> 'a t -> bool
-  (** [disjoint m1 m2] is [true] iff [m1] and [m2] have disjoint domains *)
+  type ('a, 'b) polydifference = ('a, 'b, 'a) polyinterfilter
+  val symmetric_difference: ('a, 'a) polydifference -> 'a t -> 'a t -> 'a t
+  (** [symmetric_difference f map1 map2] returns a map comprising of the bindings
+      of [map1] that aren't in [map2], and the bindings of [map2] that aren't in [map1].
+
+      Bindings that are both in [map1] and [map2], but with non-physically equal values
+      are passed to [f.f]. If [f.f] returns [Some v] then [v] is used as the new value,
+      otherwise the binding is dropped.
+
+      {b Assumes} [f.f] is none on equal values (i.e. [f.f key value value == None])
+      [f.f] is called in increasing {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
+      [f.f] is never called on physically equal values.
+
+      Complexity is [O(log n + d)] where [n] is the size of the maps, and [d] the
+      size of the difference.
+
+      @since 0.11.0 *)
+
+  val difference: ('a, 'a) polydifference -> 'a t -> 'a t -> 'a t
+  (** [difference f map1 map2] returns the map containing the bindings of [map1]
+      that aren't in [map2]. For keys present in both maps but with different
+      values, [f.f] is called. If it returns [Some v], then binding [k,v] is kept,
+      else [k] is dropped.
+
+      {b Assumes} [f.f] is [None] on the diagonal: [f.f k v v = None].
+      [f.f] is called in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
+      [f.f] is never called on physically equal values.
+
+      @since 0.11.0 *)
 
   (** {1 Conversion functions} *)
 
@@ -507,6 +603,20 @@ module type HETEROGENEOUS_MAP = sig
         {!update_multiple_from_foreign}, except that instead of updating for all
         keys in [m_from], it only updates for keys that are both in [m_from] and
         [m_to]. *)
+
+    type ('map1, 'map2) polydifference = ('map1,'map2) polyupdate_multiple_inter
+    val difference: ('a,'b) polydifference -> 'a t -> 'b Map2.t -> 'a t
+    (** [difference f map1 map2] returns the map containing the bindings of [map1]
+        that aren't in [map2]. For keys present in both maps but with different
+        values, [f.f] is called. If it returns [Some v], then binding [k,v] is kept,
+        else [k] is dropped.
+
+        [f.f] is called in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
+
+        This is the same as {!BASE_MAP.difference} but allows the second map to
+        be of a different type.
+
+        @since 0.11.0 *)
   end
 end
 
@@ -542,7 +652,7 @@ module type HETEROGENEOUS_SET = sig
   (** Existential wrapper for set elements. *)
   type any_elt = Any : 'a elt -> any_elt
 
-  (** {3 Basic functions} *)
+  (** {1 Basic functions} *)
 
   val empty: t
   (** The empty set *)
@@ -591,7 +701,7 @@ module type HETEROGENEOUS_SET = sig
       if [s] is non empty.
       Uses the {{!unsigned_lt}unsigned order} on elements. *)
 
-  (** {3 Functions on pairs of sets} *)
+  (** {1 Functions on pairs of sets} *)
 
   val union: t -> t -> t
   (** [union a b] is the set union of [a] and [b], i.e. the set containing all
@@ -616,7 +726,11 @@ module type HETEROGENEOUS_SET = sig
       all those greater than [elt], and [present] is [true] if [elt] is in [set].
       Uses the {{!unsigned_lt}unsigned order} on elements. *)
 
-  (** {3 Iterators} *)
+  val diff: t -> t -> t
+  (** [diff s1 s2] is the set of all elements of [s1] that aren't in [s2].
+      @since 0.11.0 *)
+
+  (** {1 Iterators} *)
 
   type polyiter = { f: 'a. 'a elt -> unit; } [@@unboxed]
   val iter: polyiter -> t -> unit
@@ -643,7 +757,7 @@ module type HETEROGENEOUS_SET = sig
   (** Pretty prints the set, [pp_sep] is called once between each element,
       it defaults to {{: https://v2.ocaml.org/api/Format.html#VALpp_print_cut}[Format.pp_print_cut]} *)
 
-  (** {3 Conversion functions} *)
+  (** {1 Conversion functions} *)
 
   val to_seq : t -> any_elt Seq.t
   (** [to_seq st] iterates the whole set, in increasing {{!unsigned_lt}unsigned order} of {!KEY.to_int} *)
@@ -688,7 +802,7 @@ module type SET = sig
   type t = unit BaseMap.t
   (** The set type *)
 
-  (** {3 Basic functions}                         *)
+  (** {1 Basic functions}                         *)
 
   val empty: t
   (** The empty set *)
@@ -735,7 +849,7 @@ module type SET = sig
       if [s] is non empty.
       Uses the {{!unsigned_lt}unsigned order} on {!KEY.to_int}. *)
 
-  (** {3 Iterators} *)
+  (** {1 Iterators} *)
 
   val iter: (elt -> unit) -> t -> unit
   (** [iter f set] calls [f] on all elements of [set], in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
@@ -765,7 +879,7 @@ module type SET = sig
   (** Pretty prints the set, [pp_sep] is called once between each element,
       it defaults to {{: https://v2.ocaml.org/api/Format.html#VALpp_print_cut}[Format.pp_print_cut]} *)
 
-  (** {3 Functions on pairs of sets} *)
+  (** {1 Functions on pairs of sets} *)
 
   val union: t -> t -> t
   (** [union a b] is the set union of [a] and [b], i.e. the set containing all
@@ -784,7 +898,11 @@ module type SET = sig
   val subset : t -> t -> bool
   (** [subset a b] is [true] if all elements of [a] are also in [b]. *)
 
-  (** {3 Conversion functions} *)
+  val diff: t -> t -> t
+  (** [diff s1 s2] is the set of all elements of [s1] that aren't in [s2].
+      @since 0.11.0 *)
+
+  (** {1 Conversion functions} *)
 
   val to_seq : t -> elt Seq.t
   (** [to_seq st] iterates the whole set, in increasing {{!unsigned_lt}unsigned order} of {!KEY.to_int} *)
@@ -847,7 +965,7 @@ module type MAP_WITH_VALUE = sig
     and type _ key = key
     and type ('a,'b) value = ('a,'b value) snd
 
-  (** {3 Basic functions} *)
+  (** {1 Basic functions} *)
 
   val empty : 'a t
   (** The empty map. *)
@@ -919,7 +1037,7 @@ module type MAP_WITH_VALUE = sig
       whether the old value existed). O(log(n)) complexity.
       Preserves physical equality if the new value is physically equal to the old. *)
 
-  (** {3 Iterators} *)
+  (** {1 Iterators} *)
 
   val split : key -> 'a t -> 'a t * 'a value option * 'a t
   (** [split key map] splits the map into:
@@ -1009,24 +1127,13 @@ module type MAP_WITH_VALUE = sig
       complexity.
       [f] is called in increasing {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
 
+  (** {1 Operations on pairs of maps}
+      See {{!BASE_MAP.functions_on_pairs}the same section for [BASE_MAP]} for
+      an overview of what these functions do, and an explaination of their main
+      differences with the equivalent functions in Stdlib's Map. *)
 
-  (** {3 Operations on pairs of maps} *)
-  (** The following functions combine two maps. It is key for the
-      performance, when we have large maps who share common subtrees,
-      not to visit the nodes in these subtrees. Hence, we have
-      specialized versions of these functions that assume properties
-      of the function parameter (reflexive relation, idempotent
-      operation, etc.)
-
-      When we cannot enjoy these properties, our functions explicitly
-      say so (with a nonreflexive or nonidempotent prefix). The names
-      are a bit long, but having these names avoids using an
-      ineffective code by default, by forcing to know and choose
-      between the fast and slow version.
-
-      It is also important to not visit a subtree when there merging
-      this subtree with Empty; hence we provide union and inter
-      operations. *)
+  (** {2 Comparing two maps} *)
+  (** Equality, inclusion and test for disjoint maps. *)
 
   val reflexive_same_domain_for_all2 : (key -> 'a value -> 'a value -> bool) -> 'a t -> 'a t ->  bool
   (** [reflexive_same_domain_for_all2 f map1 map2] returns [true] if
@@ -1052,6 +1159,14 @@ module type MAP_WITH_VALUE = sig
       of [map1] and [map2]. The complexity is O(log(n)*Delta) where
       Delta is the number of different keys between [map1] and
       [map2]. *)
+
+  val disjoint : 'a t -> 'a t -> bool
+  (** [disjoint a b] is [true] if and only if [a] and [b] have disjoint domains. *)
+
+  (** {2 Combining two maps} *)
+  (** Union, intersection, difference...
+      See {{!BASE_MAP.combining_maps}the same section in [BASE_MAP]} for a table showcasing
+      the differences between them. *)
 
   val idempotent_union : (key -> 'a value -> 'a value -> 'a value) -> 'a t -> 'a t -> 'a t
   (** [idempotent_union f map1 map2] returns a map whose keys is the
@@ -1100,8 +1215,33 @@ module type MAP_WITH_VALUE = sig
       to traverse all the bindings in [m1] and [m2]; its complexity is
       O(|m1|+|m2|). Use one of faster functions above if you can. *)
 
-  val disjoint : 'a t -> 'a t -> bool
-  (** [disjoint a b] is [true] if and only if [a] and [b] have disjoint domains. *)
+  val symmetric_difference: (key -> 'a value -> 'a value -> 'a value option) -> 'a t -> 'a t -> 'a t
+  (** [symmetric_difference f map1 map2] returns a map comprising of the bindings
+      of [map1] that aren't in [map2], and the bindings of [map2] that aren't in [map1].
+
+      Bindings that are both in [map1] and [map2], but with non-physically equal values
+      are passed to [f]. If [f] returns [Some v] then [v] is used as the new value,
+      otherwise the binding is dropped.
+
+      {b Assumes} [f] is none on equal values (i.e. [f key value value == None])
+      [f] is called in increasing {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
+      [f] is never called on physically equal values.
+
+      Complexity is [O(log n + d)] where [n] is the size of the maps, and [d] the
+      size of the difference.
+
+      @since 0.11.0 *)
+
+  val difference: (key -> 'a value -> 'a value -> 'a value option) -> 'a t -> 'a t -> 'a t
+  (** [difference f map1 map2] returns a map comprising of the bindings
+      of [map1] which aren't in [map2]. For keys present in both maps but with different
+      values, [f] is called. If it returns [Some v], then binding [k,v] is kept,
+      else [k] is dropped.
+
+      {b Assumes} [f] is none on equal values (i.e. [f key value value == None])
+      [f] is called in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
+
+      @since 0.11.0 *)
 
   (** Combination with other kinds of maps.
       [Map2] must use the same {!KEY.to_int} function. *)
@@ -1136,6 +1276,19 @@ module type MAP_WITH_VALUE = sig
         {!update_multiple_from_foreign}, except that instead of updating for all
         keys in [m_from], it only updates for keys that are both in [m_from] and
         [m_to]. *)
+
+    type ('map1, 'map2) polydifference = ('map1,'map2) polyupdate_multiple_inter
+    val difference: ('a,'b) polydifference -> 'a t -> 'b Map2.t -> 'a t
+    (** [difference f map1 map2] returns the map containing the bindings of [map1]
+        that aren't in [map2]. For keys present in both maps but with different
+        values, [f.f] is called. If it returns [Some v], then binding [k,v] is kept,
+        else [k] is dropped.
+
+        [f.f] is called in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
+        This is the same as {!MAP_WITH_VALUE.difference}, but allows the second
+        map to be of a different type.
+
+        @since 0.11.0 *)
   end
 
   val pretty :
@@ -1145,7 +1298,7 @@ module type MAP_WITH_VALUE = sig
   (** Pretty prints all bindings of the map.
       [pp_sep] is called once between each binding pair and defaults to {{: https://v2.ocaml.org/api/Format.html#VALpp_print_cut}[Format.pp_print_cut]}. *)
 
-  (** {3 Conversion functions} *)
+  (** {1 Conversion functions} *)
 
   val to_seq : 'a t -> (key * 'a value) Seq.t
   (** [to_seq m] iterates the whole map, in increasing {{!unsigned_lt}unsigned order} of {!KEY.to_int} *)
