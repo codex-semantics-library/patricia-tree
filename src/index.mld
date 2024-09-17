@@ -207,13 +207,14 @@ Here is a small example of a non-generic map:
   {@ocaml[
   module IntKey : PatriciaTree.KEY with type t = int = struct
     type t = int
-    let to_int x = x
+    let to_int x = x (* to_int must be injective and fast *)
   end
   ]}}
 {li Use it to instanciate the map/set functors:
   {[
   module IMap : PatriciaTree.MAP with type key = int
               = PatriciaTree.MakeMap(IntKey)
+
   module ISet : PatriciaTree.SET with type elt = int
               = PatriciaTree.MakeSet(IntKey)
   ]}}
@@ -350,7 +351,7 @@ liberty of having a generic type as a key.
       end
     ]}
     Note the full polymorphic equality, that returns a GADT term {!PatriciaTree.cmp}
-    which, when equal ({{!PatriciaTree.Eq}[Eq]}), it is a proof of type equality
+    which, when equal ({{!PatriciaTree.Eq}[Eq]}), is a proof of type equality
     between the type parameters.}
 {li We can now instanciate our map functor. Note that in the heterogeneous case,
     we must also specify the value type (second functor argument) and how it depends
