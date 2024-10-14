@@ -85,11 +85,16 @@ See the {{!examples}examples} to jump right into using this library.
   be extended to store size information in nodes if needed.}
 {li Exposes a common interface ({!type:PatriciaTree.NODE.view}) to allow users to write their own pattern
   matching on the tree structure without depending on the {{!PatriciaTree.NODE}[NODE]} being used.}
-{li Additionally, hashconsed versions of heterogeneous/homogeneous maps/sets are
+{li Additionally, {{!PatriciaTree.section-hash_consed}hashconsed versions of heterogeneous/homogeneous maps/sets} are
   available. These provide constant time equality and comparison, and ensure
   maps/set with the same constants are always physically equal. It comes at the cost
   of a constant overhead in memory usage (at worst, as hash-consing may allow
-  memory gains) and constant time overhead when calling constructors.}}
+  memory gains) and constant time overhead when calling constructors.}
+{li Finally, we allow {{!PatriciaTree.section-bucketed}bucketing maps and sets}.
+  i.e. splitting a large map into [n] smaller ones using a [bucket_id : key -> 0 .. (n-1)]
+  function. This allows some speed-up, especially if you know you will be
+  repeatedly accessing a small bucket.
+}}
 
 {1 Quick overview}
 
@@ -137,6 +142,10 @@ The functors used to build maps and sets are the following:
     create a new hash-table to store the created nodes. Calling a functor
     twice with same arguments will lead to two numbering systems for identifiers,
     and thus the types should not be considered compatible.
+}
+{li Bucketed maps and sets are built on top of any of the previous maps
+  using the {{!PatriciaTree.MakeBucketedHeterogeneous}MakeBucketedHeterogeneous}
+  functor
 }}
 
 {2 Interfaces}
