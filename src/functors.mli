@@ -202,3 +202,63 @@ module MakeHashconsedHeterogeneousMap(Key: HETEROGENEOUS_KEY)(Value: HETEROGENEO
 
   include HASH_CONSED_OPERATIONS with type 'a t := 'a t (** @inline *)
 end
+
+(** {1:bucketed Bucketed maps and sets} *)
+(** Bucketed maps replace one large map with
+    a fixed number [nb_buckets] of smaller maps, using a
+    [bucket_id : key -> 0 .. (nb_buckets - 1)] function which
+    assigns to each key to a unique bucket.
+
+    This can offer performance improvements because the map operations are
+    performed on smaller maps. Especially if one bucket is small and frequently
+    accessed, and the others are much larger.
+
+    Bucketed maps are created on top of a regular maps, so they can be used with
+    any of the previous map or sets. Their interface is a bit simpler as they
+    aren't true Patricia trees anymore:
+    - They lack the {!NODE.val-view} functions and the constructors ({!NODE.branch}, {!NODE.leaf}...)
+      As such, they can't be used for cross map/set operations in the
+      {{!HETEROGENEOUS_MAP.WithForeign}[WithForeign]} functors.
+    - Iteration is no longer guaranteed to be in increasing order of {!KEY.to_int},
+      so the {{!BASE_MAP.unsigned_min_binding}[unsigned_min_binding]} and
+      {{!BASE_MAP.pop_unsigned_minimum}[pop_unsigned_minimum]} functions have been
+      removed. The other iteration functions are still here, but keep in mind
+      they no longer iterate in the order of {!KEY.to_int}. Instead, they
+      usually iterate on bucket order first, and then using {!KEY.to_int}
+      within a bucket. *)
+
+(** Create a bucketed map on top of the given map/set
+
+    @since 0.11.0 *)
+module MakeBucketedHeterogeneous
+    (Map: BASE_MAP_INTERFACE)
+    (Buckets: sig
+      val nb_buckets : int
+      (** The total number of buckets,
+          should be strictly positive and relatively small
+          (usually between 4 and 20). *)
+
+      val bucket_id : 'a Map.key -> int
+      (** The bucket number of the given key,
+          {b must be between [0] and [nb_buckets-1] inclusive}.
+          Not respecting this constraint will lead to runtime errors, as we use it as
+          an index for [Array.unsafe_get] and [Array.unsafe_set]. *)
+    end) : sig
+  include BASE_MAP_INTERFACE
+    with type 'key key = 'key Map.key
+     and type ('key, 'map) value = ('key, 'map) Map.value
+
+  val get_bucket : 'a t -> int -> 'a Map.t
+  (** [get_bucket a i] returns the [i]-th bucket, that is the submap of [a] containing
+      only the keys [k] which satisfy [bucket_id k = i]. This is equivalent to
+      {{!filter}[filter {f=fun k _ -> Buckets.bucket_id k = i}) m]}, but constant time instead
+      of [O(n)].
+
+      {b [i] must be between [0] and [nb_buckets-1] inclusive.} *)
+
+  val set_bucket : 'a t -> int -> 'a Map.t -> 'a t
+  (** [set_bucket a i m] changes the [i]-th bucket to [m].
+      {b [m] should only contain keys [k] which satisfy [bucket_id k = i]. }
+
+      {b [i] must be between [0] and [nb_buckets-1] inclusive.} *)
+end
