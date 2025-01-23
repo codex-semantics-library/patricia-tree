@@ -33,13 +33,10 @@ let [@inline always] branches_before l_prefix (l_mask : mask) (r_prefix : intkey
   unsigned_lt (r_mask :> int) (l_mask :> int) && match_prefix (r_prefix :> int) l_prefix l_mask
 
 
-module MakeCustomHeterogeneousMap
+module MakeCustomHeterogeneousMapBase
     (Key:HETEROGENEOUS_KEY)
     (Value:HETEROGENEOUS_VALUE)
-    (NODE:NODE with type 'a key = 'a Key.t and type ('key,'map) value = ('key,'map) Value.t) :
-  HETEROGENEOUS_MAP with type 'a key = 'a Key.t
-                       and type ('key,'map) value = ('key,'map) Value.t
-                       and type 'a t = 'a NODE.t
+    (NODE:NODE with type 'a key = 'a Key.t and type ('key,'map) value = ('key,'map) Value.t)
 = struct
   include NODE
 
@@ -514,62 +511,6 @@ module MakeCustomHeterogeneousMap
         then nonidempotent_inter_no_share f ta tb0
         else nonidempotent_inter_no_share f ta tb1
       else empty
-
-  type ('a, 'b) key_value_value = KeyValueValue: 'k key * ('k, 'a) value * ('k, 'b) value -> ('a,'b) key_value_value
-
-  let rec min_binding_inter ta tb =
-    match NODE.view ta,NODE.view tb with
-    | Empty, _ | _, Empty -> None
-    | Leaf{key;value},_ ->
-      (try Some (KeyValueValue(key,value,find key tb))
-       with Not_found -> None)
-    | _,Leaf{key;value} ->
-      (try Some (KeyValueValue(key,find key ta,value))
-      with Not_found -> None)
-    | Branch{prefix=pa;branching_bit=ma;tree0=ta0;tree1=ta1},
-      Branch{prefix=pb;branching_bit=mb;tree0=tb0;tree1=tb1} ->
-      if ma == mb && pa == pb
-      (* Same prefix: iterate on subtrees *)
-      then
-        match min_binding_inter ta0 tb0 with
-        | None -> min_binding_inter ta1 tb1
-        | some -> some
-      else if branches_before pa ma pb mb
-      then if (ma :> int) land (pb :> int) == 0
-        then min_binding_inter ta0 tb
-        else min_binding_inter ta1 tb
-      else if branches_before pb mb pa ma
-      then if (mb :> int) land (pa :> int) == 0
-        then min_binding_inter ta tb0
-        else min_binding_inter ta tb1
-      else None
-
-  let rec max_binding_inter ta tb =
-    match NODE.view ta,NODE.view tb with
-    | Empty, _ | _, Empty -> None
-    | Leaf{key;value},_ ->
-      (try Some (KeyValueValue(key,value,find key tb))
-        with Not_found -> None)
-    | _,Leaf{key;value} ->
-      (try Some (KeyValueValue(key,find key ta,value))
-      with Not_found -> None)
-    | Branch{prefix=pa;branching_bit=ma;tree0=ta0;tree1=ta1},
-      Branch{prefix=pb;branching_bit=mb;tree0=tb0;tree1=tb1} ->
-      if ma == mb && pa == pb
-      (* Same prefix: iterate on subtrees *)
-      then
-        match max_binding_inter ta1 tb1 with
-        | None -> max_binding_inter ta0 tb0
-        | some -> some
-      else if branches_before pa ma pb mb
-      then if (ma :> int) land (pb :> int) == 0
-        then max_binding_inter ta0 tb
-        else max_binding_inter ta1 tb
-      else if branches_before pb mb pa ma
-      then if (mb :> int) land (pa :> int) == 0
-        then max_binding_inter ta tb0
-        else max_binding_inter ta tb1
-      else None
 
   type ('map1,'map2,'map3) polyinterfilter = { f: 'a. 'a Key.t -> ('a,'map1) Value.t -> ('a,'map2) Value.t -> ('a,'map3) Value.t option } [@@unboxed]
   let rec idempotent_inter_filter f ta tb =
@@ -1136,6 +1077,21 @@ module MakeCustomHeterogeneousMap
   let of_seq s = add_seq s empty
   let of_list l = of_seq (List.to_seq l)
   let to_list m = List.of_seq (to_seq m)
+end
+
+module MakeCustomHeterogeneousMap
+  (Key:HETEROGENEOUS_KEY)
+  (Value:HETEROGENEOUS_VALUE)
+  (NODE:NODE with type 'a key = 'a Key.t and type ('key,'map) value = ('key,'map) Value.t)
+  : HETEROGENEOUS_MAP with type 'a key = 'a Key.t
+                      and type ('key,'map) value = ('key,'map) Value.t
+                      and type 'a t = 'a NODE.t
+= struct
+  module Self = MakeCustomHeterogeneousMapBase(Key)(Value)(NODE)
+  module SelfForeign = Self.WithForeign(Self)
+
+  include SelfForeign
+  include Self
 end
 
 module MakeCustomHeterogeneousSet
