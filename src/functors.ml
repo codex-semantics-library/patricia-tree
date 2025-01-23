@@ -1320,6 +1320,9 @@ module MakeBucketedHeterogeneous
   let set = Array.unsafe_set
 
   let empty = Obj.magic (Array.make Buckets.nb_buckets Map.empty)
+  (* This Obj.magic is required to avoid the '_weak type.
+     It is correct as long as we never mutate empty without copying it first. *)
+  let empty : 'a t = empty
 
   let is_empty arr = Array.for_all Map.is_empty arr
   let cardinal arr = Array.fold_left (fun a b -> a + Map.cardinal b) 0 arr
