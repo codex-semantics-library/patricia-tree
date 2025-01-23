@@ -1439,6 +1439,23 @@ module type HETEROGENEOUS_KEY = sig
       fast. *)
 end
 
+(** The signature of heterogeneous keys which can be bucketed, i.e. sorted into
+    a small number of buckets.
+
+    @canonical PatriciaTree.HETEROGENEOUS_BUCKETED_KEY *)
+module type HETEROGENEOUS_BUCKETED_KEY = sig
+  include HETEROGENEOUS_KEY (** @inline *)
+
+  val nb_buckets: int
+  (** The total number of buckets,
+      should be striclty positive and relatively small. *)
+
+  val bucket_id: 'a t -> int
+  (** The bucket number of the given key, {b must be between [0] and [nb_buckets-1] inclusive}.
+      Not respecting this constraint will lead to runtime errors, as we use it as
+      an index for [Array.unsafe_get] and [Array.unsafe_set]. *)
+end
+
 (** {1 Values} *)
 (** Functor argument used to specify the value type when building the maps. *)
 
