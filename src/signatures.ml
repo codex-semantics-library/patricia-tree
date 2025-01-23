@@ -675,7 +675,7 @@ module type HETEROGENEOUS_SET = sig
   (** Alias for elements, for compatibility with other PatriciaTrees *)
 
   (** Existential wrapper for set elements. *)
-  type any_elt = Any : 'a elt -> any_elt
+  type any_elt = Any: 'a elt -> any_elt
 
   (** {1 Basic functions} *)
 
@@ -753,6 +753,20 @@ module type HETEROGENEOUS_SET = sig
 
   val diff: t -> t -> t
   (** [diff s1 s2] is the set of all elements of [s1] that aren't in [s2].
+      @since 0.11.0 *)
+
+  val min_elt_inter: t -> t -> any_elt option
+  (** [min_elt_inter s1 s2] is {!unsigned_min_elt} of {{!inter}[inter s1 s2]}, but
+      faster as it does not require computing the whole intersection.
+      Returns [None] when the intersection is empty.
+
+      @since 0.11.0 *)
+
+  val max_elt_inter: t -> t -> any_elt option
+  (** [max_elt_inter s1 s2] is {!unsigned_max_elt} of {{!inter}[inter s1 s2]}, but
+      faster as it does not require computing the whole intersection.
+      Returns [None] when the intersection is empty.
+
       @since 0.11.0 *)
 
   (** {1 Iterators} *)
@@ -925,6 +939,20 @@ module type SET = sig
 
   val diff: t -> t -> t
   (** [diff s1 s2] is the set of all elements of [s1] that aren't in [s2].
+      @since 0.11.0 *)
+
+  val min_elt_inter: t -> t -> elt option
+  (** [min_elt_inter s1 s2] is {!unsigned_min_elt} of {{!inter}[inter s1 s2]}, but
+      faster as it does not require computing the whole intersection.
+      Returns [None] when the intersection is empty.
+
+      @since 0.11.0 *)
+
+  val max_elt_inter: t -> t -> elt option
+  (** [max_elt_inter s1 s2] is {!unsigned_max_elt} of {{!inter}[inter s1 s2]}, but
+      faster as it does not require computing the whole intersection.
+      Returns [None] when the intersection is empty.
+
       @since 0.11.0 *)
 
   (** {1 Conversion functions} *)
@@ -1187,6 +1215,26 @@ module type MAP_WITH_VALUE = sig
 
   val disjoint : 'a t -> 'a t -> bool
   (** [disjoint a b] is [true] if and only if [a] and [b] have disjoint domains. *)
+
+  val min_binding_inter: 'a t -> 'b t -> (key * 'a value * 'b value) option
+  (** [min_binding_inter m1 m2] is the minimal binding of the intersection.
+      I.E. the [(k,v1,v2)] such that
+      [(k,v1)] is in [m1], [(k,v2)] is in [m2], and [k] is minimal using
+      the {{!unsigned_lt}unsigned order} on keys.
+
+      Returns [None] if and only if the intersection is empty.
+
+      It is rougthly equivalent to calling {!unsigned_min_binding} on
+      {{!nonidempotent_inter_no_share}[nonindempotent_inter_no_share f m1 m2]},
+      but can be faster.
+
+      @since 0.11.0 *)
+
+  val max_binding_inter: 'a t -> 'b t -> (key * 'a value * 'b value) option
+  (** [max_binding_inter m1 m2] is the same as {!min_binding_inter}, but returns
+      the maximum key instead of the minimum.
+
+      @since 0.11.0 *)
 
   (** {2 Combining two maps} *)
   (** Union, intersection, difference...

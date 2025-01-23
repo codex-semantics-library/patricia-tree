@@ -1085,7 +1085,8 @@ end
 module MakeCustomHeterogeneousSet
     (Key:HETEROGENEOUS_KEY)
     (Node:NODE with type 'a key = 'a Key.t and type ('a, 'b) value = unit)
-: HETEROGENEOUS_SET with type 'a elt = 'a Key.t and type 'a BaseMap.t = 'a Node.t = struct
+: HETEROGENEOUS_SET with type 'a elt = 'a Key.t and type 'a BaseMap.t = 'a Node.t
+= struct
   module BaseMap = MakeCustomHeterogeneousMap(Key)(struct type ('a,'b) t = unit end)(Node)
 
   (* No need to differentiate the values. *)
@@ -1126,6 +1127,9 @@ module MakeCustomHeterogeneousSet
 
   let unsigned_min_elt t = let KeyValue(m, ()) = BaseMap.unsigned_min_binding t in Any m
   let unsigned_max_elt t = let KeyValue(m, ()) = BaseMap.unsigned_max_binding t in Any m
+
+  let min_elt_inter s1 s2 = BaseMap.min_binding_inter s1 s2 |> Option.map (fun (KeyValueValue(m, (), ())) -> Any m)
+  let max_elt_inter s1 s2 = BaseMap.min_binding_inter s1 s2 |> Option.map (fun (KeyValueValue(m, (), ())) -> Any m)
 
   let pop_unsigned_maximum t = Option.map (fun (KeyValue(m,()),t) -> Any m,t) (BaseMap.pop_unsigned_maximum t)
   let pop_unsigned_minimum t = Option.map (fun (KeyValue(m,()),t) -> Any m,t) (BaseMap.pop_unsigned_minimum t)
@@ -1188,6 +1192,8 @@ module MakeCustomMap
   let split x m = let (l,m,r) = split x m in (l, opt_snd m, r)
   let unsigned_min_binding m = let KeyValue(key,Snd value) = BaseMap.unsigned_min_binding m in key,value
   let unsigned_max_binding m = let KeyValue(key,Snd value) = BaseMap.unsigned_max_binding m in key,value
+  let min_binding_inter m1 m2 = BaseMap.min_binding_inter m1 m2 |> Option.map (fun (KeyValueValue(k,Snd v1,Snd v2)) -> (k,v1,v2))
+  let max_binding_inter m1 m2 = BaseMap.max_binding_inter m1 m2 |> Option.map (fun (KeyValueValue(k,Snd v1,Snd v2)) -> (k,v1,v2))
   (* let singleton k v = BaseMap.singleton (PolyKey.K k) v *)
   let pop_unsigned_minimum m =
     match BaseMap.pop_unsigned_minimum m with
@@ -1312,7 +1318,8 @@ module MakeCustomSet
   let unsigned_max_elt t = let Any x = unsigned_max_elt t in x
   let pop_unsigned_minimum t = Option.map (fun (Any x, t) -> (x,t)) (pop_unsigned_minimum t)
   let pop_unsigned_maximum t = Option.map (fun (Any x, t) -> (x,t)) (pop_unsigned_maximum t)
-
+  let min_elt_inter t1 t2 = Option.map (fun (Any x) -> x) (min_elt_inter t1 t2)
+  let max_elt_inter t1 t2 = Option.map (fun (Any x) -> x) (max_elt_inter t1 t2)
   let to_seq m = Seq.map (fun (BaseMap.KeyValue(elt,())) -> elt) (BaseMap.to_seq m)
   let to_rev_seq m = Seq.map (fun (BaseMap.KeyValue(elt,())) -> elt) (BaseMap.to_rev_seq m)
   let add_seq s m = BaseMap.add_seq (Seq.map (fun (elt) -> BaseMap.KeyValue(elt,())) s) m
