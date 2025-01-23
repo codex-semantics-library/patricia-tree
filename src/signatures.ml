@@ -424,6 +424,21 @@ module type BASE_MAP = sig
         val is_submap : 'a MyMap.t -> 'a MyMap.t -> bool = <fun>
       ]} *)
 
+  type 'map polycompare =
+      { f : 'a. 'a key -> ('a, 'map) value -> ('a, 'map) value -> int; } [@@unboxed]
+  val compare : 'a polycompare -> 'a t -> 'a t -> int
+  (** [compare f m1 m2] is an order relation on maps.
+      [m1] and [m2] are equal (return [0]) if they have the same domain and for all bindings
+      [(k,v)] in [m1], [(k,v')] in [m2], we have [f v v' = 0].
+
+      [m1] is considered striclty smaller than [m2] (return a negative integer)
+      when the first difference (lowest key in the {{!unsigned_lt}unsigned order} of {!KEY.to_int})
+      is either a shared binding [(k,v)] in [m1], [(k,v')] in [m2] with [f v v' < 0],
+      or a binding that only occurs in [m2].
+
+      Assumes that [f v v = 0].
+      @since 0.11.0 *)
+
   val disjoint : 'a t -> 'a t -> bool
   (** [disjoint m1 m2] is [true] iff [m1] and [m2] have disjoint domains *)
 
@@ -717,6 +732,14 @@ module type HETEROGENEOUS_SET = sig
   val equal : t -> t -> bool
   (** [equal a b] is [true] if [a] and [b] contain the same elements. *)
 
+  val compare : t -> t -> int
+  (** [compare s1 s2] is an order on setss.
+      [s1] and [s2] are equal if they contain the same bindings (compare by {!KEY.to_int}).
+      [s1] is strictly smaller than [s2] if the first difference (in the order of {!KEY.to_int})
+      is an element that appears in [s2] but not in [s1].
+
+      @since 0.11.0 *)
+
   val subset : t -> t -> bool
   (** [subset a b] is [true] if all elements of [a] are also in [b]. *)
 
@@ -894,6 +917,14 @@ module type SET = sig
 
   val equal : t -> t -> bool
   (** [equal a b] is [true] if [a] and [b] contain the same elements. *)
+
+  val compare : t -> t -> int
+  (** [compare s1 s2] is an order on setss.
+      [s1] and [s2] are equal if they contain the same bindings (compare by {!KEY.to_int}).
+      [s1] is strictly smaller than [s2] if the first difference (in the order of {!KEY.to_int})
+      is an element that appears in [s2] but not in [s1].
+
+      @since 0.11.0 *)
 
   val subset : t -> t -> bool
   (** [subset a b] is [true] if all elements of [a] are also in [b]. *)
