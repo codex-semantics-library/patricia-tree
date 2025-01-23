@@ -618,29 +618,29 @@ module type HETEROGENEOUS_MAP = sig
 
         @since 0.11.0 *)
 
-  (** Existential wrapper for a key with two values
-      @since 0.11.0 *)
-  type ('a, 'b) key_value_value = KeyValueValue: 'k key * ('k, 'a) value * ('k, 'b) Map2.value -> ('a,'b) key_value_value
+    (** Existential wrapper for a key with two values
+        @since 0.11.0 *)
+    type ('a, 'b) key_value_value = KeyValueValue: 'k key * ('k, 'a) value * ('k, 'b) Map2.value -> ('a,'b) key_value_value
 
-  val min_binding_inter: 'a t -> 'b Map2.t -> ('a,'b) key_value_value option
-  (** [min_binding_inter m1 m2] is the minimal binding of the intersection.
-      I.E. the {{!KeyValueValue}[KeyValueValue(k,v1,v2)]} such that
-      [(k,v1)] is in [m1], [(k,v2)] is in [m2], and [k] is minimal using
-      the {{!unsigned_lt}unsigned order} on keys.
+    val min_binding_inter: 'a t -> 'b Map2.t -> ('a,'b) key_value_value option
+    (** [min_binding_inter m1 m2] is the minimal binding of the intersection.
+        I.E. the {{!KeyValueValue}[KeyValueValue(k,v1,v2)]} such that
+        [(k,v1)] is in [m1], [(k,v2)] is in [m2], and [k] is minimal using
+        the {{!unsigned_lt}unsigned order} on keys.
 
-      Returns [None] if and only if the intersection is empty.
+        Returns [None] if and only if the intersection is empty.
 
-      It is rougthly equivalent to calling {!unsigned_min_binding} on
-      {{!nonidempotent_inter}[nonindempotent_inter f m1 m2]},
-      but can be faster.
+        It is rougthly equivalent to calling {!unsigned_min_binding} on
+        {{!nonidempotent_inter}[nonindempotent_inter f m1 m2]},
+        but can be faster.
 
-      @since 0.11.0 *)
+        @since 0.11.0 *)
 
-  val max_binding_inter: 'a t -> 'b Map2.t -> ('a,'b) key_value_value option
-  (** [max_binding_inter m1 m2] is the same as {!min_binding_inter}, but returns
-      the maximum key instead of the minimum.
+    val max_binding_inter: 'a t -> 'b Map2.t -> ('a,'b) key_value_value option
+    (** [max_binding_inter m1 m2] is the same as {!min_binding_inter}, but returns
+        the maximum key instead of the minimum.
 
-      @since 0.11.0 *)
+        @since 0.11.0 *)
   end
 
   (** {2 Min/max of intersection} *)
