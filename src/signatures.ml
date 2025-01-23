@@ -426,8 +426,8 @@ module type BASE_MAP = sig
 
   type 'map polycompare =
       { f : 'a. 'a key -> ('a, 'map) value -> ('a, 'map) value -> int; } [@@unboxed]
-  val compare : 'a polycompare -> 'a t -> 'a t -> int
-  (** [compare f m1 m2] is an order relation on maps.
+  val reflexive_compare : 'a polycompare -> 'a t -> 'a t -> int
+  (** [reflexive_compare f m1 m2] is an order relation on maps.
       [m1] and [m2] are equal (return [0]) if they have the same domain and for all bindings
       [(k,v)] in [m1], [(k,v')] in [m2], we have [f v v' = 0].
 
@@ -1191,14 +1191,14 @@ module type MAP_WITH_VALUE = sig
       Delta is the number of different keys between [map1] and
       [map2]. *)
 
-  val equal: ('a value -> 'a value -> bool) -> 'a t -> 'a t -> bool
-  (** [equal f m1 m2] is true if both maps are equal, using [f] to compare values.
+  val reflexive_equal: ('a value -> 'a value -> bool) -> 'a t -> 'a t -> bool
+  (** [reflexive_equal f m1 m2] is true if both maps are equal, using [f] to compare values.
       [f] is assumed to be reflexive (i.e. [f v v = true]).
 
       @since 0.11.0 *)
 
-  val compare: ('a value -> 'a value -> int) -> 'a t -> 'a t -> int
-  (** [compare f m1 m2] is an order on both maps.
+  val reflexive_compare: ('a value -> 'a value -> int) -> 'a t -> 'a t -> int
+  (** [reflexive_compare f m1 m2] is an order on both maps.
       [m1] and [m2] are equal (return [0]) if they have the same domain and for all bindings
       [(k,v)] in [m1], [(k,v')] in [m2], we have [f v v' = 0].
 

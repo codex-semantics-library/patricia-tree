@@ -408,7 +408,7 @@ module MakeCustomHeterogeneousMap
               if cmp <> 0 then cmp else default
       | Diff -> default (* Should not happen since same Key.to_int values should imply equality *)
 
-  let rec compare f ta tb = match (NODE.view ta),(NODE.view tb) with
+  let rec reflexive_compare f ta tb = match (NODE.view ta),(NODE.view tb) with
     | _ when ta == tb -> 0
     | Empty, _ -> 1
     | _, Empty -> -1
@@ -425,16 +425,16 @@ module MakeCustomHeterogeneousMap
       if ma == mb && pa == pb
       (* Same prefix: divide the search. *)
       then
-        let cmp = compare f ta0 tb0 in
+        let cmp = reflexive_compare f ta0 tb0 in
         if cmp <> 0 then cmp else
-        compare f ta1 tb1
+          reflexive_compare f ta1 tb1
       else if branches_before pb mb pa ma (* ta has to be included in  tb0 or tb1. *)
       then if (mb :> int) land (pa :> int) == 0
-        then let cmp = compare f ta tb0 in if cmp <> 0 then cmp else -1
+        then let cmp = reflexive_compare f ta tb0 in if cmp <> 0 then cmp else -1
         else -1 (* ta included in tb1, so there are elements of tb that appear before any elements of ta *)
       else if branches_before pa ma pb mb (* tb has to be included in ta0 or ta1. *)
         then if (mb :> int) land (pa :> int) == 0
-          then let cmp = compare f ta0 tb in if cmp <> 0 then cmp else 1
+          then let cmp = reflexive_compare f ta0 tb in if cmp <> 0 then cmp else 1
           else 1 (* tb included in ta1, so there are elements of ta that appear before any elements of tb *)
       else Int.compare (pa :> int) (pb :> int)
 
@@ -1136,7 +1136,7 @@ module MakeCustomHeterogeneousSet
   let of_list l = of_seq (List.to_seq l)
   let to_list s = List.of_seq (to_seq s)
 
-  let compare s1 s2 = BaseMap.compare {f=fun _ () () -> 0} s1 s2
+  let compare s1 s2 = BaseMap.reflexive_compare {f=fun _ () () -> 0} s1 s2
 end
 
 module MakeHeterogeneousMap(Key:HETEROGENEOUS_KEY)(Value:HETEROGENEOUS_VALUE) =
@@ -1265,7 +1265,8 @@ module MakeCustomMap
   let of_list l = of_seq (List.to_seq l)
   let to_list s = List.of_seq (to_seq s)
 
-  let equal f m1 m2 = reflexive_same_domain_for_all2 (fun _ -> f) m1 m2
+  let reflexive_equal f m1 m2 = reflexive_same_domain_for_all2 (fun _ -> f) m1 m2
+  let reflexive_compare f m1 m2 = reflexive_compare {f=fun _ (Snd v1) (Snd v2) -> f v1 v2} m1 m2
 end
 
 
