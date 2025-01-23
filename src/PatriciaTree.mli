@@ -18,7 +18,7 @@
 (*  See the GNU Lesser General Public License version 2.1                 *)
 (*  for more details (enclosed in the file LICENSE).                      *)
 (**************************************************************************)
-
+exception Not_found
 (** Association maps from key to values, and sets, implemented with
     Patricia Trees, allowing fast merge operations by making use of
     physical equality between subtrees; and custom implementation of
