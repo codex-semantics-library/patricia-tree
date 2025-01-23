@@ -53,7 +53,6 @@ module MakeCustomHeterogeneousMap
     | Leaf{key;value} -> KeyValue(key,value)
     | Branch{tree1;_} -> unsigned_max_binding tree1
 
-
   (* Merge trees whose prefix disagree. *)
   let join pa treea pb treeb =
     (* Printf.printf "join %d %d\n" pa pb; *)
@@ -63,9 +62,6 @@ module MakeCustomHeterogeneousMap
       branch ~prefix:p ~branching_bit:m ~tree0:treea ~tree1:treeb
     else
       branch ~prefix:p ~branching_bit:m ~tree0:treeb ~tree1:treea
-
-
-
 
   let singleton = leaf
 
@@ -400,6 +396,47 @@ module MakeCustomHeterogeneousMap
         (* Any other case: there are elements in ta that are unmatched in tb. *)
       else false
 
+  type 'map polycompare =
+      { f : 'a. 'a key -> ('a, 'map) value -> ('a, 'map) value -> int; } [@@unboxed]
+
+  let compare_aux : type a b m. m polycompare -> a key -> (a,m) value -> b key -> (b,m) value -> int -> int =
+  fun f ka va kb vb default ->
+    let cmp = Int.compare (Key.to_int ka) (Key.to_int kb) in
+    if cmp <> 0 then cmp else
+    match Key.polyeq ka kb with
+      | Eq -> let cmp = f.f ka va vb in
+              if cmp <> 0 then cmp else default
+      | Diff -> default (* Should not happen since same Key.to_int values should imply equality *)
+
+  let rec reflexive_compare f ta tb = match (NODE.view ta),(NODE.view tb) with
+    | _ when ta == tb -> 0
+    | Empty, _ -> 1
+    | _, Empty -> -1
+    | Branch _, Leaf {key;value} ->
+        let KeyValue(k,v) = unsigned_min_binding ta in
+        compare_aux f k v key value 1
+    | Leaf {key;value}, Branch _ ->
+        let KeyValue(k,v) = unsigned_min_binding tb in
+        compare_aux f key value k v (-1)
+    | Leaf {key;value}, Leaf{key=keyb;value=valueb} ->
+        compare_aux f key value keyb valueb 0
+    | Branch{prefix=pa;branching_bit=ma;tree0=ta0;tree1=ta1},
+      Branch{prefix=pb;branching_bit=mb;tree0=tb0;tree1=tb1} ->
+      if ma == mb && pa == pb
+      (* Same prefix: divide the search. *)
+      then
+        let cmp = reflexive_compare f ta0 tb0 in
+        if cmp <> 0 then cmp else
+          reflexive_compare f ta1 tb1
+      else if branches_before pb mb pa ma (* ta has to be included in  tb0 or tb1. *)
+      then if (mb :> int) land (pa :> int) == 0
+        then let cmp = reflexive_compare f ta tb0 in if cmp <> 0 then cmp else -1
+        else -1 (* ta included in tb1, so there are elements of tb that appear before any elements of ta *)
+      else if branches_before pa ma pb mb (* tb has to be included in ta0 or ta1. *)
+        then if (mb :> int) land (pa :> int) == 0
+          then let cmp = reflexive_compare f ta0 tb in if cmp <> 0 then cmp else 1
+          else 1 (* tb included in ta1, so there are elements of ta that appear before any elements of tb *)
+      else Int.compare (pa :> int) (pb :> int)
 
   let rec disjoint ta tb =
     if ta == tb then is_empty ta
@@ -1098,6 +1135,8 @@ module MakeCustomHeterogeneousSet
   let of_seq s = add_seq s empty
   let of_list l = of_seq (List.to_seq l)
   let to_list s = List.of_seq (to_seq s)
+
+  let compare s1 s2 = BaseMap.reflexive_compare {f=fun _ () () -> 0} s1 s2
 end
 
 module MakeHeterogeneousMap(Key:HETEROGENEOUS_KEY)(Value:HETEROGENEOUS_VALUE) =
@@ -1225,6 +1264,9 @@ module MakeCustomMap
   let of_seq s = add_seq s empty
   let of_list l = of_seq (List.to_seq l)
   let to_list s = List.of_seq (to_seq s)
+
+  let reflexive_equal f m1 m2 = reflexive_same_domain_for_all2 (fun _ -> f) m1 m2
+  let reflexive_compare f m1 m2 = reflexive_compare {f=fun _ (Snd v1) (Snd v2) -> f v1 v2} m1 m2
 end
 
 
