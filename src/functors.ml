@@ -1331,16 +1331,6 @@ module MakeCustomMap
 
     type ('map1, 'map2) polydifference = ('map1,'map2) polyupdate_multiple_inter
     let difference f m1 m2 = BaseForeign.difference {f=fun k (Snd v) v2 -> snd_opt (f.f k v v2) } m1 m2
-
-    let min_binding_inter m1 m2 =
-      match BaseForeign.min_binding_inter m1 m2 with
-      | None -> None
-      | Some(KeyValueValue(k,Snd v1,Snd v2)) -> Some(k,v1,v2)
-
-    let max_binding_inter m1 m2 =
-      match BaseForeign.max_binding_inter m1 m2 with
-      | None -> None
-      | Some(KeyValueValue(k,Snd v1,Snd v2)) -> Some(k,v1,v2)
   end
 
   let to_seq m = Seq.map (fun (KeyValue(key,Snd value)) -> (key,value)) (BaseMap.to_seq m)

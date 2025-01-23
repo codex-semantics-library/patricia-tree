@@ -1387,26 +1387,6 @@ module type MAP_WITH_VALUE = sig
         map to be of a different type.
 
         @since 0.11.0 *)
-
-    val min_binding_inter: 'a t -> 'b Map2.t -> (key * 'a value * (unit,'b) Map2.value) option
-    (** [min_binding_inter m1 m2] is the minimal binding of the intersection.
-        I.E. the {{!KeyValueValue}[KeyValueValue(k,v1,v2)]} such that
-        [(k,v1)] is in [m1], [(k,v2)] is in [m2], and [k] is minimal using
-        the {{!unsigned_lt}unsigned order} on keys.
-
-        Returns [None] if and only if the intersection is empty.
-
-        It is rougthly equivalent to calling {!unsigned_min_binding} on
-        {{!nonidempotent_inter}[nonindempotent_inter f m1 m2]},
-        but can be faster.
-
-        @since 0.11.0 *)
-
-    val max_binding_inter: 'a t -> 'b Map2.t -> (key * 'a value * (unit,'b) Map2.value) option
-    (** [max_binding_inter m1 m2] is the same as {!min_binding_inter}, but returns
-        the maximum key instead of the minimum.
-
-        @since 0.11.0 *)
   end
 
   val pretty :
