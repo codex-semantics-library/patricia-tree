@@ -1060,6 +1060,62 @@ module MakeCustomHeterogeneousMap
           then difference f ta tb0
           else difference f ta tb1
         else ta
+
+    type ('a, 'b) key_value_value = KeyValueValue: 'k key * ('k, 'a) value * ('k, 'b) Map2.value -> ('a,'b) key_value_value
+
+    let rec min_binding_inter ta tb =
+      match NODE.view ta,Map2.view tb with
+      | Empty, _ | _, Empty -> None
+      | Leaf{key;value},_ ->
+        (try Some (KeyValueValue(key,value,Map2.find key tb))
+         with Not_found -> None)
+      | _,Leaf{key;value} ->
+        (try Some (KeyValueValue(key,find key ta,value))
+        with Not_found -> None)
+      | Branch{prefix=pa;branching_bit=ma;tree0=ta0;tree1=ta1},
+        Branch{prefix=pb;branching_bit=mb;tree0=tb0;tree1=tb1} ->
+        if ma == mb && pa == pb
+        (* Same prefix: iterate on subtrees *)
+        then
+          match min_binding_inter ta0 tb0 with
+          | None -> min_binding_inter ta1 tb1
+          | some -> some
+        else if branches_before pa ma pb mb
+        then if (ma :> int) land (pb :> int) == 0
+          then min_binding_inter ta0 tb
+          else min_binding_inter ta1 tb
+        else if branches_before pb mb pa ma
+        then if (mb :> int) land (pa :> int) == 0
+          then min_binding_inter ta tb0
+          else min_binding_inter ta tb1
+        else None
+
+    let rec max_binding_inter ta tb =
+      match NODE.view ta, Map2.view tb with
+      | Empty, _ | _, Empty -> None
+      | Leaf{key;value},_ ->
+        (try Some (KeyValueValue(key,value,Map2.find key tb))
+          with Not_found -> None)
+      | _,Leaf{key;value} ->
+        (try Some (KeyValueValue(key,find key ta,value))
+        with Not_found -> None)
+      | Branch{prefix=pa;branching_bit=ma;tree0=ta0;tree1=ta1},
+        Branch{prefix=pb;branching_bit=mb;tree0=tb0;tree1=tb1} ->
+        if ma == mb && pa == pb
+        (* Same prefix: iterate on subtrees *)
+        then
+          match max_binding_inter ta1 tb1 with
+          | None -> max_binding_inter ta0 tb0
+          | some -> some
+        else if branches_before pa ma pb mb
+        then if (ma :> int) land (pb :> int) == 0
+          then max_binding_inter ta0 tb
+          else max_binding_inter ta1 tb
+        else if branches_before pb mb pa ma
+        then if (mb :> int) land (pa :> int) == 0
+          then max_binding_inter ta tb0
+          else max_binding_inter ta tb1
+        else None
   end
 
   let rec to_seq m () = match NODE.view m with
@@ -1275,6 +1331,16 @@ module MakeCustomMap
 
     type ('map1, 'map2) polydifference = ('map1,'map2) polyupdate_multiple_inter
     let difference f m1 m2 = BaseForeign.difference {f=fun k (Snd v) v2 -> snd_opt (f.f k v v2) } m1 m2
+
+    let min_binding_inter m1 m2 =
+      match BaseForeign.min_binding_inter m1 m2 with
+      | None -> None
+      | Some(KeyValueValue(k,Snd v1,Snd v2)) -> Some(k,v1,v2)
+
+    let max_binding_inter m1 m2 =
+      match BaseForeign.max_binding_inter m1 m2 with
+      | None -> None
+      | Some(KeyValueValue(k,Snd v1,Snd v2)) -> Some(k,v1,v2)
   end
 
   let to_seq m = Seq.map (fun (KeyValue(key,Snd value)) -> (key,value)) (BaseMap.to_seq m)

@@ -529,7 +529,8 @@ module type BASE_MAP = sig
 
   (** {2 Min/max of intersection} *)
 
-  (** Existential wrapper for a key with two values *)
+  (** Existential wrapper for a key with two values
+      @since 0.11.0 *)
   type ('a, 'b) key_value_value = KeyValueValue: 'k key * ('k, 'a) value * ('k, 'b) value -> ('a,'b) key_value_value
 
   val min_binding_inter: 'a t -> 'b t -> ('a,'b) key_value_value option
@@ -642,6 +643,30 @@ module type HETEROGENEOUS_MAP = sig
         be of a different type.
 
         @since 0.11.0 *)
+
+  (** Existential wrapper for a key with two values
+      @since 0.11.0 *)
+  type ('a, 'b) key_value_value = KeyValueValue: 'k key * ('k, 'a) value * ('k, 'b) Map2.value -> ('a,'b) key_value_value
+
+  val min_binding_inter: 'a t -> 'b Map2.t -> ('a,'b) key_value_value option
+  (** [min_binding_inter m1 m2] is the minimal binding of the intersection.
+      I.E. the {{!KeyValueValue}[KeyValueValue(k,v1,v2)]} such that
+      [(k,v1)] is in [m1], [(k,v2)] is in [m2], and [k] is minimal using
+      the {{!unsigned_lt}unsigned order} on keys.
+
+      Returns [None] if and only if the intersection is empty.
+
+      It is rougthly equivalent to calling {!unsigned_min_binding} on
+      {{!nonidempotent_inter}[nonindempotent_inter f m1 m2]},
+      but can be faster.
+
+      @since 0.11.0 *)
+
+  val max_binding_inter: 'a t -> 'b Map2.t -> ('a,'b) key_value_value option
+  (** [max_binding_inter m1 m2] is the same as {!min_binding_inter}, but returns
+      the maximum key instead of the minimum.
+
+      @since 0.11.0 *)
   end
 end
 
@@ -1360,6 +1385,26 @@ module type MAP_WITH_VALUE = sig
         [f.f] is called in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
         This is the same as {!MAP_WITH_VALUE.difference}, but allows the second
         map to be of a different type.
+
+        @since 0.11.0 *)
+
+    val min_binding_inter: 'a t -> 'b Map2.t -> (key * 'a value * (unit,'b) Map2.value) option
+    (** [min_binding_inter m1 m2] is the minimal binding of the intersection.
+        I.E. the {{!KeyValueValue}[KeyValueValue(k,v1,v2)]} such that
+        [(k,v1)] is in [m1], [(k,v2)] is in [m2], and [k] is minimal using
+        the {{!unsigned_lt}unsigned order} on keys.
+
+        Returns [None] if and only if the intersection is empty.
+
+        It is rougthly equivalent to calling {!unsigned_min_binding} on
+        {{!nonidempotent_inter}[nonindempotent_inter f m1 m2]},
+        but can be faster.
+
+        @since 0.11.0 *)
+
+    val max_binding_inter: 'a t -> 'b Map2.t -> (key * 'a value * (unit,'b) Map2.value) option
+    (** [max_binding_inter m1 m2] is the same as {!min_binding_inter}, but returns
+        the maximum key instead of the minimum.
 
         @since 0.11.0 *)
   end
