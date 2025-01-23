@@ -1348,3 +1348,127 @@ module MakeHashconsedMap(Key: KEY)(Value: HASHED_VALUE)() = struct
   let compare = Node.compare
   let to_int = Node.to_int
 end
+
+module MakeBucketedHeterogeneous
+    (Map: BASE_MAP_INTERFACE)
+    (Buckets: sig
+      val nb_buckets : int
+      val bucket_id : 'a Map.key -> int
+    end) = struct
+  include Map
+  type 'map t = 'map Map.t array
+
+  let get = Array.unsafe_get
+  let set = Array.unsafe_set
+
+  let empty = Obj.magic (Array.make Buckets.nb_buckets Map.empty)
+  (* This Obj.magic is required to avoid the '_weak type.
+     It is correct as long as we never mutate empty without copying it first. *)
+  let empty : 'a t = empty
+
+  let is_empty arr = Array.for_all Map.is_empty arr
+  let cardinal arr = Array.fold_left (fun a b -> a + Map.cardinal b) 0 arr
+
+  let singleton key value =
+    let a = Array.copy empty in
+    set a (Buckets.bucket_id key) (Map.singleton key value);
+    a
+  let is_singleton map =
+    let exception NotSingleton in
+    try
+      Array.fold_left (fun prev map -> match prev, Map.is_singleton map with
+        | None, x -> x
+        | Some _, None -> prev
+        | Some _, Some _ -> raise NotSingleton
+      ) None map
+    with NotSingleton -> None
+
+  let find key arr = Map.find key (get arr (Buckets.bucket_id key))
+  let find_opt key arr = Map.find_opt key (get arr (Buckets.bucket_id key))
+  let mem key arr = Map.mem key (get arr (Buckets.bucket_id key))
+
+  let update key fvalue arr =
+    let bucket = Buckets.bucket_id key in
+    let old_map = get arr bucket in
+    let new_map = Map.update key fvalue old_map in
+    if old_map == new_map
+    then arr
+    else
+      let arr = Array.copy arr in
+      set arr bucket new_map;
+      arr
+  let add key value arr = update key (fun _ -> Some value) arr
+  let insert key f arr = update key (fun x -> Some (f x)) arr
+  let remove key map = update key (fun _ -> None) map
+
+  let iter f arr = Array.iter (Map.iter f) arr
+  let map f arr = Array.map (Map.map f) arr
+  let mapi f arr = Array.map (Map.mapi f) arr
+  let map_no_share f arr = Array.map (Map.map_no_share f) arr
+  let mapi_no_share f arr = Array.map (Map.mapi_no_share f) arr
+  let filter f arr = Array.map (Map.filter f) arr
+  let filter_map f arr = Array.map (Map.filter_map f) arr
+  let filter_map_no_share f arr = Array.map (Map.filter_map_no_share f) arr
+  let fold f arr elt = Array.fold_left (fun elt map -> Map.fold f map elt) elt arr
+  let for_all f arr = Array.for_all (Map.for_all f) arr
+
+  let array_fold_left_2 f a1 a2 acc =
+    let rec aux i acc =
+      if i = Buckets.nb_buckets then acc
+      else aux (i+1) (f (get a1 i) (get a2 i) acc)
+    in aux 0 acc
+
+  let fold_on_nonequal_inter f arr1 arr2 elt = array_fold_left_2 (Map.fold_on_nonequal_inter f) arr1 arr2 elt
+  let fold_on_nonequal_union f arr1 arr2 elt = array_fold_left_2 (Map.fold_on_nonequal_union f) arr1 arr2 elt
+
+  let pretty ?(pp_sep=Format.pp_print_cut) pp fmt m =
+    (* Compact version of array, with empty elements removed
+       this avoids extra calls to pp_sep *)
+    let non_empty = Array.fold_right (fun elt lst ->
+      if Map.is_empty elt then lst else elt::lst) m []
+    in
+    Format.pp_print_list ~pp_sep (Map.pretty ~pp_sep pp) fmt non_empty
+
+  let reflexive_same_domain_for_all2 f a b = Array.for_all2 (Map.reflexive_same_domain_for_all2 f) a b
+  let reflexive_subset_domain_for_all2 f a b = Array.for_all2 (Map.reflexive_subset_domain_for_all2 f) a b
+  let nonreflexive_same_domain_for_all2 f a b = Array.for_all2 (Map.nonreflexive_same_domain_for_all2 f) a b
+  let disjoint a b = Array.for_all2 Map.disjoint a b
+
+  let idempotent_union f a b = Array.map2 (Map.idempotent_union f) a b
+  let idempotent_inter f a b = Array.map2 (Map.idempotent_inter f) a b
+  let nonidempotent_inter_no_share f a b = Array.map2 (Map.nonidempotent_inter_no_share f) a b
+  let idempotent_inter_filter f a b = Array.map2 (Map.idempotent_inter_filter f) a b
+  let slow_merge f a b = Array.map2 (Map.slow_merge f) a b
+  let difference f a b = Array.map2 (Map.difference f) a b
+  let symmetric_difference f a b = Array.map2 (Map.symmetric_difference f) a b
+  let split k m =
+    let s = Array.map (Map.split k) m in (
+      Array.map (fun (l, _, _) -> l) s,
+      Array.find_map (fun (_, e, _) -> e) s,
+      Array.map (fun (_, _, r) -> r) s
+    )
+  let to_seq m = Seq.flat_map Map.to_seq (Array.to_seq m)
+
+  let array_rev_seq a =
+    let rec aux i () =
+      if i >= 0
+      then Seq.Cons (get a i, aux (i-1))
+      else Seq.Nil
+    in aux (Buckets.nb_buckets - 1)
+  let to_rev_seq m = Seq.flat_map Map.to_rev_seq (array_rev_seq m)
+  let rec add_seq: type a. a key_value_pair Seq.t -> a t -> a t =
+    fun s m -> match s () with
+    | Seq.Nil -> m
+    | Seq.Cons(KeyValue(key,value), s) -> add_seq s (add key value m)
+  let of_seq s = add_seq s empty
+  let of_list l = of_seq (List.to_seq l)
+  let to_list m = List.of_seq (to_seq m)
+
+  let get_bucket arr i = get arr i
+  let set_bucket arr i m =
+    if m == get arr i then arr
+    else
+      let arr = Array.copy arr in
+      set arr i m;
+      arr
+end

@@ -23,6 +23,27 @@
 
 open Ints
 
+(** Standard names for the types in our maps
+
+    @since 0.11.0
+    @canonical PatriciaTree.MAP_TYPES *)
+module type MAP_TYPES = sig
+  type 'key key
+  (** The type of keys. *)
+
+  type ('key, 'map) value
+  (** The type of value, which depends on the type of the key and the type of the map. *)
+
+  type 'map t
+  (** The type of the map, which is parameterized by a type. *)
+
+  val empty : 'map t
+  (** The empty map *)
+
+  val is_empty: 'map t -> bool
+  (** Check if the map is empty. Should be constant time. *)
+end
+
 (** {1 Nodes} *)
 (** Nodes are the underlying representation used to build a patricia-tree.
     The module type specifies the constructors they must provide, and a common
@@ -40,19 +61,9 @@ module type NODE = sig
 
   (** {2 Types} *)
 
-  type 'key key
-  (** The type of keys. *)
-
-  type ('key, 'map) value
-  (** The type of value, which depends on the type of the key and the type of the map. *)
-
-  type 'map t
-  (** The type of the map, which is parameterized by a type. *)
+  include MAP_TYPES (** @inline *)
 
   (** {2 Constructors: build values} *)
-
-  val empty : 'map t
-  (** The empty map *)
 
   val leaf : 'key key -> ('key, 'map) value -> 'map t
   (** A singleton leaf, similar to {!BASE_MAP.singleton} *)
@@ -94,9 +105,6 @@ module type NODE = sig
           [prefix] followed by 0 at position [branching_bit]). *)
     | Leaf : { key : 'key key; value : ('key, 'map) value; } -> 'map view
     (** A key -> value mapping. *)
-
-  val is_empty: 'map t -> bool
-  (** Check if the map is empty. Should be constant time. *)
 
   val view: 'a t -> 'a view
   (** Convert the map to a view. Should be constant time. *)
@@ -165,37 +173,21 @@ end
 
 (** {2 Base map} *)
 
-(** Base map signature: a generic ['b map] storing bindings
+(** Base map interface: a generic ['b map] storing bindings
     of ['a key] to [('a,'b) values].
-    All maps and set are a variation of this type,
-    sometimes with a simplified interface.
-    - {!HETEROGENEOUS_MAP} is just a {!BASE_MAP} with a functor {!HETEROGENEOUS_MAP.WithForeign}
-      for building operations that operate on two maps of different base types;
-    - {!MAP} specializes the interface for non-generic keys ([key] instead of ['a key]);
-    - {!HETEROGENEOUS_SET} specializes {!BASE_MAP} for sets ([('a,'b) value = unit]) and
-      removes the value argument from most operations;
-    - {!SET} specializes {!HETEROGENEOUS_SET} further by making elements (keys)
-      non-generic ([elt] instead of ['a elt]).
+    This is a stripped-down version of {!BASE_MAP}, which excludes functions
+    that rely too much on the patricia tree shape.
 
-    @canonical PatriciaTree.BASE_MAP *)
-module type BASE_MAP = sig
-  include NODE (** @closed *)
+    @since 0.11.0
+    @canonical PatriciaTree.BASE_MAP_INTERFACE *)
+module type BASE_MAP_INTERFACE = sig
+  include MAP_TYPES (** @closed *)
 
   (** Existential wrapper for the ['a] parameter in a ['a key], [('a,'map) value] pair *)
   type 'map key_value_pair =
       KeyValue : 'a key * ('a, 'map) value -> 'map key_value_pair
 
   (** {1 Basic functions} *)
-
-  val unsigned_min_binding : 'a t -> 'a key_value_pair
-  (** [unsigned_min_binding m] is minimal binding [KeyValue(k,v)] of the map,
-      using the {{!unsigned_lt}unsigned order} on {!KEY.to_int}.
-      @raises Not_found if the map is empty *)
-
-  val unsigned_max_binding : 'a t -> 'a key_value_pair
-  (** [unsigned_max_binding m] is maximal binding [KeyValue(k,v)] of the map,
-      using the {{!unsigned_lt}unsigned order} on {!KEY.to_int}.
-      @raises Not_found if the map is empty *)
 
   val singleton : 'a key -> ('a, 'b) value -> 'b t
   (** Create a map with a single binding. *)
@@ -220,18 +212,6 @@ module type BASE_MAP = sig
   val remove : 'key key -> 'map t -> 'map t
   (** Returns a map with the element removed, O(log(n)) complexity.
       Returns a physically equal map if the element is absent. *)
-
-  val pop_unsigned_minimum: 'map t -> ('map key_value_pair * 'map t) option
-  (** [pop_unsigned_minimum m] returns [None] if [is_empty m], or [Some(key,value,m')] where
-      [(key,value) = unsigned_min_binding m] and [m' = remove m key].
-      Uses the {{!unsigned_lt}unsigned order} on {!KEY.to_int}.
-      O(log(n)) complexity. *)
-
-  val pop_unsigned_maximum: 'map t -> ('map key_value_pair * 'map t) option
-  (** [pop_unsigned_maximum m] returns [None] if [is_empty m], or [Some(key,value,m')] where
-      [(key,value) = unsigned_max_binding m] and [m' = remove m key].
-      Uses the {{!unsigned_lt}unsigned order} on {!KEY.to_int}.
-      O(log(n)) complexity. *)
 
   val insert: 'a key -> (('a,'map) value option -> ('a,'map) value) -> 'map t -> 'map t
   (** [insert key f map] modifies or insert an element of the map; [f]
@@ -563,6 +543,53 @@ module type BASE_MAP = sig
 
   val to_list : 'a t -> 'a key_value_pair list
   (** [to_list m] returns the bindings of [m] as a list, in increasing {{!unsigned_lt}unsigned order} of {!KEY.to_int} *)
+end
+
+(** Base map signature: a generic ['b map] storing bindings
+    of ['a key] to [('a,'b) values].
+    All maps and set are a variation of this type,
+    sometimes with a simplified interface.
+    - {!HETEROGENEOUS_MAP} is just a {!BASE_MAP} with a functor {!HETEROGENEOUS_MAP.WithForeign}
+      for building operations that operate on two maps of different base types;
+    - {!MAP} specializes the interface for non-generic keys ([key] instead of ['a key]);
+    - {!HETEROGENEOUS_SET} specializes {!BASE_MAP} for sets ([('a,'b) value = unit]) and
+      removes the value argument from most operations;
+    - {!SET} specializes {!HETEROGENEOUS_SET} further by making elements (keys)
+      non-generic ([elt] instead of ['a elt]).
+
+    @canonical PatriciaTree.BASE_MAP *)
+module type BASE_MAP = sig
+  include NODE (** @closed *)
+
+  include BASE_MAP_INTERFACE
+    with type 'map t := 'map t
+     and type 'key key := 'key key
+     and type ('key, 'map) value := ('key, 'map) value
+  (** @open *)
+
+  (** {1 Min and Max} *)
+
+  val unsigned_min_binding : 'a t -> 'a key_value_pair
+  (** [unsigned_min_binding m] is minimal binding [KeyValue(k,v)] of the map,
+      using the {{!unsigned_lt}unsigned order} on {!KEY.to_int}.
+      @raises Not_found if the map is empty *)
+
+  val unsigned_max_binding : 'a t -> 'a key_value_pair
+  (** [unsigned_max_binding m] is maximal binding [KeyValue(k,v)] of the map,
+      using the {{!unsigned_lt}unsigned order} on {!KEY.to_int}.
+      @raises Not_found if the map is empty *)
+
+  val pop_unsigned_minimum: 'map t -> ('map key_value_pair * 'map t) option
+  (** [pop_unsigned_minimum m] returns [None] if [is_empty m], or [Some(key,value,m')] where
+      [(key,value) = unsigned_min_binding m] and [m' = remove m key].
+      Uses the {{!unsigned_lt}unsigned order} on {!KEY.to_int}.
+      O(log(n)) complexity. *)
+
+  val pop_unsigned_maximum: 'map t -> ('map key_value_pair * 'map t) option
+  (** [pop_unsigned_maximum m] returns [None] if [is_empty m], or [Some(key,value,m')] where
+      [(key,value) = unsigned_max_binding m] and [m' = remove m key].
+      Uses the {{!unsigned_lt}unsigned order} on {!KEY.to_int}.
+      O(log(n)) complexity. *)
 end
 
 (** {2 Heterogeneous maps and sets} *)
