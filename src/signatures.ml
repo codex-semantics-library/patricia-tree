@@ -1160,6 +1160,25 @@ module type MAP_WITH_VALUE = sig
       Delta is the number of different keys between [map1] and
       [map2]. *)
 
+  val equal: ('a value -> 'a value -> bool) -> 'a t -> 'a t -> bool
+  (** [equal f m1 m2] is true if both maps are equal, using [f] to compare values.
+      [f] is assumed to be reflexive (i.e. [f v v = true]).
+
+      @since 0.11.0 *)
+
+  val compare: ('a value -> 'a value -> int) -> 'a t -> 'a t -> int
+  (** [compare f m1 m2] is an order on both maps.
+      [m1] and [m2] are equal (return [0]) if they have the same domain and for all bindings
+      [(k,v)] in [m1], [(k,v')] in [m2], we have [f v v' = 0].
+
+      [m1] is considered striclty smaller than [m2] (return a negative integer)
+      when the first difference (lowest key in the {{!unsigned_lt}unsigned order} of {!KEY.to_int})
+      is either a shared binding [(k,v)] in [m1], [(k,v')] in [m2] with [f v v' < 0],
+      or a binding that only occurs in [m2].
+
+      Assumes that [f v v = 0].
+      @since 0.11.0 *)
+
   val disjoint : 'a t -> 'a t -> bool
   (** [disjoint a b] is [true] if and only if [a] and [b] have disjoint domains. *)
 
