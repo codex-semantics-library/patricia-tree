@@ -54,7 +54,7 @@ val unsigned_lt : int -> int -> bool
     {{: https://www.cs.tufts.edu/comp/150FP/archive/jan-midtgaard/qc-patricia.pdf}{i QuickChecking Patricia Trees}}
     by Jan Mitgaard.
 
-    @since 0.10.0 *)
+    @since v0.10.0 *)
 
 (**/**)
 (** For internal use and testing *)
@@ -71,6 +71,6 @@ external highest_bit: int -> (int[@untagged]) =
 (** [highest_bit x] is an integer with a single bit set: the highest set bit of [x].
     exported for test purposes only.
 
-    @since 0.10.0 *)
+    @since v0.10.0 *)
 
 (**/**)

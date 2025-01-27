@@ -23,7 +23,7 @@ open Signatures
 
 module Value : VALUE with type 'a t = 'a
 (** Default implementation of {!VALUE}, used in {!MakeMap}.
-    @since 0.10.0 *)
+    @since v0.10.0 *)
 
 module HomogeneousValue : HETEROGENEOUS_VALUE with type ('a,'map) t = 'map
 (** Default implementation of {!HETEROGENEOUS_VALUE}, to use when the type of the
