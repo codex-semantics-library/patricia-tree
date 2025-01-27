@@ -306,7 +306,6 @@ module MakeCustomHeterogeneousMap
             branch ~prefix:pb ~branching_bit:mb ~tree0 ~tree1
         else join (pa :> int) ta (pb :> int) (upd_tb tb)
 
-
     (* Map difference: (possibly) remove from ta elements that are in tb, the other are preserved, no element is added. *)
     type ('map1,'map2,'map3) polyupdate_multiple_inter = { f: 'a. 'a Key.t -> ('a,'map1) value -> ('a,'map2) Map2.value -> ('a,'map3) value option } [@@unboxed]
     let rec update_multiple_from_inter_with_foreign tb f ta =
@@ -458,7 +457,6 @@ module MakeCustomHeterogeneousMap
       let newtree1 = mapi f tree1 in
       if tree0 == newtree0 && tree1 == newtree1 then m
       else branch ~prefix ~branching_bit ~tree0:newtree0 ~tree1:newtree1
-
 
   (* MAYBE: A map (and map_filter) homogeneous, that try to preserve physical equality. *)
   let rec mapi_no_share (f:('map1,'map2) polymapi) m = match NODE.view m with
