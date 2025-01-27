@@ -195,7 +195,7 @@ end
 
     @canonical PatriciaTree.BASE_MAP *)
 module type BASE_MAP = sig
-  include NODE_WITH_FIND (** @opened *)
+  include NODE_WITH_FIND (** @open *)
 
   (** Existential wrapper for the ['a] parameter in a ['a key], [('a,'map) value] pair *)
   type 'map key_value_pair =
