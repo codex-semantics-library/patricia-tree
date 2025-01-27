@@ -615,9 +615,9 @@ module type HETEROGENEOUS_MAP = sig
     val nonidempotent_inter : ('a,'b) polyinter_foreign -> 'a t -> 'b Map2.t -> 'a t
     (** Like {!BASE_MAP.idempotent_inter}. Tries to preserve physical equality on the first argument when possible. *)
 
-    type ('map2,'map1) polyfilter_map_foreign =
+    type ('map2,'map1) polyfilter_map =
       { f : 'a. 'a key -> ('a, 'map2) Map2.value -> ('a, 'map1) value option; } [@@unboxed]
-    val filter_map_no_share : ('map2,'map1) polyfilter_map_foreign -> 'map2 Map2.t -> 'map1 t
+    val filter_map_no_share : ('map2,'map1) polyfilter_map -> 'map2 Map2.t -> 'map1 t
     (** Like {!BASE_MAP.filter_map_no_share}, but allows to transform a foreigh map into the current one. *)
 
     type ('map1,'map2) polyupdate_multiple = { f: 'a. 'a key -> ('a,'map1) value option -> ('a,'map2) Map2.value -> ('a,'map1) value option } [@@unboxed]

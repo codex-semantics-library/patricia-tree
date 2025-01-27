@@ -247,8 +247,8 @@ module MakeCustomHeterogeneousMap
           else nonidempotent_inter f ta tb1
         else NODE.empty
 
-    type ('map2,'map1) polyfilter_map_foreign = { f: 'a. 'a Key.t -> ('a,'map2) Map2.value -> ('a,'map1) value option } [@@unboxed]
-    let rec filter_map_no_share (f:('b,'c) polyfilter_map_foreign) m = match Map2.view m with
+    type ('map2,'map1) polyfilter_map = { f: 'a. 'a Key.t -> ('a,'map2) Map2.value -> ('a,'map1) value option } [@@unboxed]
+    let rec filter_map_no_share (f:('b,'c) polyfilter_map) m = match Map2.view m with
       | Empty -> empty
       | Leaf{key;value} -> (match (f.f key value) with Some v -> leaf key v | None -> empty)
       | Branch{prefix;branching_bit;tree0;tree1} ->
@@ -473,7 +473,6 @@ module MakeCustomHeterogeneousMap
   let map (f:('map1,'map1) polymap) m = mapi { f=fun _ v -> f.f v } m
   let map_no_share (f:('map1,'map2) polymap) m = mapi_no_share { f=fun _ v -> f.f v } m
 
-  type ('map1,'map2) polyfilter_map = { f: 'a. 'a Key.t -> ('a,'map1) Value.t -> ('a,'map2) Value.t option } [@@unboxed]
   let rec filter_map (f:('map1,'map1) polyfilter_map) m = match NODE.view m with
     | Empty -> empty
     | Leaf{key;value} ->
@@ -485,14 +484,6 @@ module MakeCustomHeterogeneousMap
       let newtree1 = filter_map f tree1 in
       if tree0 == newtree0 && tree1 == newtree1 then m
       else branch ~prefix ~branching_bit ~tree0:newtree0 ~tree1:newtree1
-
-  let rec filter_map_no_share (f:('b,'c) polyfilter_map) m = match NODE.view m with
-    | Empty -> empty
-    | Leaf{key;value} -> (match (f.f key value) with Some v -> leaf key v | None -> empty)
-    | Branch{prefix;branching_bit;tree0;tree1} ->
-        let tree0 = filter_map_no_share f tree0 in
-        let tree1 = filter_map_no_share f tree1 in
-        branch ~prefix ~branching_bit ~tree0 ~tree1
 
   type 'map polypretty = { f: 'a. Format.formatter -> 'a Key.t -> ('a, 'map) Value.t -> unit } [@@unboxed]
   let rec pretty ?(pp_sep=Format.pp_print_cut) (f : 'map polypretty) fmt m =
