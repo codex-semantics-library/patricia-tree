@@ -2,8 +2,8 @@
 
 This library contains a single module: {!PatriciaTree}.
 
-This is version [0.10.0] of the library. It is known to work with OCaml versions
-ranging from [4.14] to [5.2].
+This is version [0.11.0] of the library. It is known to work with OCaml versions
+ranging from [4.14] to [5.3].
 
 This is an {{: https://ocaml.org/}OCaml} library that implements sets and maps as
 Patricia Trees, as described in Okasaki and Gill's 1998 paper

@@ -1,5 +1,7 @@
-# v0.11.0 - Unreleased
+# v0.11.0 - 2025-01-27
 
+- Add some `reflexive_equal` and `reflexive_compare` functions
+- Add `min_binding_inter` for maps, `min_elt_inter` for sets and their max counterparts
 - Add `difference` and `symmetric_difference` function to maps (and add `difference` to `WithForeign`)
 - Add `diff` functions to sets
 - Internal refactor.

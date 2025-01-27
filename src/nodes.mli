@@ -2,7 +2,7 @@
 (*  This file is part of the Codex semantics library                      *)
 (*    (patricia-tree sub-component).                                      *)
 (*                                                                        *)
-(*  Copyright (C) 2024                                                    *)
+(*  Copyright (C) 2024-2025                                               *)
 (*    CEA (Commissariat à l'énergie atomique et aux énergies              *)
 (*         alternatives)                                                  *)
 (*                                                                        *)

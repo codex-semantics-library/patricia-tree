@@ -80,6 +80,7 @@ jobs:
           - 4.14.x
           - 5.1.x
           - 5.2.x
+          - 5.3.x
         exclude:
           - os: "ubuntu-latest"
             ocaml-compiler: 4.14.x
