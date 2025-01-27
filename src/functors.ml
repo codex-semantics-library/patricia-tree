@@ -36,22 +36,34 @@ let [@inline always] branches_before l_prefix (l_mask : mask) (r_prefix : intkey
 module MakeCustomHeterogeneousMap
     (Key:HETEROGENEOUS_KEY)
     (Value:HETEROGENEOUS_VALUE)
-    (NODE:NODE with type 'a key = 'a Key.t and type ('key,'map) value = ('key,'map) Value.t) :
-  HETEROGENEOUS_MAP with type 'a key = 'a Key.t
-                       and type ('key,'map) value = ('key,'map) Value.t
-                       and type 'a t = 'a NODE.t
+    (NODE:NODE with type 'a key = 'a Key.t and type ('key,'map) value = ('key,'map) Value.t)
+  : HETEROGENEOUS_MAP with type 'a key = 'a Key.t
+    and type ('key,'map) value = ('key,'map) Value.t
+    and type 'a t = 'a NODE.t
 = struct
-  include NODE
+  module Core = struct
+    include NODE
+    let rec findint: type a map. a Key.t -> int -> map t -> (a,map) value =
+      fun witness searched m -> match NODE.view m with
+        | Leaf{key;value} -> begin
+            match Key.polyeq key witness with
+            | Eq -> value
+            | Diff -> raise Not_found
+          end
+        | Branch{branching_bit;tree0;tree1;_} ->
+          (* Optional if not (match_prefix searched prefix branching_bit) then raise Not_found
+             else *) if ((branching_bit :> int) land searched == 0)
+          then findint witness searched tree0
+          else findint witness searched tree1
+        | Empty -> raise Not_found
+    let find searched m = findint searched (Key.to_int searched) m
+    let find_opt searched m = match find searched m with
+    | x -> Some x
+    | exception Not_found -> None
+  end
+  include Core
 
   type 'map key_value_pair = KeyValue: 'a Key.t * ('a,'map) value -> 'map key_value_pair
-  let rec unsigned_min_binding x = match NODE.view x with
-    | Empty -> raise Not_found
-    | Leaf{key;value} -> KeyValue(key,value)
-    | Branch{tree0;_} -> unsigned_min_binding tree0
-  let rec unsigned_max_binding x = match NODE.view x with
-    | Empty -> raise Not_found
-    | Leaf{key;value} -> KeyValue(key,value)
-    | Branch{tree1;_} -> unsigned_max_binding tree1
 
   (* Merge trees whose prefix disagree. *)
   let join pa treea pb treeb =
@@ -75,21 +87,6 @@ module MakeCustomHeterogeneousMap
     match NODE.view m with
     | Leaf{key;value} -> Some (KeyValue(key,value))
     | _ -> None
-
-  let rec findint: type a map. a Key.t -> int -> map t -> (a,map) value =
-    fun witness searched m -> match NODE.view m with
-      | Leaf{key;value} -> begin
-          match Key.polyeq key witness with
-          | Eq -> value
-          | Diff -> raise Not_found
-        end
-      | Branch{branching_bit;tree0;tree1;_} ->
-        (* Optional if not (match_prefix searched prefix branching_bit) then raise Not_found
-           else *) if ((branching_bit :> int) land searched == 0)
-        then findint witness searched tree0
-        else findint witness searched tree1
-      | Empty -> raise Not_found
-  let find searched m = findint searched (Key.to_int searched) m
 
   let rec split: type a map. a key -> int -> map t -> map t * ((a,map) value) option * map t =
     fun split_key split_key_int m -> match NODE.view m with
@@ -115,119 +112,12 @@ module MakeCustomHeterogeneousMap
 
   let split k m = split k (Key.to_int k) m
 
-  let find_opt searched m = match find searched m with
-    | x -> Some x
-    | exception Not_found -> None
-
   let mem searched m =
     match findint searched (Key.to_int searched) m with
     | exception Not_found -> false
     | _ -> true
 
-  type ('map1,'map2) polymapi = { f: 'a. 'a Key.t -> ('a,'map1) Value.t -> ('a,'map2) Value.t } [@@unboxed]
-  let rec mapi (f:('map1,'map1) polymapi) m = match NODE.view m with
-    | Empty -> empty
-    | Leaf{key;value} ->
-      let newval = (f.f key value) in
-      if newval == value
-      then m
-      else leaf key newval
-    | Branch{prefix;branching_bit;tree0;tree1} ->
-      let newtree0 = mapi f tree0 in
-      let newtree1 = mapi f tree1 in
-      if tree0 == newtree0 && tree1 == newtree1 then m
-      else branch ~prefix ~branching_bit ~tree0:newtree0 ~tree1:newtree1
-
-
-  (* MAYBE: A map (and map_filter) homogeneous, that try to preserve physical equality. *)
-  let rec mapi_no_share (f:('map1,'map2) polymapi) m = match NODE.view m with
-    | Empty -> empty
-    | Leaf{key;value} -> leaf key (f.f key value)
-    | Branch{prefix;branching_bit;tree0;tree1} ->
-        let tree0 = mapi_no_share f tree0 in
-        let tree1 = mapi_no_share f tree1 in
-        branch ~prefix ~branching_bit ~tree0 ~tree1
-
-  type ('map1,'map2) polymap = { f: 'a. ('a,'map1) Value.t -> ('a,'map2) Value.t } [@@unboxed]
-  let map (f:('map1,'map1) polymap) m = mapi { f=fun _ v -> f.f v } m
-  let map_no_share (f:('map1,'map2) polymap) m = mapi_no_share { f=fun _ v -> f.f v } m
-
-  type ('map1,'map2) polyfilter_map = { f: 'a. 'a Key.t -> ('a,'map1) Value.t -> ('a,'map2) Value.t option } [@@unboxed]
-  let rec filter_map (f:('map1,'map1) polyfilter_map) m = match NODE.view m with
-    | Empty -> empty
-    | Leaf{key;value} ->
-      (match f.f key value with
-       | None -> empty
-       | Some newval -> if newval == value then m else leaf key newval)
-    | Branch{prefix;branching_bit;tree0;tree1} ->
-      let newtree0 = filter_map f tree0 in
-      let newtree1 = filter_map f tree1 in
-      if tree0 == newtree0 && tree1 == newtree1 then m
-      else branch ~prefix ~branching_bit ~tree0:newtree0 ~tree1:newtree1
-
-  let rec filter_map_no_share (f:('b,'c) polyfilter_map) m = match NODE.view m with
-    | Empty -> empty
-    | Leaf{key;value} -> (match (f.f key value) with Some v -> leaf key v | None -> empty)
-    | Branch{prefix;branching_bit;tree0;tree1} ->
-        let tree0 = filter_map_no_share f tree0 in
-        let tree1 = filter_map_no_share f tree1 in
-        branch ~prefix ~branching_bit ~tree0 ~tree1
-
-  type 'map polypretty = { f: 'a. Format.formatter -> 'a Key.t -> ('a, 'map) Value.t -> unit } [@@unboxed]
-  let rec pretty ?(pp_sep=Format.pp_print_cut) (f : 'map polypretty) fmt m =
-    match NODE.view m with
-    | Empty -> ()
-    | Leaf{key;value} -> (f.f fmt key value)
-    | Branch{tree0; tree1; _} ->
-        pretty f ~pp_sep fmt tree0;
-        pp_sep fmt ();
-        pretty f ~pp_sep fmt tree1
-
-  let rec removeint to_remove m = match NODE.view m with
-    | Leaf{key;_} when (Key.to_int key) == to_remove -> empty
-    | (Empty | Leaf _) -> m
-    | Branch{prefix;branching_bit;tree0;tree1} ->
-      if ((branching_bit :> int) land to_remove) == 0
-      then begin
-        let tree0' = removeint to_remove tree0 in
-        if tree0' == empty then tree1
-        else if tree0' == tree0 then m
-        else branch ~prefix ~branching_bit ~tree0:tree0' ~tree1
-      end
-      else begin
-        let tree1' = removeint to_remove tree1 in
-        if tree1' == empty then tree0
-        else if tree1' == tree1 then m
-        else branch ~prefix ~branching_bit ~tree0 ~tree1:tree1'
-      end
-
-  let remove to_remove m = removeint (Key.to_int to_remove) m
-
-  let rec pop_unsigned_minimum m = match NODE.view m with
-    | Empty -> None
-    | Leaf{key;value} -> Some (KeyValue(key,value),empty)
-    | Branch{prefix;branching_bit;tree0;tree1} ->
-      match pop_unsigned_minimum tree0 with
-      | None -> pop_unsigned_minimum tree1
-      | Some(res,tree0') ->
-          let restree =
-            if is_empty tree0' then tree1
-            else branch ~prefix ~branching_bit ~tree0:tree0' ~tree1
-          in Some(res,restree)
-
-  let rec pop_unsigned_maximum m = match NODE.view m with
-    | Empty -> None
-    | Leaf{key;value} -> Some (KeyValue(key,value),empty)
-    | Branch{prefix;branching_bit;tree0;tree1} ->
-      match pop_unsigned_maximum tree1 with
-      | None -> pop_unsigned_maximum tree0
-      | Some(res,tree1') ->
-          let restree =
-            if is_empty tree1' then tree0
-            else branch ~prefix ~branching_bit ~tree0 ~tree1:tree1'
-          in Some(res,restree)
-
-  let insert: type a map. a Key.t -> ((a,map) Value.t option -> (a,map) Value.t) -> map t -> map t =
+    let insert: type a map. a Key.t -> ((a,map) Value.t option -> (a,map) Value.t) -> map t -> map t =
     fun thekey f t ->
     let thekeyint = Key.to_int thekey in
     (* Preserve physical equality whenever possible. *)
@@ -296,6 +186,337 @@ module MakeCustomHeterogeneousMap
       in loop t
     with Unmodified -> t
 
+  let rec removeint to_remove m = match NODE.view m with
+    | Leaf{key;_} when (Key.to_int key) == to_remove -> empty
+    | (Empty | Leaf _) -> m
+    | Branch{prefix;branching_bit;tree0;tree1} ->
+      if ((branching_bit :> int) land to_remove) == 0
+      then begin
+        let tree0' = removeint to_remove tree0 in
+        if tree0' == empty then tree1
+        else if tree0' == tree0 then m
+        else branch ~prefix ~branching_bit ~tree0:tree0' ~tree1
+      end
+      else begin
+        let tree1' = removeint to_remove tree1 in
+        if tree1' == empty then tree0
+        else if tree1' == tree1 then m
+        else branch ~prefix ~branching_bit ~tree0 ~tree1:tree1'
+      end
+
+  let add key value t = insert key (fun _ -> value) t
+
+  let remove to_remove m = removeint (Key.to_int to_remove) m
+
+  module WithForeign(Map2:NODE_WITH_FIND with type 'a key = 'a key) = struct
+
+    (* Intersects the first map with the values of the second map,
+       trying to preserve physical equality of the first map whenever
+       possible. *)
+    type ('map1,'map2) polyinter_foreign = { f: 'a. 'a key -> ('a,'map1) value -> ('a,'map2) Map2.value -> ('a,'map1) value } [@@unboxed]
+    let rec nonidempotent_inter f ta tb =
+      match NODE.view ta,Map2.view tb with
+      | Empty, _ | _, Empty -> NODE.empty
+      | Leaf{key;value},_ ->
+        (try let res = Map2.find key tb in
+           let newval = (f.f key value res) in
+           if newval == value then ta
+           else NODE.leaf key newval
+         with Not_found -> NODE.empty)
+      | _,Leaf{key;value} ->
+        (try let res = find key ta in
+           NODE.leaf key (f.f key res value)
+         with Not_found -> NODE.empty)
+      | Branch{prefix=pa;branching_bit=ma;tree0=ta0;tree1=ta1},
+        Branch{prefix=pb;branching_bit=mb;tree0=tb0;tree1=tb1} ->
+        if ma == mb && pa == pb
+        (* Same prefix: merge the subtrees *)
+        then
+          let tree0 = (nonidempotent_inter f ta0 tb0) in
+          let tree1 = (nonidempotent_inter f ta1 tb1) in
+          if(ta0 == tree0 && ta1 == tree1)
+          then ta
+          else NODE.branch ~prefix:pa ~branching_bit:ma ~tree0 ~tree1
+        else if branches_before pa ma pb mb
+        then if (ma :> int) land (pb :> int) == 0
+          then nonidempotent_inter f ta0 tb
+          else nonidempotent_inter f ta1 tb
+        else if branches_before pb mb pa ma
+        then if (mb :> int) land (pa :> int) == 0
+          then nonidempotent_inter f ta tb0
+          else nonidempotent_inter f ta tb1
+        else NODE.empty
+
+    type ('map2,'map1) polyfilter_map = { f: 'a. 'a Key.t -> ('a,'map2) Map2.value -> ('a,'map1) value option } [@@unboxed]
+    let rec filter_map_no_share (f:('b,'c) polyfilter_map) m = match Map2.view m with
+      | Empty -> empty
+      | Leaf{key;value} -> (match (f.f key value) with Some v -> leaf key v | None -> empty)
+      | Branch{prefix;branching_bit;tree0;tree1} ->
+          let tree0 = filter_map_no_share f tree0 in
+          let tree1 = filter_map_no_share f tree1 in
+          branch ~prefix ~branching_bit ~tree0 ~tree1
+
+    (** Add all the bindings in tb to ta (after transformation).  *)
+    type ('map1,'map2) polyupdate_multiple = { f: 'a. 'a Key.t -> ('a,'map1) value option -> ('a,'map2) Map2.value -> ('a,'map1) value option } [@@unboxed]
+    let rec update_multiple_from_foreign (tb:'map2 Map2.t) f (ta:'map1 t) =
+      let upd_tb tb = filter_map_no_share {f=fun key value -> f.f key None value} tb in
+      match NODE.view ta,Map2.view tb with
+      | Empty, _ -> upd_tb tb
+      | _, Empty -> ta
+      | _,Leaf{key;value} -> update key (fun maybeval -> f.f key maybeval value) ta
+      | Leaf{key;value},_ ->
+        let found = ref false in
+        let f: type a. a key -> (a,'map2) Map2.value -> (a,'map1) value option =
+          fun curkey curvalue ->
+            match Key.polyeq key curkey with
+            | Eq -> found := true; f.f curkey (Some value) curvalue
+            | Diff -> f.f curkey None curvalue
+        in
+        let res = filter_map_no_share {f} tb in
+        if !found then res
+        else add key value res
+      | Branch{prefix=pa;branching_bit=ma;tree0=ta0;tree1=ta1},
+        Branch{prefix=pb;branching_bit=mb;tree0=tb0;tree1=tb1} ->
+        if ma == mb && pa == pb
+        (* Same prefix: merge the subtrees *)
+        then
+          let tree0 = update_multiple_from_foreign tb0 f ta0 in
+          let tree1 = update_multiple_from_foreign tb1 f ta1 in
+          if tree0 == ta0 && tree1 == ta1 then ta
+          else branch ~prefix:pa ~branching_bit:ma ~tree0 ~tree1
+        else if branches_before pa ma pb mb
+        then if (ma :> int) land (pb :> int) == 0
+          then
+            let ta0' = update_multiple_from_foreign tb f ta0 in
+            if ta0' == ta0 then ta
+            else branch ~prefix:pa ~branching_bit:ma ~tree0:ta0' ~tree1:ta1
+          else
+            let ta1' = update_multiple_from_foreign tb f ta1 in
+            if ta1' == ta1 then ta
+            else branch ~prefix:pa ~branching_bit:ma ~tree0:ta0 ~tree1:ta1'
+        else if branches_before pb mb pa ma
+        then if (mb :> int) land (pa :> int) == 0
+          then
+            let tree0 = update_multiple_from_foreign tb0 f ta in
+            let tree1 = upd_tb tb1 in
+            branch ~prefix:pb ~branching_bit:mb ~tree0 ~tree1
+          else
+            let tree0 = upd_tb tb0 in
+            let tree1 = update_multiple_from_foreign tb1 f ta in
+            branch ~prefix:pb ~branching_bit:mb ~tree0 ~tree1
+        else join (pa :> int) ta (pb :> int) (upd_tb tb)
+
+    (* Map difference: (possibly) remove from ta elements that are in tb, the other are preserved, no element is added. *)
+    type ('map1,'map2,'map3) polyupdate_multiple_inter = { f: 'a. 'a Key.t -> ('a,'map1) value -> ('a,'map2) Map2.value -> ('a,'map3) value option } [@@unboxed]
+    let rec update_multiple_from_inter_with_foreign tb f ta =
+      match NODE.view ta, Map2.view tb with
+      | Empty, _ -> ta
+      | _, Empty -> ta
+      | Leaf{key;value},_ ->
+        begin match Map2.find key tb with
+        | exception Not_found -> ta
+        | foundv -> begin
+            match f.f key value foundv with
+            | None -> empty
+            | Some v when v == value -> ta
+            | Some v -> leaf key v
+          end
+        end
+      | _,Leaf{key;value} ->
+        update key (fun v -> match v with None -> None | Some v -> f.f key v value) ta
+      | Branch{prefix=pa;branching_bit=ma;tree0=ta0;tree1=ta1},
+        Branch{prefix=pb;branching_bit=mb;tree0=tb0;tree1=tb1} ->
+        if ma == mb && pa == pb
+        (* Same prefix: merge the subtrees *)
+        then
+          let tree0 = update_multiple_from_inter_with_foreign tb0 f ta0 in
+          let tree1 = update_multiple_from_inter_with_foreign tb1 f ta1 in
+          if tree0 == ta0 && tree1 == ta1 then ta
+          else branch ~prefix:pa ~branching_bit:ma ~tree0 ~tree1
+        else if branches_before pa ma pb mb
+        then if (ma :> int) land (pb :> int) == 0
+          then
+            let ta0' = update_multiple_from_inter_with_foreign tb f ta0 in
+            if ta0' == ta0 then ta
+            else branch ~prefix:pa ~branching_bit:ma ~tree0:ta0' ~tree1:ta1
+          else
+            let ta1' = update_multiple_from_inter_with_foreign tb f ta1 in
+            if ta1' == ta1 then ta
+            else branch ~prefix:pa ~branching_bit:ma ~tree0:ta0 ~tree1:ta1'
+        else if branches_before pb mb pa ma
+        then if (mb :> int) land (pa :> int) == 0
+          then update_multiple_from_inter_with_foreign tb0 f ta
+          else update_multiple_from_inter_with_foreign tb1 f ta
+        else ta
+
+    type ('map1, 'map2) polydifference = ('map1,'map2,'map1) polyupdate_multiple_inter
+    let rec difference f ta tb =
+      match NODE.view ta, Map2.view tb with
+      | Empty, _
+      | _, Empty -> ta
+      | Leaf{key;value=va},_ -> (try let vb = Map2.find key tb in
+            match f.f key va vb with
+            | None -> empty
+            | Some v -> if v == va then ta else leaf key v
+          with Not_found -> ta)
+      | _,Leaf{key;value} -> update key (function None -> None | Some v -> f.f key v value) ta
+      | Branch{prefix=pa;branching_bit=ma;tree0=ta0;tree1=ta1},
+        Branch{prefix=pb;branching_bit=mb;tree0=tb0;tree1=tb1} ->
+        if ma == mb && pa == pb
+        then
+          let tree0 = difference f ta0 tb0 in
+          let tree1 = difference f ta1 tb1 in
+          branch ~prefix:pa ~branching_bit:ma ~tree0 ~tree1
+        else if branches_before pa ma pb mb
+        then if (ma :> int) land (pb :> int) == 0
+          then branch ~prefix:pa ~branching_bit:ma ~tree0:(difference f ta0 tb) ~tree1:ta1
+          else branch ~prefix:pa ~branching_bit:ma ~tree0:ta0 ~tree1:(difference f ta1 tb)
+        else if branches_before pb mb pa ma
+        then if (mb :> int) land (pa :> int) == 0
+          then difference f ta tb0
+          else difference f ta tb1
+        else ta
+
+    type ('a, 'b) key_value_value = KeyValueValue: 'k key * ('k, 'a) value * ('k, 'b) Map2.value -> ('a,'b) key_value_value
+
+    let rec min_binding_inter ta tb =
+      match NODE.view ta,Map2.view tb with
+      | Empty, _ | _, Empty -> None
+      | Leaf{key;value},_ ->
+        (try Some (KeyValueValue(key,value,Map2.find key tb))
+         with Not_found -> None)
+      | _,Leaf{key;value} ->
+        (try Some (KeyValueValue(key,find key ta,value))
+        with Not_found -> None)
+      | Branch{prefix=pa;branching_bit=ma;tree0=ta0;tree1=ta1},
+        Branch{prefix=pb;branching_bit=mb;tree0=tb0;tree1=tb1} ->
+        if ma == mb && pa == pb
+        (* Same prefix: iterate on subtrees *)
+        then
+          match min_binding_inter ta0 tb0 with
+          | None -> min_binding_inter ta1 tb1
+          | some -> some
+        else if branches_before pa ma pb mb
+        then if (ma :> int) land (pb :> int) == 0
+          then min_binding_inter ta0 tb
+          else min_binding_inter ta1 tb
+        else if branches_before pb mb pa ma
+        then if (mb :> int) land (pa :> int) == 0
+          then min_binding_inter ta tb0
+          else min_binding_inter ta tb1
+        else None
+
+    let rec max_binding_inter ta tb =
+      match NODE.view ta, Map2.view tb with
+      | Empty, _ | _, Empty -> None
+      | Leaf{key;value},_ ->
+        (try Some (KeyValueValue(key,value,Map2.find key tb))
+          with Not_found -> None)
+      | _,Leaf{key;value} ->
+        (try Some (KeyValueValue(key,find key ta,value))
+        with Not_found -> None)
+      | Branch{prefix=pa;branching_bit=ma;tree0=ta0;tree1=ta1},
+        Branch{prefix=pb;branching_bit=mb;tree0=tb0;tree1=tb1} ->
+        if ma == mb && pa == pb
+        (* Same prefix: iterate on subtrees *)
+        then
+          match max_binding_inter ta1 tb1 with
+          | None -> max_binding_inter ta0 tb0
+          | some -> some
+        else if branches_before pa ma pb mb
+        then if (ma :> int) land (pb :> int) == 0
+          then max_binding_inter ta0 tb
+          else max_binding_inter ta1 tb
+        else if branches_before pb mb pa ma
+        then if (mb :> int) land (pa :> int) == 0
+          then max_binding_inter ta tb0
+          else max_binding_inter ta tb1
+        else None
+  end
+  include WithForeign(Core)
+
+  let rec unsigned_min_binding x = match NODE.view x with
+    | Empty -> raise Not_found
+    | Leaf{key;value} -> KeyValue(key,value)
+    | Branch{tree0;_} -> unsigned_min_binding tree0
+  let rec unsigned_max_binding x = match NODE.view x with
+    | Empty -> raise Not_found
+    | Leaf{key;value} -> KeyValue(key,value)
+    | Branch{tree1;_} -> unsigned_max_binding tree1
+
+  type ('map1,'map2) polymapi = { f: 'a. 'a Key.t -> ('a,'map1) Value.t -> ('a,'map2) Value.t } [@@unboxed]
+  let rec mapi (f:('map1,'map1) polymapi) m = match NODE.view m with
+    | Empty -> empty
+    | Leaf{key;value} ->
+      let newval = (f.f key value) in
+      if newval == value
+      then m
+      else leaf key newval
+    | Branch{prefix;branching_bit;tree0;tree1} ->
+      let newtree0 = mapi f tree0 in
+      let newtree1 = mapi f tree1 in
+      if tree0 == newtree0 && tree1 == newtree1 then m
+      else branch ~prefix ~branching_bit ~tree0:newtree0 ~tree1:newtree1
+
+  (* MAYBE: A map (and map_filter) homogeneous, that try to preserve physical equality. *)
+  let rec mapi_no_share (f:('map1,'map2) polymapi) m = match NODE.view m with
+    | Empty -> empty
+    | Leaf{key;value} -> leaf key (f.f key value)
+    | Branch{prefix;branching_bit;tree0;tree1} ->
+        let tree0 = mapi_no_share f tree0 in
+        let tree1 = mapi_no_share f tree1 in
+        branch ~prefix ~branching_bit ~tree0 ~tree1
+
+  type ('map1,'map2) polymap = { f: 'a. ('a,'map1) Value.t -> ('a,'map2) Value.t } [@@unboxed]
+  let map (f:('map1,'map1) polymap) m = mapi { f=fun _ v -> f.f v } m
+  let map_no_share (f:('map1,'map2) polymap) m = mapi_no_share { f=fun _ v -> f.f v } m
+
+  let rec filter_map (f:('map1,'map1) polyfilter_map) m = match NODE.view m with
+    | Empty -> empty
+    | Leaf{key;value} ->
+      (match f.f key value with
+       | None -> empty
+       | Some newval -> if newval == value then m else leaf key newval)
+    | Branch{prefix;branching_bit;tree0;tree1} ->
+      let newtree0 = filter_map f tree0 in
+      let newtree1 = filter_map f tree1 in
+      if tree0 == newtree0 && tree1 == newtree1 then m
+      else branch ~prefix ~branching_bit ~tree0:newtree0 ~tree1:newtree1
+
+  type 'map polypretty = { f: 'a. Format.formatter -> 'a Key.t -> ('a, 'map) Value.t -> unit } [@@unboxed]
+  let rec pretty ?(pp_sep=Format.pp_print_cut) (f : 'map polypretty) fmt m =
+    match NODE.view m with
+    | Empty -> ()
+    | Leaf{key;value} -> (f.f fmt key value)
+    | Branch{tree0; tree1; _} ->
+        pretty f ~pp_sep fmt tree0;
+        pp_sep fmt ();
+        pretty f ~pp_sep fmt tree1
+
+  let rec pop_unsigned_minimum m = match NODE.view m with
+    | Empty -> None
+    | Leaf{key;value} -> Some (KeyValue(key,value),empty)
+    | Branch{prefix;branching_bit;tree0;tree1} ->
+      match pop_unsigned_minimum tree0 with
+      | None -> pop_unsigned_minimum tree1
+      | Some(res,tree0') ->
+          let restree =
+            if is_empty tree0' then tree1
+            else branch ~prefix ~branching_bit ~tree0:tree0' ~tree1
+          in Some(res,restree)
+
+  let rec pop_unsigned_maximum m = match NODE.view m with
+    | Empty -> None
+    | Leaf{key;value} -> Some (KeyValue(key,value),empty)
+    | Branch{prefix;branching_bit;tree0;tree1} ->
+      match pop_unsigned_maximum tree1 with
+      | None -> pop_unsigned_maximum tree0
+      | Some(res,tree1') ->
+          let restree =
+            if is_empty tree1' then tree0
+            else branch ~prefix ~branching_bit ~tree0 ~tree1:tree1'
+          in Some(res,restree)
+
   (* Note: Insert is a bit weird, I am not sure it should be exported. *)
   type 'map polyinsert = { f: 'a . key:'a Key.t -> old:('a,'map) Value.t -> value:('a,'map) Value.t -> ('a,'map) Value.t } [@@unboxed]
   let insert_for_union: type a map. map polyinsert -> a Key.t -> (a,map) Value.t -> map t -> map t =
@@ -325,8 +546,6 @@ module MakeCustomHeterogeneousMap
           else join thekeyint (leaf thekey value) (prefix :> int) t
       in loop t
     with Unmodified -> t
-
-  let add key value t = insert key (fun _ -> value) t
 
   type ('map1,'map2) polysame_domain_for_all2 = { f: 'a 'b. 'a Key.t -> ('a,'map1) Value.t -> ('a,'map2) Value.t -> bool } [@@unboxed]
   (* Fast equality test between two maps. *)
@@ -555,7 +774,7 @@ module MakeCustomHeterogeneousMap
         else nonidempotent_inter_no_share f ta tb1
       else empty
 
-  type ('map1,'map2,'map3) polyinterfilter = { f: 'a. 'a Key.t -> ('a,'map1) Value.t -> ('a,'map2) Value.t -> ('a,'map3) Value.t option } [@@unboxed]
+  type ('map1,'map2,'map3) polyinterfilter = ('map1, 'map2, 'map3) polyupdate_multiple_inter = { f: 'a. 'a Key.t -> ('a,'map1) Value.t -> ('a,'map2) Value.t -> ('a,'map3) Value.t option } [@@unboxed]
   let rec idempotent_inter_filter f ta tb =
     if ta == tb then ta
     else match NODE.view ta,NODE.view tb with
@@ -649,7 +868,6 @@ module MakeCustomHeterogeneousMap
         else branch ~prefix:pb ~branching_bit:mb ~tree0:(upd_tb tb0) ~tree1:(slow_merge f ta tb1)
       else join (pa :> int) (upd_ta ta) (pb :> int) (upd_tb tb)
 
-  type ('a, 'b) polydifference = ('a, 'b, 'a) polyinterfilter
   let rec symmetric_difference (f : (_,_) polydifference) ta tb =
     if ta == tb then empty
     else match NODE.view ta, NODE.view tb with
@@ -688,36 +906,6 @@ module MakeCustomHeterogeneousMap
           then branch ~prefix:pb ~branching_bit:mb ~tree0:(symmetric_difference f ta tb0) ~tree1:tb1
           else branch ~prefix:pb ~branching_bit:mb ~tree0:tb0 ~tree1:(symmetric_difference f ta tb1)
         else join (pa :> int) ta (pb :> int) tb
-
-  let rec difference (f: (_,_) polydifference) ta tb =
-    if ta == tb then empty else
-    match NODE.view ta, NODE.view tb with
-    | Empty, _ | _, Empty -> ta
-    | Leaf{key;value=va},_ -> (try let vb = find key tb in
-          if va == vb then empty else
-          match f.f key va vb with
-          | None -> empty
-          | Some v -> if v == va then ta else leaf key v
-        with Not_found -> ta)
-    | _,Leaf{key;value} -> update key (function
-        | None -> None
-        | Some v when v == value -> None
-        | Some v -> f.f key v value) ta
-    | Branch{prefix=pa;branching_bit=ma;tree0=ta0;tree1=ta1},
-      Branch{prefix=pb;branching_bit=mb;tree0=tb0;tree1=tb1} ->
-      if ma == mb && pa == pb then
-        let tree0 = difference f ta0 tb0 in
-        let tree1 = difference f ta1 tb1 in
-        branch ~prefix:pa ~branching_bit:ma ~tree0 ~tree1
-      else if branches_before pa ma pb mb
-      then if (ma :> int) land (pb :> int) == 0
-        then branch ~prefix:pa ~branching_bit:ma ~tree0:(difference f ta0 tb) ~tree1:ta1
-        else branch ~prefix:pa ~branching_bit:ma ~tree0:ta0 ~tree1:(difference f ta1 tb)
-      else if branches_before pb mb pa ma
-      then if (mb :> int) land (pa :> int) == 0
-        then difference f ta tb0
-        else difference f ta tb1
-      else ta
 
   type 'map polyiter = { f: 'a. 'a Key.t -> ('a,'map) Value.t -> unit } [@@unboxed]
   let rec iter f x = match NODE.view x with
@@ -875,177 +1063,6 @@ module MakeCustomHeterogeneousMap
     | Leaf{key;value} -> f.f key value
     | Branch{tree0; tree1; _ } -> for_all f tree0 && for_all f tree1
 
-  module WithForeign(Map2:BASE_MAP with type 'a key = 'a key) = struct
-
-    (* Intersects the first map with the values of the second map,
-       trying to preserve physical equality of the first map whenever
-       possible. *)
-    type ('map1,'map2) polyinter_foreign = { f: 'a. 'a key -> ('a,'map1) value -> ('a,'map2) Map2.value -> ('a,'map1) value } [@@unboxed]
-    let rec nonidempotent_inter f ta tb =
-      match NODE.view ta,Map2.view tb with
-      | Empty, _ | _, Empty -> NODE.empty
-      | Leaf{key;value},_ ->
-        (try let res = Map2.find key tb in
-           let newval = (f.f key value res) in
-           if newval == value then ta
-           else NODE.leaf key newval
-         with Not_found -> NODE.empty)
-      | _,Leaf{key;value} ->
-        (try let res = find key ta in
-           NODE.leaf key (f.f key res value)
-         with Not_found -> NODE.empty)
-      | Branch{prefix=pa;branching_bit=ma;tree0=ta0;tree1=ta1},
-        Branch{prefix=pb;branching_bit=mb;tree0=tb0;tree1=tb1} ->
-        if ma == mb && pa == pb
-        (* Same prefix: merge the subtrees *)
-        then
-          let tree0 = (nonidempotent_inter f ta0 tb0) in
-          let tree1 = (nonidempotent_inter f ta1 tb1) in
-          if(ta0 == tree0 && ta1 == tree1)
-          then ta
-          else NODE.branch ~prefix:pa ~branching_bit:ma ~tree0 ~tree1
-        else if branches_before pa ma pb mb
-        then if (ma :> int) land (pb :> int) == 0
-          then nonidempotent_inter f ta0 tb
-          else nonidempotent_inter f ta1 tb
-        else if branches_before pb mb pa ma
-        then if (mb :> int) land (pa :> int) == 0
-          then nonidempotent_inter f ta tb0
-          else nonidempotent_inter f ta tb1
-        else NODE.empty
-
-    type ('map2,'map1) polyfilter_map_foreign = { f: 'a. 'a Key.t -> ('a,'map2) Map2.value -> ('a,'map1) value option } [@@unboxed]
-    let rec filter_map_no_share (f:('b,'c) polyfilter_map_foreign) m = match Map2.view m with
-      | Empty -> empty
-      | Leaf{key;value} -> (match (f.f key value) with Some v -> leaf key v | None -> empty)
-      | Branch{prefix;branching_bit;tree0;tree1} ->
-          let tree0 = filter_map_no_share f tree0 in
-          let tree1 = filter_map_no_share f tree1 in
-          branch ~prefix ~branching_bit ~tree0 ~tree1
-
-    (** Add all the bindings in tb to ta (after transformation).  *)
-    type ('map1,'map2) polyupdate_multiple = { f: 'a. 'a Key.t -> ('a,'map1) value option -> ('a,'map2) Map2.value -> ('a,'map1) value option } [@@unboxed]
-    let rec update_multiple_from_foreign (tb:'map2 Map2.t) f (ta:'map1 t) =
-      let upd_tb tb = filter_map_no_share {f=fun key value -> f.f key None value} tb in
-      match NODE.view ta,Map2.view tb with
-      | Empty, _ -> upd_tb tb
-      | _, Empty -> ta
-      | _,Leaf{key;value} -> update key (fun maybeval -> f.f key maybeval value) ta
-      | Leaf{key;value},_ ->
-        let found = ref false in
-        let f: type a. a key -> (a,'map2) Map2.value -> (a,'map1) value option =
-          fun curkey curvalue ->
-            match Key.polyeq key curkey with
-            | Eq -> found := true; f.f curkey (Some value) curvalue
-            | Diff -> f.f curkey None curvalue
-        in
-        let res = filter_map_no_share {f} tb in
-        if !found then res
-        else add key value res
-      | Branch{prefix=pa;branching_bit=ma;tree0=ta0;tree1=ta1},
-        Branch{prefix=pb;branching_bit=mb;tree0=tb0;tree1=tb1} ->
-        if ma == mb && pa == pb
-        (* Same prefix: merge the subtrees *)
-        then
-          let tree0 = update_multiple_from_foreign tb0 f ta0 in
-          let tree1 = update_multiple_from_foreign tb1 f ta1 in
-          if tree0 == ta0 && tree1 == ta1 then ta
-          else branch ~prefix:pa ~branching_bit:ma ~tree0 ~tree1
-        else if branches_before pa ma pb mb
-        then if (ma :> int) land (pb :> int) == 0
-          then
-            let ta0' = update_multiple_from_foreign tb f ta0 in
-            if ta0' == ta0 then ta
-            else branch ~prefix:pa ~branching_bit:ma ~tree0:ta0' ~tree1:ta1
-          else
-            let ta1' = update_multiple_from_foreign tb f ta1 in
-            if ta1' == ta1 then ta
-            else branch ~prefix:pa ~branching_bit:ma ~tree0:ta0 ~tree1:ta1'
-        else if branches_before pb mb pa ma
-        then if (mb :> int) land (pa :> int) == 0
-          then
-            let tree0 = update_multiple_from_foreign tb0 f ta in
-            let tree1 = upd_tb tb1 in
-            branch ~prefix:pb ~branching_bit:mb ~tree0 ~tree1
-          else
-            let tree0 = upd_tb tb0 in
-            let tree1 = update_multiple_from_foreign tb1 f ta in
-            branch ~prefix:pb ~branching_bit:mb ~tree0 ~tree1
-        else join (pa :> int) ta (pb :> int) (upd_tb tb)
-
-
-    (* Map difference: (possibly) remove from ta elements that are in tb, the other are preserved, no element is added. *)
-    type ('map1,'map2) polyupdate_multiple_inter = { f: 'a. 'a Key.t -> ('a,'map1) value -> ('a,'map2) Map2.value -> ('a,'map1) value option } [@@unboxed]
-    let rec update_multiple_from_inter_with_foreign tb f ta =
-      match NODE.view ta, Map2.view tb with
-      | Empty, _ -> ta
-      | _, Empty -> ta
-      | Leaf{key;value},_ ->
-        begin match Map2.find key tb with
-        | exception Not_found -> ta
-        | foundv -> begin
-            match f.f key value foundv with
-            | None -> empty
-            | Some v when v == value -> ta
-            | Some v -> leaf key v
-          end
-        end
-      | _,Leaf{key;value} ->
-        update key (fun v -> match v with None -> None | Some v -> f.f key v value) ta
-      | Branch{prefix=pa;branching_bit=ma;tree0=ta0;tree1=ta1},
-        Branch{prefix=pb;branching_bit=mb;tree0=tb0;tree1=tb1} ->
-        if ma == mb && pa == pb
-        (* Same prefix: merge the subtrees *)
-        then
-          let tree0 = update_multiple_from_inter_with_foreign tb0 f ta0 in
-          let tree1 = update_multiple_from_inter_with_foreign tb1 f ta1 in
-          if tree0 == ta0 && tree1 == ta1 then ta
-          else branch ~prefix:pa ~branching_bit:ma ~tree0 ~tree1
-        else if branches_before pa ma pb mb
-        then if (ma :> int) land (pb :> int) == 0
-          then
-            let ta0' = update_multiple_from_inter_with_foreign tb f ta0 in
-            if ta0' == ta0 then ta
-            else branch ~prefix:pa ~branching_bit:ma ~tree0:ta0' ~tree1:ta1
-          else
-            let ta1' = update_multiple_from_inter_with_foreign tb f ta1 in
-            if ta1' == ta1 then ta
-            else branch ~prefix:pa ~branching_bit:ma ~tree0:ta0 ~tree1:ta1'
-        else if branches_before pb mb pa ma
-        then if (mb :> int) land (pa :> int) == 0
-          then update_multiple_from_inter_with_foreign tb0 f ta
-          else update_multiple_from_inter_with_foreign tb1 f ta
-        else ta
-
-    type ('map1, 'map2) polydifference = ('map1,'map2) polyupdate_multiple_inter
-    let rec difference f ta tb =
-      match NODE.view ta, Map2.view tb with
-      | Empty, _
-      | _, Empty -> ta
-      | Leaf{key;value=va},_ -> (try let vb = Map2.find key tb in
-            match f.f key va vb with
-            | None -> empty
-            | Some v -> if v == va then ta else leaf key v
-          with Not_found -> ta)
-      | _,Leaf{key;value} -> update key (function None -> None | Some v -> f.f key v value) ta
-      | Branch{prefix=pa;branching_bit=ma;tree0=ta0;tree1=ta1},
-        Branch{prefix=pb;branching_bit=mb;tree0=tb0;tree1=tb1} ->
-        if ma == mb && pa == pb
-        then
-          let tree0 = difference f ta0 tb0 in
-          let tree1 = difference f ta1 tb1 in
-          branch ~prefix:pa ~branching_bit:ma ~tree0 ~tree1
-        else if branches_before pa ma pb mb
-        then if (ma :> int) land (pb :> int) == 0
-          then branch ~prefix:pa ~branching_bit:ma ~tree0:(difference f ta0 tb) ~tree1:ta1
-          else branch ~prefix:pa ~branching_bit:ma ~tree0:ta0 ~tree1:(difference f ta1 tb)
-        else if branches_before pb mb pa ma
-        then if (mb :> int) land (pa :> int) == 0
-          then difference f ta tb0
-          else difference f ta tb1
-        else ta
-  end
-
   let rec to_seq m () = match NODE.view m with
     | Empty -> Seq.Nil
     | Leaf{key; value} -> Seq.Cons (KeyValue(key,value), Seq.empty)
@@ -1069,7 +1086,8 @@ end
 module MakeCustomHeterogeneousSet
     (Key:HETEROGENEOUS_KEY)
     (Node:NODE with type 'a key = 'a Key.t and type ('a, 'b) value = unit)
-: HETEROGENEOUS_SET with type 'a elt = 'a Key.t and type 'a BaseMap.t = 'a Node.t = struct
+: HETEROGENEOUS_SET with type 'a elt = 'a Key.t and type 'a BaseMap.t = 'a Node.t
+= struct
   module BaseMap = MakeCustomHeterogeneousMap(Key)(struct type ('a,'b) t = unit end)(Node)
 
   (* No need to differentiate the values. *)
@@ -1110,6 +1128,9 @@ module MakeCustomHeterogeneousSet
 
   let unsigned_min_elt t = let KeyValue(m, ()) = BaseMap.unsigned_min_binding t in Any m
   let unsigned_max_elt t = let KeyValue(m, ()) = BaseMap.unsigned_max_binding t in Any m
+
+  let min_elt_inter s1 s2 = BaseMap.min_binding_inter s1 s2 |> Option.map (fun (KeyValueValue(m, (), ())) -> Any m)
+  let max_elt_inter s1 s2 = BaseMap.min_binding_inter s1 s2 |> Option.map (fun (KeyValueValue(m, (), ())) -> Any m)
 
   let pop_unsigned_maximum t = Option.map (fun (KeyValue(m,()),t) -> Any m,t) (BaseMap.pop_unsigned_maximum t)
   let pop_unsigned_minimum t = Option.map (fun (KeyValue(m,()),t) -> Any m,t) (BaseMap.pop_unsigned_minimum t)
@@ -1174,6 +1195,8 @@ module MakeCustomMap
   let split x m = let (l,m,r) = split x m in (l, opt_snd m, r)
   let unsigned_min_binding m = let KeyValue(key,Snd value) = BaseMap.unsigned_min_binding m in key,value
   let unsigned_max_binding m = let KeyValue(key,Snd value) = BaseMap.unsigned_max_binding m in key,value
+  let min_binding_inter m1 m2 = BaseMap.min_binding_inter m1 m2 |> Option.map (fun (KeyValueValue(k,Snd v1,Snd v2)) -> (k,v1,v2))
+  let max_binding_inter m1 m2 = BaseMap.max_binding_inter m1 m2 |> Option.map (fun (KeyValueValue(k,Snd v1,Snd v2)) -> (k,v1,v2))
   (* let singleton k v = BaseMap.singleton (PolyKey.K k) v *)
   let pop_unsigned_minimum m =
     match BaseMap.pop_unsigned_minimum m with
@@ -1233,7 +1256,7 @@ module MakeCustomMap
 
   let for_all (f : key -> 'a value -> bool) m = BaseMap.for_all {f = fun k (Snd v) -> f k v} m
 
-  module WithForeign(Map2 : BASE_MAP with type _ key = key) = struct
+  module WithForeign(Map2 : NODE_WITH_FIND with type _ key = key) = struct
     module BaseForeign = BaseMap.WithForeign(Map2)
     type ('b,'c) polyfilter_map_foreign = { f: 'a. key -> ('a,'b) Map2.value -> 'c value option } [@@unboxed]
     let filter_map_no_share f m2 =
@@ -1301,7 +1324,8 @@ module MakeCustomSet
   let unsigned_max_elt t = let Any x = unsigned_max_elt t in x
   let pop_unsigned_minimum t = Option.map (fun (Any x, t) -> (x,t)) (pop_unsigned_minimum t)
   let pop_unsigned_maximum t = Option.map (fun (Any x, t) -> (x,t)) (pop_unsigned_maximum t)
-
+  let min_elt_inter t1 t2 = Option.map (fun (Any x) -> x) (min_elt_inter t1 t2)
+  let max_elt_inter t1 t2 = Option.map (fun (Any x) -> x) (max_elt_inter t1 t2)
   let to_seq m = Seq.map (fun (BaseMap.KeyValue(elt,())) -> elt) (BaseMap.to_seq m)
   let to_rev_seq m = Seq.map (fun (BaseMap.KeyValue(elt,())) -> elt) (BaseMap.to_rev_seq m)
   let add_seq s m = BaseMap.add_seq (Seq.map (fun (elt) -> BaseMap.KeyValue(elt,())) s) m

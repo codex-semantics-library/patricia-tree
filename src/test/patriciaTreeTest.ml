@@ -678,6 +678,38 @@ end) = struct
       let modelres = IntMap.difference orig_f model1 model2 in
       IntMap.equal (=) modelres myres)
   let () = QCheck.Test.check_exn test_difference
+
+
+  let test_min_binding_inter = QCheck.Test.make ~count:1000 ~name:"min_binding_inter"
+  gen (fun x ->
+    let (m1,_,m2,_) = model_from_gen x in
+    let min_t = MyMap.min_binding_inter m1 m2 in
+    let min_l =
+      try MyMap.idempotent_inter (fun _ l _ -> l) m1 m2 |> MyMap.unsigned_min_binding |> Option.some
+      with Not_found -> None in
+    let min_r =
+      try MyMap.idempotent_inter (fun _ _ r -> r) m1 m2 |> MyMap.unsigned_min_binding |> Option.some
+      with Not_found -> None in
+    match min_t, min_l, min_r with
+    | None, None, None -> true
+    | Some(k,l,r), Some(k',l'), Some(k'',r') -> k = k' && k' = k'' && l = l' && r = r'
+    | _ -> false)
+
+  let test_max_binding_inter = QCheck.Test.make ~count:1000 ~name:"min_binding_inter"
+  gen (fun x ->
+    let (m1,_,m2,_) = model_from_gen x in
+    let max_t = MyMap.max_binding_inter m1 m2 in
+    let max_l =
+      try MyMap.idempotent_inter (fun _ l _ -> l) m1 m2 |> MyMap.unsigned_max_binding |> Option.some
+      with Not_found -> None in
+    let max_r =
+      try MyMap.idempotent_inter (fun _ _ r -> r) m1 m2 |> MyMap.unsigned_max_binding |> Option.some
+      with Not_found -> None in
+    match max_t, max_l, max_r with
+    | None, None, None -> true
+    | Some(k,l,r), Some(k',l'), Some(k'',r') -> k = k' && k' = k'' && l = l' && r = r'
+    | _ -> false)
+let () = QCheck.Test.check_exn test_difference
 end
 
 module MyMap = MakeMap(HIntKey)

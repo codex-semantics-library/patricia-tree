@@ -161,6 +161,22 @@ module type HASH_CONSED_NODE = sig
       child nodes will always have a smaller identifier than their parents. *)
 end
 
+(** A {!NODE} along with its {!NODE_WITH_FIND.find} function.
+    This is the minimal argument to the {!HETEROGENEOUS_MAP.WithForeign} functors
+
+    @since v0.11.0
+    @canonical PatriciaTree.NODE_WITH_FIND *)
+module type NODE_WITH_FIND = sig
+  include NODE (** @closed *)
+
+  val find : 'key key -> 'map t -> ('key, 'map) value
+  (** [find key map] returns the value associated with [key] in [map] if present.
+      @raises Not_found if [key] is absent from map *)
+
+  val find_opt : 'key key -> 'map t -> ('key, 'map) value option
+  (** Same as {!find}, but returns [None] for Not_found *)
+end
+
 (** {1 Map signatures} *)
 
 (** {2 Base map} *)
@@ -179,7 +195,7 @@ end
 
     @canonical PatriciaTree.BASE_MAP *)
 module type BASE_MAP = sig
-  include NODE (** @closed *)
+  include NODE_WITH_FIND (** @open *)
 
   (** Existential wrapper for the ['a] parameter in a ['a key], [('a,'map) value] pair *)
   type 'map key_value_pair =
@@ -206,13 +222,6 @@ module type BASE_MAP = sig
   val is_singleton : 'a t -> 'a key_value_pair option
   (** [is_singleton m] returns [Some(KeyValue(k,v))] if and only if
       [m] contains a unique binding [k->v]. *)
-
-  val find : 'key key -> 'map t -> ('key, 'map) value
-  (** [find key map] returns the value associated with [key] in [map] if present.
-      @raises Not_found if [key] is absent from map *)
-
-  val find_opt : 'key key -> 'map t -> ('key, 'map) value option
-  (** Same as {!find}, but returns [None] for Not_found *)
 
   val mem : 'key key -> 'map t -> bool
   (** [mem key map] returns [true] iff [key] is bound in [map], O(log(n)) complexity. *)
@@ -437,7 +446,7 @@ module type BASE_MAP = sig
       or a binding that only occurs in [m2].
 
       Assumes that [f v v = 0].
-      @since 0.11.0 *)
+      @since v0.11.0 *)
 
   val disjoint : 'a t -> 'a t -> bool
   (** [disjoint m1 m2] is [true] iff [m1] and [m2] have disjoint domains *)
@@ -528,7 +537,7 @@ module type BASE_MAP = sig
       Complexity is [O(log n + d)] where [n] is the size of the maps, and [d] the
       size of the difference.
 
-      @since 0.11.0 *)
+      @since v0.11.0 *)
 
   val difference: ('a, 'a) polydifference -> 'a t -> 'a t -> 'a t
   (** [difference f map1 map2] returns the map containing the bindings of [map1]
@@ -540,7 +549,33 @@ module type BASE_MAP = sig
       [f.f] is called in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
       [f.f] is never called on physically equal values.
 
-      @since 0.11.0 *)
+      @since v0.11.0 *)
+
+  (** {2 Min/max of intersection} *)
+
+  (** Existential wrapper for a key with two values
+      @since v0.11.0 *)
+  type ('a, 'b) key_value_value = KeyValueValue: 'k key * ('k, 'a) value * ('k, 'b) value -> ('a,'b) key_value_value
+
+  val min_binding_inter: 'a t -> 'b t -> ('a,'b) key_value_value option
+  (** [min_binding_inter m1 m2] is the minimal binding of the intersection.
+      I.E. the {{!KeyValueValue}[KeyValueValue(k,v1,v2)]} such that
+      [(k,v1)] is in [m1], [(k,v2)] is in [m2], and [k] is minimal using
+      the {{!unsigned_lt}unsigned order} on keys.
+
+      Returns [None] if and only if the intersection is empty.
+
+      It is rougthly equivalent to calling {!unsigned_min_binding} on
+      {{!nonidempotent_inter_no_share}[nonindempotent_inter_no_share f m1 m2]},
+      but can be faster.
+
+      @since v0.11.0 *)
+
+  val max_binding_inter: 'a t -> 'b t -> ('a,'b) key_value_value option
+  (** [max_binding_inter m1 m2] is the same as {!min_binding_inter}, but returns
+      the maximum key instead of the minimum.
+
+      @since v0.11.0 *)
 
   (** {1 Conversion functions} *)
 
@@ -589,15 +624,15 @@ module type HETEROGENEOUS_MAP = sig
 
   (** Operation with maps/set of different types.
       [Map2] must use the same {!KEY.to_int} function. *)
-  module WithForeign(Map2:BASE_MAP with type 'a key = 'a key):sig
+  module WithForeign(Map2: NODE_WITH_FIND with type 'a key = 'a key):sig
     type ('map1,'map2) polyinter_foreign = { f: 'a. 'a key -> ('a,'map1) value -> ('a,'map2) Map2.value -> ('a,'map1) value } [@@unboxed]
 
     val nonidempotent_inter : ('a,'b) polyinter_foreign -> 'a t -> 'b Map2.t -> 'a t
     (** Like {!BASE_MAP.idempotent_inter}. Tries to preserve physical equality on the first argument when possible. *)
 
-    type ('map2,'map1) polyfilter_map_foreign =
+    type ('map2,'map1) polyfilter_map =
       { f : 'a. 'a key -> ('a, 'map2) Map2.value -> ('a, 'map1) value option; } [@@unboxed]
-    val filter_map_no_share : ('map2,'map1) polyfilter_map_foreign -> 'map2 Map2.t -> 'map1 t
+    val filter_map_no_share : ('map2,'map1) polyfilter_map -> 'map2 Map2.t -> 'map1 t
     (** Like {!BASE_MAP.filter_map_no_share}, but allows to transform a foreigh map into the current one. *)
 
     type ('map1,'map2) polyupdate_multiple = { f: 'a. 'a key -> ('a,'map1) value option -> ('a,'map2) Map2.value -> ('a,'map1) value option } [@@unboxed]
@@ -612,14 +647,14 @@ module type HETEROGENEOUS_MAP = sig
         [f.f] is called in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
         O(size(m_from) + size(m_to)) complexity. *)
 
-    type ('map1,'map2) polyupdate_multiple_inter = { f: 'a. 'a key -> ('a,'map1) value -> ('a,'map2) Map2.value -> ('a,'map1) value option } [@@unboxed]
-    val update_multiple_from_inter_with_foreign : 'b Map2.t -> ('a,'b) polyupdate_multiple_inter -> 'a t ->'a t
+    type ('map1,'map2,'map3) polyupdate_multiple_inter = { f: 'a. 'a key -> ('a,'map1) value -> ('a,'map2) Map2.value -> ('a,'map3) value option } [@@unboxed]
+    val update_multiple_from_inter_with_foreign : 'b Map2.t -> ('a,'b,'a) polyupdate_multiple_inter -> 'a t ->'a t
     (** [update_multiple_from_inter_with_foreign m_from f m_to] is the same as
         {!update_multiple_from_foreign}, except that instead of updating for all
         keys in [m_from], it only updates for keys that are both in [m_from] and
         [m_to]. *)
 
-    type ('map1, 'map2) polydifference = ('map1,'map2) polyupdate_multiple_inter
+    type ('map1, 'map2) polydifference = ('map1,'map2,'map1) polyupdate_multiple_inter
     val difference: ('a,'b) polydifference -> 'a t -> 'b Map2.t -> 'a t
     (** [difference f map1 map2] returns the map containing the bindings of [map1]
         that aren't in [map2]. For keys present in both maps but with different
@@ -631,7 +666,31 @@ module type HETEROGENEOUS_MAP = sig
         This is the same as {!BASE_MAP.difference} but allows the second map to
         be of a different type.
 
-        @since 0.11.0 *)
+        @since v0.11.0 *)
+
+    (** Existential wrapper for a key with two values
+        @since v0.11.0 *)
+    type ('a, 'b) key_value_value = KeyValueValue: 'k key * ('k, 'a) value * ('k, 'b) Map2.value -> ('a,'b) key_value_value
+
+    val min_binding_inter: 'a t -> 'b Map2.t -> ('a,'b) key_value_value option
+    (** [min_binding_inter m1 m2] is the minimal binding of the intersection.
+        I.E. the {{!KeyValueValue}[KeyValueValue(k,v1,v2)]} such that
+        [(k,v1)] is in [m1], [(k,v2)] is in [m2], and [k] is minimal using
+        the {{!unsigned_lt}unsigned order} on keys.
+
+        Returns [None] if and only if the intersection is empty.
+
+        It is rougthly equivalent to calling {!unsigned_min_binding} on
+        {{!nonidempotent_inter}[nonindempotent_inter f m1 m2]},
+        but can be faster.
+
+        @since v0.11.0 *)
+
+    val max_binding_inter: 'a t -> 'b Map2.t -> ('a,'b) key_value_value option
+    (** [max_binding_inter m1 m2] is the same as {!min_binding_inter}, but returns
+        the maximum key instead of the minimum.
+
+        @since v0.11.0 *)
   end
 end
 
@@ -665,7 +724,7 @@ module type HETEROGENEOUS_SET = sig
   (** Alias for elements, for compatibility with other PatriciaTrees *)
 
   (** Existential wrapper for set elements. *)
-  type any_elt = Any : 'a elt -> any_elt
+  type any_elt = Any: 'a elt -> any_elt
 
   (** {1 Basic functions} *)
 
@@ -738,7 +797,7 @@ module type HETEROGENEOUS_SET = sig
       [s1] is strictly smaller than [s2] if the first difference (in the order of {!KEY.to_int})
       is an element that appears in [s2] but not in [s1].
 
-      @since 0.11.0 *)
+      @since v0.11.0 *)
 
   val subset : t -> t -> bool
   (** [subset a b] is [true] if all elements of [a] are also in [b]. *)
@@ -751,7 +810,21 @@ module type HETEROGENEOUS_SET = sig
 
   val diff: t -> t -> t
   (** [diff s1 s2] is the set of all elements of [s1] that aren't in [s2].
-      @since 0.11.0 *)
+      @since v0.11.0 *)
+
+  val min_elt_inter: t -> t -> any_elt option
+  (** [min_elt_inter s1 s2] is {!unsigned_min_elt} of {{!inter}[inter s1 s2]}, but
+      faster as it does not require computing the whole intersection.
+      Returns [None] when the intersection is empty.
+
+      @since v0.11.0 *)
+
+  val max_elt_inter: t -> t -> any_elt option
+  (** [max_elt_inter s1 s2] is {!unsigned_max_elt} of {{!inter}[inter s1 s2]}, but
+      faster as it does not require computing the whole intersection.
+      Returns [None] when the intersection is empty.
+
+      @since v0.11.0 *)
 
   (** {1 Iterators} *)
 
@@ -924,14 +997,28 @@ module type SET = sig
       [s1] is strictly smaller than [s2] if the first difference (in the order of {!KEY.to_int})
       is an element that appears in [s2] but not in [s1].
 
-      @since 0.11.0 *)
+      @since v0.11.0 *)
 
   val subset : t -> t -> bool
   (** [subset a b] is [true] if all elements of [a] are also in [b]. *)
 
   val diff: t -> t -> t
   (** [diff s1 s2] is the set of all elements of [s1] that aren't in [s2].
-      @since 0.11.0 *)
+      @since v0.11.0 *)
+
+  val min_elt_inter: t -> t -> elt option
+  (** [min_elt_inter s1 s2] is {!unsigned_min_elt} of {{!inter}[inter s1 s2]}, but
+      faster as it does not require computing the whole intersection.
+      Returns [None] when the intersection is empty.
+
+      @since v0.11.0 *)
+
+  val max_elt_inter: t -> t -> elt option
+  (** [max_elt_inter s1 s2] is {!unsigned_max_elt} of {{!inter}[inter s1 s2]}, but
+      faster as it does not require computing the whole intersection.
+      Returns [None] when the intersection is empty.
+
+      @since v0.11.0 *)
 
   (** {1 Conversion functions} *)
 
@@ -972,7 +1059,7 @@ type (_, 'b) snd = Snd of 'b [@@unboxed]
     This is slightly more generic than {!MAP}, which just binds to ['a].
     It is used for maps that need to restrict their value type, namely {!hash_consed}.
 
-    @since 0.10.0
+    @since v0.10.0
     @canonical PatriciaTree.MAP_WITH_VALUE *)
 module type MAP_WITH_VALUE = sig
   type key
@@ -1195,7 +1282,7 @@ module type MAP_WITH_VALUE = sig
   (** [reflexive_equal f m1 m2] is true if both maps are equal, using [f] to compare values.
       [f] is assumed to be reflexive (i.e. [f v v = true]).
 
-      @since 0.11.0 *)
+      @since v0.11.0 *)
 
   val reflexive_compare: ('a value -> 'a value -> int) -> 'a t -> 'a t -> int
   (** [reflexive_compare f m1 m2] is an order on both maps.
@@ -1208,10 +1295,30 @@ module type MAP_WITH_VALUE = sig
       or a binding that only occurs in [m2].
 
       Assumes that [f v v = 0].
-      @since 0.11.0 *)
+      @since v0.11.0 *)
 
   val disjoint : 'a t -> 'a t -> bool
   (** [disjoint a b] is [true] if and only if [a] and [b] have disjoint domains. *)
+
+  val min_binding_inter: 'a t -> 'b t -> (key * 'a value * 'b value) option
+  (** [min_binding_inter m1 m2] is the minimal binding of the intersection.
+      I.E. the [(k,v1,v2)] such that
+      [(k,v1)] is in [m1], [(k,v2)] is in [m2], and [k] is minimal using
+      the {{!unsigned_lt}unsigned order} on keys.
+
+      Returns [None] if and only if the intersection is empty.
+
+      It is rougthly equivalent to calling {!unsigned_min_binding} on
+      {{!nonidempotent_inter_no_share}[nonindempotent_inter_no_share f m1 m2]},
+      but can be faster.
+
+      @since v0.11.0 *)
+
+  val max_binding_inter: 'a t -> 'b t -> (key * 'a value * 'b value) option
+  (** [max_binding_inter m1 m2] is the same as {!min_binding_inter}, but returns
+      the maximum key instead of the minimum.
+
+      @since v0.11.0 *)
 
   (** {2 Combining two maps} *)
   (** Union, intersection, difference...
@@ -1280,7 +1387,7 @@ module type MAP_WITH_VALUE = sig
       Complexity is [O(log n + d)] where [n] is the size of the maps, and [d] the
       size of the difference.
 
-      @since 0.11.0 *)
+      @since v0.11.0 *)
 
   val difference: (key -> 'a value -> 'a value -> 'a value option) -> 'a t -> 'a t -> 'a t
   (** [difference f map1 map2] returns a map comprising of the bindings
@@ -1291,11 +1398,11 @@ module type MAP_WITH_VALUE = sig
       {b Assumes} [f] is none on equal values (i.e. [f key value value == None])
       [f] is called in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
 
-      @since 0.11.0 *)
+      @since v0.11.0 *)
 
   (** Combination with other kinds of maps.
       [Map2] must use the same {!KEY.to_int} function. *)
-  module WithForeign(Map2 : BASE_MAP with type _ key = key):sig
+  module WithForeign(Map2: NODE_WITH_FIND with type _ key = key):sig
 
     type ('b,'c) polyfilter_map_foreign = { f: 'a. key -> ('a,'b) Map2.value -> 'c value option } [@@unboxed]
     val filter_map_no_share : ('b, 'c) polyfilter_map_foreign -> 'b Map2.t ->  'c t
@@ -1338,7 +1445,7 @@ module type MAP_WITH_VALUE = sig
         This is the same as {!MAP_WITH_VALUE.difference}, but allows the second
         map to be of a different type.
 
-        @since 0.11.0 *)
+        @since v0.11.0 *)
   end
 
   val pretty :
@@ -1500,7 +1607,7 @@ end
     of values in order to implement [hash] and [polyeq] functions on values.
     See the {!HASHED_VALUE} module type for more details.
 
-    @since 0.10.0
+    @since v0.10.0
     @canonical PatriciaTree.VALUE *)
 module type VALUE = sig
   type 'a t
@@ -1527,7 +1634,7 @@ end
     {{: https://ocaml.org/api/Hashtbl.html#VALhash}[Hashtbl.hash]}
     as [hash] function and physical equality as [polyeq].
 
-    @since 0.10.0
+    @since v0.10.0
     @canonical PatriciaTree.HASHED_VALUE *)
 module type HASHED_VALUE = sig
   type 'a t
@@ -1635,7 +1742,7 @@ end
     {{: https://ocaml.org/api/Hashtbl.html#VALhash}[Hashtbl.hash]}
     as [hash] function and physical equality as [polyeq].
 
-    @since 0.10.0
+    @since v0.10.0
     @canonical PatriciaTree.HETEROGENEOUS_HASHED_VALUE *)
 module type HETEROGENEOUS_HASHED_VALUE = sig
   type ('key, 'map) t
