@@ -1,4 +1,5 @@
 # dune build folder
 _build/
+_html/
 .vscode
 headers/

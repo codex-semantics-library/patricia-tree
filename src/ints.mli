@@ -60,7 +60,7 @@ val unsigned_lt : int -> int -> bool
 (** For internal use and testing *)
 
 val branching_bit : int -> int -> mask
-(** Returns the {!mask} corresponding to the highest bit that differs between
+(** Returns the {!type-mask} corresponding to the highest bit that differs between
     both arguments. *)
 
 val mask : int -> mask -> intkey
