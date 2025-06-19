@@ -1,6 +1,6 @@
 # Patricia Tree
 
-[![Latest version](https://img.shields.io/badge/version-0.10.0-yellow)](https://github.com/codex-semantics-library/patricia-tree/releases)
+[![Latest version](https://img.shields.io/badge/version-0.11.0-yellow)](https://github.com/codex-semantics-library/patricia-tree/releases)
 [![OCaml Version](https://img.shields.io/badge/OCaml-4.14_--_5.2-blue?logo=ocaml&logoColor=white)](https://github.com/codex-semantics-library/patricia-tree/blob/main/dune-project)
 [![GitHub License](https://img.shields.io/github/license/codex-semantics-library/patricia-tree)](https://github.com/codex-semantics-library/patricia-tree/blob/main/LICENSE)
 [![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/codex-semantics-library/patricia-tree/ocaml.yml)](https://github.com/codex-semantics-library/patricia-tree/actions/workflows/ocaml.yml)
