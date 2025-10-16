@@ -2,7 +2,8 @@
 (*  This file is part of the Codex semantics library                      *)
 (*    (patricia-tree sub-component).                                      *)
 (*                                                                        *)
-(*  Copyright (C) 2024-2025                                               *)
+(*                                                                        *)
+(*  Copyright (C) 2013-2025                                               *)
 (*    CEA (Commissariat à l'énergie atomique et aux énergies              *)
 (*         alternatives)                                                  *)
 (*                                                                        *)
@@ -17,6 +18,7 @@
 (*                                                                        *)
 (*  See the GNU Lesser General Public License version 2.1                 *)
 (*  for more details (enclosed in the file LICENSE).                      *)
+(*                                                                        *)
 (**************************************************************************)
 
 (** File run by MDX before running all others, sets up some stuff so the

@@ -1,11 +1,13 @@
 /**************************************************************************/
-/*  This file is part of the Codex semantics library.                     */
+/*  This file is part of the Codex semantics library                      */
+/*    (patricia-tree sub-component).                                      */
 /*                                                                        */
-/*  Copyright (C) 2013-2024                                               */
+/*                                                                        */
+/*  Copyright (C) 2013-2025                                               */
 /*    CEA (Commissariat à l'énergie atomique et aux énergies              */
 /*         alternatives)                                                  */
 /*                                                                        */
-/*  you can redistribute it and/or modify it under the terms of the GNU   */
+/*  You can redistribute it and/or modify it under the terms of the GNU   */
 /*  Lesser General Public License as published by the Free Software       */
 /*  Foundation, version 2.1.                                              */
 /*                                                                        */
