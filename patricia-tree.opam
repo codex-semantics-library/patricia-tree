@@ -17,6 +17,7 @@ depends: [
   "ocaml" {>= "4.14"}
   "dune" {>= "3.0"}
   "qcheck-core" {>= "0.21.2" & with-test}
+  "qcheck" {with-test}
   "ppx_inline_test" {>= "v0.16.0" & with-test}
   "mdx" {>= "2.4.1" & with-test}
   "bisect_ppx" {with-dev}

@@ -1,0 +1,135 @@
+(** A naive model that we trust. Can be used both with QCheck (following Jan's
+    paper) and Monolith *)
+
+let uncurry f (a, b) = f a b
+let second f (a, b) = (a, f b)
+let second_opt f (a, b) = Option.map (fun x -> (a, x)) @@ f b
+let secondi f (i, x) = (i, f i x)
+let secondi_opt f (i, x) = Option.map (fun x -> (i, x)) @@ f i x
+let with_uncurry comb = Fun.compose comb uncurry
+let with_second comb = Fun.compose comb second
+let with_second_opt comb = Fun.compose comb second_opt
+let with_secondi comb = Fun.compose comb secondi
+let with_secondi_opt comb = Fun.compose comb secondi_opt
+
+(** Unsigned comparison. *)
+let compare_keys k0 k1 = k1 - min_int - (k0 - min_int)
+
+let cmp_keys a b = compare_keys (fst a) (fst b)
+let keys m = List.(sort_uniq compare_keys @@ map fst m)
+
+type 'a t = (int * 'a) list
+
+let empty = []
+let singleton i a = [ (i, a) ]
+
+let compare cmp m0 m1 =
+  let cmp' a b =
+    let c = compare_keys (fst a) (fst b) in
+    if c = 0 then cmp (snd a) (snd b) else c
+  in
+  let c = List.compare_lengths m0 m1 in
+  if c = 0 then List.compare cmp' m0 m1 else c
+
+let equal = List.equal
+let is_empty = function [] -> true | _ -> false
+let size = List.length
+let mem = List.mem_assoc
+let find = List.assoc
+
+let add i a m =
+  (* guarantee uniqueness of keys *)
+  let m = List.remove_assoc i m in
+  List.merge cmp_keys m [ (i, a) ]
+
+let remove = List.remove_assoc
+
+let insert i f m =
+  add i (f (List.assoc_opt i m)) m
+
+let update i f m =
+  match f (List.assoc_opt i m) with
+  | None -> remove i m
+  | Some x -> add i x m
+
+let fold f = with_uncurry List.fold_right f
+
+(* Iteration is reversed. *)
+let iter f t = List.iter (fun (k, v) -> f k v) (List.rev t)
+
+let map f = with_second List.map f
+let mapi f = with_secondi List.map f
+let mapf f = with_secondi_opt List.filter_map f
+let mapq f = with_secondi_opt List.filter_map f
+let filter f = with_uncurry List.filter f
+
+let for_all p = with_uncurry List.for_all p
+let exists p = with_uncurry List.exists p
+
+let union f m0 m1 =
+  let keys = keys @@ List.append m0 m1 in
+  let aux i =
+    ( i,
+      match (List.assoc_opt i m0, List.assoc_opt i m1) with
+      | Some x, Some y -> f i x y
+      | Some x, None -> x
+      | None, Some y -> y
+      | None, None -> assert false )
+  in
+  List.map aux keys
+
+let inter f m0 m1 =
+  let k0 = keys m0 and k1 = keys m1 in
+  let keys = List.sort_uniq compare_keys @@ List.append k0 k1 in
+  let aux i =
+    match (List.assoc_opt i m0, List.assoc_opt i m1) with
+    | Some x, Some y -> Some (i, f i x y)
+    | _, _ -> None
+  in
+  List.filter_map aux keys
+
+let interf f m0 m1 =
+  let k0 = keys m0 and k1 = keys m1 in
+  let keys = List.sort_uniq compare_keys @@ List.append k0 k1 in
+  let aux i =
+    match (List.assoc_opt i m0, List.assoc_opt i m1) with
+    | Some x, Some y -> Option.map (fun a -> (i, a)) @@ f i x y
+    | _, _ -> None
+  in
+  List.filter_map aux keys
+
+let diff f m0 m1 =
+  let keys = keys @@ List.append m0 m1 in
+  let aux i =
+    match (List.assoc_opt i m0, List.assoc_opt i m1) with
+    | Some x, Some y -> Option.map (fun a -> (i, a)) @@ f i x y
+    | Some x, None -> Some (i, x)
+    | _, _ -> None
+  in
+  List.filter_map aux keys
+
+let rec subsetf phi s t =
+  match (s, t) with
+  | [], _ -> true
+  | _, [] -> false
+  | (x, a) :: xs, (y, b) :: ys ->
+      let d = compare_keys x y in
+      if d = 0 then phi x a b && subsetf phi xs ys
+      else d > 0 && subsetf phi s ys
+
+let subset = subsetf
+let subsetk s t = subsetf (fun _i _x _y -> true) s t
+let intersect m0 m1 = inter (fun _ _ _ -> ()) m0 m1 <> []
+
+let intersectf f m0 m1 =
+  let f i (a, b) = f i a b in
+  exists f @@ inter (fun _ a b -> (a, b)) m0 m1
+
+let merge f m0 m1 =
+  let k0 = keys m0 and k1 = keys m1 in
+  let keys = List.sort_uniq compare_keys @@ List.append k0 k1 in
+  let aux i =
+    let o0 = List.assoc_opt i m0 and o1 = List.assoc_opt i m1 in
+    Option.map (fun x -> (i, x)) @@ f i o0 o1
+  in
+  List.filter_map aux keys

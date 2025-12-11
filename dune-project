@@ -59,6 +59,7 @@
    (and
     (>= "0.21.2")
     :with-test))
+  (qcheck :with-test)
   (ppx_inline_test
    (and
     (>= "v0.16.0")
