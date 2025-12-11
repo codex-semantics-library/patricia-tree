@@ -166,30 +166,47 @@ let make_quantifier_test name intmap_quant model_quant =
 
 let for_all_test = make_quantifier_test "for_all" Intmap.for_all Model.for_all
 
-let make_setop_test name fun_arb intmap_op model_op =
+let make_setop_test name fun_arb fun_apply intmap_op model_op =
   mk name (triple fun_arb tree tree) print_model @@ fun (f, t0, t1) ->
-  let f = Fn.apply f and t0 = interpret t0 and t1 = interpret t1 in
+  let f = fun_apply f and t0 = interpret t0 and t1 = interpret t1 in
   (abstract (intmap_op f t0 t1), model_op f (abstract t0) (abstract t1))
 
+(* Arbitrary functions cannot be passed to idempotent set operations. The
+   implementation uses physical equality to perform optimisations, which are
+   hard to model. Only two reconciliation functions are used. *)
+let idempotent_fst_or_snd =
+  choose
+    [
+      always ~print:(fun _ -> "fst") (fun _ a _ -> a);
+      always ~print:(fun _ -> "snd") (fun _ _ b -> b);
+    ]
+
 let union_test =
-  make_setop_test "idempotent_union"
-    (fun3 O.int O.char O.char char)
+  make_setop_test "idempotent_union" idempotent_fst_or_snd Fun.id
     Intmap.idempotent_union Model.union
 
 let inter_test =
-  make_setop_test "idempotent_inter"
-    (fun3 O.int O.char O.char char)
+  make_setop_test "idempotent_inter" idempotent_fst_or_snd Fun.id
     Intmap.idempotent_inter Model.inter
 
 let interf_test =
-  make_setop_test "idempotent_inter_filter"
-    (fun3 O.int O.char O.char (option char))
+  (* Similarly to idempotent_fst_or_snd, not all reconciliation functions
+     work well with our model. *)
+  let f =
+    choose
+      [
+        always ~print:(fun _ -> "-> Some a") (fun _ a _ -> Some a);
+        always ~print:(fun _ -> "-> Some b") (fun _ _ b -> Some b);
+        always ~print:(fun _ -> "-> None") (fun _ _ b -> Some b);
+      ]
+  in
+  make_setop_test "idempotent_inter_filter" f Fun.id
     Intmap.idempotent_inter_filter Model.interf
 
 let diff_test =
   make_setop_test "different"
     (fun3 O.int O.char O.char (option char))
-    Intmap.difference Model.diff
+    Fn.apply Intmap.difference Model.diff
 
 let make_setcmp_test name arb_fun intmap_setcmp model_setcmp =
   mk name (triple arb_fun tree tree) Print.bool @@ fun (f, t0, t1) ->
@@ -211,7 +228,7 @@ let intersect_test =
 let merge_test =
   make_setop_test "slow_merge"
     (fun3 O.int O.(option char) O.(option char) (option char))
-    Intmap.slow_merge Model.merge
+    Fn.apply Intmap.slow_merge Model.merge
 
 let tests =
   [
