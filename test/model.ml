@@ -12,8 +12,8 @@ let with_second_opt comb = Fun.compose comb second_opt
 let with_secondi comb = Fun.compose comb secondi
 let with_secondi_opt comb = Fun.compose comb secondi_opt
 
-(** Unsigned comparison. *)
-let compare_keys k0 k1 = k1 - min_int - (k0 - min_int)
+(** Unsigned integer comparison. *)
+let compare_keys k0 k1 = Int.compare (k0 - min_int) (k1 - min_int)
 
 let cmp_keys a b = compare_keys (fst a) (fst b)
 let keys m = List.(sort_uniq compare_keys @@ map fst m)
@@ -43,26 +43,18 @@ let add i a m =
   List.merge cmp_keys m [ (i, a) ]
 
 let remove = List.remove_assoc
-
-let insert i f m =
-  add i (f (List.assoc_opt i m)) m
+let insert i f m = add i (f (List.assoc_opt i m)) m
 
 let update i f m =
-  match f (List.assoc_opt i m) with
-  | None -> remove i m
-  | Some x -> add i x m
+  match f (List.assoc_opt i m) with None -> remove i m | Some x -> add i x m
 
-let fold f = with_uncurry List.fold_right f
-
-(* Iteration is reversed. *)
-let iter f t = List.iter (fun (k, v) -> f k v) (List.rev t)
-
+let fold f t acc = List.fold_left (fun acc (k, v) -> f k v acc) acc t
+let iter f t = List.iter (fun (k, v) -> f k v) t
 let map f = with_second List.map f
 let mapi f = with_secondi List.map f
 let mapf f = with_secondi_opt List.filter_map f
 let mapq f = with_secondi_opt List.filter_map f
 let filter f = with_uncurry List.filter f
-
 let for_all p = with_uncurry List.for_all p
 let exists p = with_uncurry List.exists p
 
