@@ -33,7 +33,7 @@ let compare cmp m0 m1 =
 
 let equal = List.equal
 let is_empty = function [] -> true | _ -> false
-let is_singleton = function [x] -> Some x | _ -> None
+let is_singleton = function [ x ] -> Some x | _ -> None
 let size = List.length
 let mem = List.mem_assoc
 let find = List.assoc
@@ -125,3 +125,12 @@ let merge f m0 m1 =
     Option.map (fun x -> (i, x)) @@ f i o0 o1
   in
   List.filter_map aux keys
+
+let of_list l = List.sort_uniq cmp_keys l
+let of_seq s = List.sort_uniq cmp_keys (List.of_seq s)
+
+(* Elements from [s] replace elements in [t] at the same key. *)
+let add_seq s t = List.sort_uniq cmp_keys (List.of_seq s @ t)
+let to_list t = t
+let to_seq t = List.to_seq t
+let to_rev_seq t = List.to_seq (List.rev t)

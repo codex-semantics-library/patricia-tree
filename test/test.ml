@@ -65,6 +65,18 @@ let make_map_test name arb intmap_map model_map =
       let f = Fn.apply f and t = interpret t in
       (abstract (intmap_map f t), model_map f (abstract t)))
 
+(* Test the order of iteration in functions similar to [iter]. Calls [f
+   thunk_intmap thunk_model input] where [thunk_intmap] and [thunk_model] are
+   thunks intended to be called by a [iter] function. *)
+let make_iter_test name arb f =
+  let iter_thunk acc i v = acc := (i, v) :: !acc in
+  let acc0 = ref [] and acc1 = ref [] in
+  mk name arb
+    Print.(list (tup2 int char))
+    (fun input ->
+      f (iter_thunk acc0) (iter_thunk acc1) input;
+      (!acc0, !acc1))
+
 (* Test functions similar to [for_all]. *)
 let make_quantifier_test name intmap_quant model_quant =
   mk name
@@ -104,6 +116,14 @@ let intersect a b = Option.is_some (Intmap.min_binding_inter a b)
 
 let tests =
   [
+    mk "is_empty" tree Print.bool (fun t ->
+        let t = interpret t in
+        (Intmap.is_empty t, Model.is_empty (abstract t)));
+    mk "is_singleton" tree
+      Print.(option (pair int char))
+      (fun t ->
+        let t = interpret t in
+        (Intmap.is_singleton t, Model.is_singleton (abstract t)));
     mk "singleton" (pair small_nat char) print_model (fun (n, c) ->
         (abstract (Intmap.singleton n c), Model.singleton n c));
     mk "compare" two Print.bool (fun (t0, t1) ->
@@ -148,28 +168,20 @@ let tests =
         let f _i v acc = Char.code v + acc in
         let t = interpret t in
         (Intmap.fold f t acc, Model.fold f (abstract t) acc));
-    mk "fold (ordered)"
-      (pair tree (list char))
-      Print.(list char)
-      (fun (t, acc) ->
-        let f _i v acc = v :: acc in
+    make_iter_test "fold (ordered)" tree (fun f0 f1 t ->
         let t = interpret t in
-        (Intmap.fold f t acc, Model.fold f (abstract t) acc));
+        Intmap.fold (fun i v () -> f0 i v) t ();
+        Model.fold (fun i v () -> f1 i v) (abstract t) ());
     mk "fold (keys)"
       (triple (fun3 O.int O.char O.int int) tree int)
       Print.int
       (fun (f, t, acc) ->
         let f = Fn.apply f and t = interpret t in
         (Intmap.fold f t acc, Model.fold f (abstract t) acc));
-    mk "iter" tree
-      Print.(list (tup2 int char))
-      (fun t ->
-        let f acc i v = acc := (i, v) :: !acc in
+    make_iter_test "iter" tree (fun f0 f1 t ->
         let t = interpret t in
-        let acc0 = ref [] and acc1 = ref [] in
-        Intmap.iter (f acc0) t;
-        Model.iter (f acc1) (abstract t);
-        (!acc0, !acc1));
+        Intmap.iter f0 t;
+        Model.iter f1 (abstract t));
     make_map_test "map" (fun1 O.char char) Intmap.map Model.map;
     make_map_test "mapi" (fun2 O.int O.char char) Intmap.mapi Model.mapi;
     make_map_test "filter" (fun2 O.int O.char bool) Intmap.filter Model.filter;
@@ -192,6 +204,40 @@ let tests =
     make_setop_test "slow_merge"
       (fun3 O.int O.(option char) O.(option char) (option char))
       Fn.apply Intmap.slow_merge Model.merge;
+    mk "of_list"
+      (list (pair int char))
+      print_model
+      (fun lst -> (abstract (Intmap.of_list lst), Model.of_list lst));
+    mk "of_seq"
+      (list (pair int char))
+      print_model
+      (fun lst ->
+        let seq = List.to_seq lst in
+        (abstract (Intmap.of_seq seq), Model.of_seq seq));
+    mk "add_seq"
+      (pair (list (pair int char)) tree)
+      print_model
+      (fun (lst, tree) ->
+        let tree = interpret tree in
+        let seq = List.to_seq lst in
+        (abstract (Intmap.add_seq seq tree), Model.add_seq seq (abstract tree)));
+    mk "to_list" tree
+      Print.(list (pair int char))
+      (fun tree ->
+        let tree = interpret tree in
+        (Intmap.to_list tree, Model.to_list (abstract tree)));
+    mk "to_seq" tree
+      Print.(list (pair int char))
+      (fun tree ->
+        let tree = interpret tree in
+        ( List.of_seq (Intmap.to_seq tree),
+          List.of_seq (Model.to_seq (abstract tree)) ));
+    mk "to_rev_seq" tree
+      Print.(list (pair int char))
+      (fun tree ->
+        let tree = interpret tree in
+        ( List.of_seq (Intmap.to_rev_seq tree),
+          List.of_seq (Model.to_rev_seq (abstract tree)) ));
   ]
 
 let _ = QCheck_runner.run_tests ~verbose:true tests
