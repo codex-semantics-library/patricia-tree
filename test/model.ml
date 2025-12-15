@@ -33,6 +33,7 @@ let compare cmp m0 m1 =
 
 let equal = List.equal
 let is_empty = function [] -> true | _ -> false
+let is_singleton = function [x] -> Some x | _ -> None
 let size = List.length
 let mem = List.mem_assoc
 let find = List.assoc
