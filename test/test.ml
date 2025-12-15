@@ -84,19 +84,15 @@ let make_setop_test name fun_arb fun_apply intmap_op model_op =
    implementation uses physical equality to perform optimisations, which are
    hard to model. Only two reconciliation functions are used. *)
 let idempotent_fst_or_snd =
-  choose
-    [
-      always ~print:(fun _ -> "fst") (fun _ a _ -> a);
-      always ~print:(fun _ -> "snd") (fun _ _ b -> b);
-    ]
+  oneofl ~print:fst [ ("fst", fun _ a _ -> a); ("snd", fun _ _ b -> b) ]
 
 (* Like [idempotent_fst_or_snd] but with an extra [None] case. *)
 let idempotent_fst_or_snd_option =
-  choose
+  oneofl ~print:fst
     [
-      always ~print:(fun _ -> "-> Some a") (fun _ a _ -> Some a);
-      always ~print:(fun _ -> "-> Some b") (fun _ _ b -> Some b);
-      always ~print:(fun _ -> "-> None") (fun _ _ b -> Some b);
+      ("-> Some a", fun _ a _ -> Some a);
+      ("-> Some b", fun _ _ b -> Some b);
+      ("-> None", fun _ _ _ -> None);
     ]
 
 let make_setcmp_test name arb_fun intmap_setcmp model_setcmp =
@@ -178,12 +174,12 @@ let tests =
     make_map_test "mapi" (fun2 O.int O.char char) Intmap.mapi Model.mapi;
     make_map_test "filter" (fun2 O.int O.char bool) Intmap.filter Model.filter;
     make_quantifier_test "for_all" Intmap.for_all Model.for_all;
-    make_setop_test "idempotent_union" idempotent_fst_or_snd Fun.id
+    make_setop_test "idempotent_union" idempotent_fst_or_snd snd
       Intmap.idempotent_union Model.union;
-    make_setop_test "idempotent_inter" idempotent_fst_or_snd Fun.id
+    make_setop_test "idempotent_inter" idempotent_fst_or_snd snd
       Intmap.idempotent_inter Model.inter;
-    make_setop_test "idempotent_inter_filter" idempotent_fst_or_snd_option
-      Fun.id Intmap.idempotent_inter_filter Model.interf;
+    make_setop_test "idempotent_inter_filter" idempotent_fst_or_snd_option snd
+      Intmap.idempotent_inter_filter Model.idempotent_inter_filter;
     make_setop_test "different"
       (fun3 O.int O.char O.char (option char))
       Fn.apply Intmap.difference Model.diff;

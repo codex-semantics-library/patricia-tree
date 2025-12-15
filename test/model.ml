@@ -71,25 +71,24 @@ let union f m0 m1 =
   in
   List.map aux keys
 
-let inter f m0 m1 =
-  let k0 = keys m0 and k1 = keys m1 in
-  let keys = List.sort_uniq compare_keys @@ List.append k0 k1 in
-  let aux i =
-    match (List.assoc_opt i m0, List.assoc_opt i m1) with
-    | Some x, Some y -> Some (i, f i x y)
-    | _, _ -> None
-  in
-  List.filter_map aux keys
-
 let interf f m0 m1 =
-  let k0 = keys m0 and k1 = keys m1 in
-  let keys = List.sort_uniq compare_keys @@ List.append k0 k1 in
-  let aux i =
-    match (List.assoc_opt i m0, List.assoc_opt i m1) with
-    | Some x, Some y -> Option.map (fun a -> (i, a)) @@ f i x y
-    | _, _ -> None
+  let aux (i, x) =
+    match List.assoc_opt i m1 with
+    | Some y -> Option.map (fun r -> (i, r)) (f i x y)
+    | None -> None
   in
-  List.filter_map aux keys
+  List.filter_map aux m0
+
+let inter f m0 m1 = interf (fun i x y -> Some (f i x y)) m0 m1
+
+let idempotent_inter_filter f m0 m1 =
+  let aux (i, x) =
+    match List.assoc_opt i m1 with
+    | Some y when x == y -> Some (i, x)
+    | Some y -> Option.map (fun r -> (i, r)) (f i x y)
+    | None -> None
+  in
+  List.filter_map aux m0
 
 let diff f m0 m1 =
   let keys = keys @@ List.append m0 m1 in
