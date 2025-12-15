@@ -21,9 +21,16 @@
 ;;                                                                        ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+; The library is instrumented with bisect_ppx. To obtain a test coverage
+; report, do:
+;   dune runtest --instrument-with bisect_ppx --force
+;   bisect-ppx-report html
+
 (library
  (name PatriciaTree)
  (public_name patricia-tree)
+ (instrumentation
+  (backend bisect_ppx))
  (foreign_stubs
   (language c)
   (names int_builtins)))

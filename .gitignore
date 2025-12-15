@@ -3,3 +3,5 @@ _build/
 _html/
 .vscode
 headers/
+# bisect_ppx html output
+_coverage/
