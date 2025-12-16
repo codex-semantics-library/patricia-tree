@@ -88,7 +88,7 @@ let make_quantifier_test name intmap_quant model_quant =
 
 (* Test set operations. *)
 let make_setop_test name fun_arb fun_apply intmap_op model_op =
-  mk name (triple fun_arb tree tree) print_model (fun (f, t0, t1) ->
+  mk name (pair fun_arb two) print_model (fun (f, (t0, t1)) ->
       let f = fun_apply f and t0 = interpret t0 and t1 = interpret t1 in
       (abstract (intmap_op f t0 t1), model_op f (abstract t0) (abstract t1)))
 
@@ -241,6 +241,30 @@ let tests =
     make_setop_test "slow_merge"
       (fun3 O.int O.(option char) O.(option char) (option char))
       Fn.apply Intmap.slow_merge Model.merge;
+    mk "min_binding_inter" two
+      Print.(option (tup3 int char char))
+      (fun (t0, t1) ->
+        let t0 = interpret t0 and t1 = interpret t1 in
+        ( Intmap.min_binding_inter t0 t1,
+          Model.min_binding_inter (abstract t0) (abstract t1) ));
+    mk "max_binding_inter" two
+      Print.(option (tup3 int char char))
+      (fun (t0, t1) ->
+        let t0 = interpret t0 and t1 = interpret t1 in
+        ( Intmap.min_binding_inter t0 t1,
+          Model.min_binding_inter (abstract t0) (abstract t1) ));
+    mk "fold_on_nonequal_inter" two
+      Print.(list (tup3 int char char))
+      (fun (t0, t1) ->
+        let t0 = interpret t0 and t1 = interpret t1 in
+        ( Intmap.fold_on_nonequal_inter
+            (fun i a b acc -> (i, a, b) :: acc)
+            t0 t1 [],
+          Model.fold_on_nonequal_inter
+            (fun i a b acc -> (i, a, b) :: acc)
+            (abstract t0) (abstract t1) [] ));
+    make_setop_test "nonidempotent_inter_no_share" idempotent_fst_or_snd snd
+      Intmap.nonidempotent_inter_no_share Model.nonidempotent_inter_no_share;
     mk "of_list"
       (list (pair int char))
       print_model
