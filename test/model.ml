@@ -37,6 +37,7 @@ let is_singleton = function [ x ] -> Some x | _ -> None
 let size = List.length
 let mem = List.mem_assoc
 let find = List.assoc
+let find_opt = List.assoc_opt
 
 let add i a m =
   (* guarantee uniqueness of keys *)
@@ -133,3 +134,15 @@ let add_seq s t = List.sort_uniq cmp_keys (List.of_seq s @ t)
 let to_list t = t
 let to_seq t = List.to_seq t
 let to_rev_seq t = List.to_seq (List.rev t)
+let unsigned_min_binding = function hd :: _ -> hd | [] -> raise Not_found
+
+let unsigned_max_binding = function
+  | hd :: tl -> List.fold_left (fun _ e -> e) hd tl
+  | [] -> raise Not_found
+
+let pop_unsigned_minimum = function
+  | (i, v) :: tl -> Some (i, v, tl)
+  | [] -> None
+
+let pop_unsigned_maximum l =
+  match List.rev l with (i, v) :: tl -> Some (i, v, List.rev tl) | [] -> None

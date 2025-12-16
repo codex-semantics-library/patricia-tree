@@ -112,6 +112,25 @@ let make_setcmp_test name arb_fun intmap_setcmp model_setcmp =
       let f = Fn.apply f and t0 = interpret t0 and t1 = interpret t1 in
       (intmap_setcmp f t0 t1, model_setcmp f (abstract t0) (abstract t1)))
 
+(* Test functions that look like [find] and raise an exception. *)
+let make_find_exn_test name print f0 f1 =
+  mk name key_and_tree
+    Print.(result print print_exn)
+    (fun (key, t) ->
+      let t = interpret t in
+      (protect (fun () -> f0 key t), protect (fun () -> f1 key (abstract t))))
+
+(* Test functions that look like [find_opt]. *)
+let make_find_opt_test name print f0 f1 =
+  mk name key_and_tree (Print.option print) (fun (key, t) ->
+      let t = interpret t in
+      (f0 key t, f1 key (abstract t)))
+
+let make_pop_test name f0 f1 =
+  mk name tree Print.(option (tup3 int char print_model)) @@ fun t ->
+  let t = interpret t in
+  (Option.map (fun (i, k, tl) -> (i, k, abstract tl)) (f0 t), f1 (abstract t))
+
 let intersect a b = Option.is_some (Intmap.min_binding_inter a b)
 
 let tests =
@@ -140,12 +159,20 @@ let tests =
     mk "mem" key_and_tree Print.bool (fun (i, t) ->
         let t = interpret t in
         (Intmap.mem i t, Model.mem i (abstract t)));
-    mk "find" key_and_tree
-      Print.(result char print_exn)
-      (fun (i, t) ->
-        let t = interpret t in
-        ( protect (fun () -> Intmap.find i t),
-          protect (fun () -> Model.find i (abstract t)) ));
+    make_find_exn_test "find" Print.char Intmap.find Model.find;
+    make_find_exn_test "unsigned_min_binding"
+      Print.(pair int char)
+      (fun _ -> Intmap.unsigned_min_binding)
+      (fun _ -> Model.unsigned_min_binding);
+    make_find_exn_test "unsigned_max_binding"
+      Print.(pair int char)
+      (fun _ -> Intmap.unsigned_max_binding)
+      (fun _ -> Model.unsigned_max_binding);
+    make_find_opt_test "find_opt" Print.char Intmap.find_opt Model.find_opt;
+    make_pop_test "pop_unsigned_minimum" Intmap.pop_unsigned_minimum
+      Model.pop_unsigned_minimum;
+    make_pop_test "pop_unsigned_maximum" Intmap.pop_unsigned_maximum
+      Model.pop_unsigned_maximum;
     mk "add" (pair char key_and_tree) print_model (fun (c, (i, t)) ->
         let t = interpret t in
         (abstract (Intmap.add i c t), Model.add i c (abstract t)));
