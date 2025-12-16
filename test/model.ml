@@ -53,9 +53,8 @@ let fold f t acc = List.fold_left (fun acc (k, v) -> f k v acc) acc t
 let iter f t = List.iter (fun (k, v) -> f k v) t
 let map f = with_second List.map f
 let mapi f = with_secondi List.map f
-let mapf f = with_secondi_opt List.filter_map f
-let mapq f = with_secondi_opt List.filter_map f
 let filter f = with_uncurry List.filter f
+let filter_map f = with_secondi_opt List.filter_map f
 let for_all p = with_uncurry List.for_all p
 let exists p = with_uncurry List.exists p
 
