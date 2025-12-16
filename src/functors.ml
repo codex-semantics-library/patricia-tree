@@ -778,12 +778,10 @@ module MakeCustomHeterogeneousMap
 
   type ('map1,'map2,'map3) polyinterfilter = ('map1, 'map2, 'map3) polyupdate_multiple_inter = { f: 'a. 'a Key.t -> ('a,'map1) Value.t -> ('a,'map2) Value.t -> ('a,'map3) Value.t option } [@@unboxed]
   let rec idempotent_inter_filter f ta tb =
-    if ta == tb then ta
-    else match NODE.view ta,NODE.view tb with
+    match NODE.view ta,NODE.view tb with
       | Empty, _ | _, Empty -> empty
       | Leaf{key;value},_ ->
         (try let res = find key tb in
-           if res == value then ta else
            match (f.f key value res) with
            | Some v when v == value -> ta
            | Some v -> leaf key v
@@ -791,7 +789,6 @@ module MakeCustomHeterogeneousMap
          with Not_found -> empty)
       | _,Leaf{key;value} ->
         (try let res = find key ta in
-           if res == value then tb else
            match f.f key res value with
            | Some v when v == value -> tb
            | Some v -> leaf key v

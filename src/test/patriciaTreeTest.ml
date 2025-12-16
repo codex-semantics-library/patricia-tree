@@ -544,9 +544,9 @@ end) = struct
             else let res =  sdbm3 key a b in
               if res mod 3 == 0 then None else Some res
           in
-          let chk_calls = check_increases_and_neq () in
+          let chk_calls = check_increases () in
           let myres = intmap_of_mymap @@ MyMap.idempotent_inter_filter
-            (fun k a b -> chk_calls k a b; f k a b) m1 m2 in
+            (fun k a b -> chk_calls k; f k a b) m1 m2 in
           let modelres = IntMap.inter_filter model1 model2 f in
           (* dump_test model1 model2 myres modelres;           *)
           IntMap.equal (=) modelres myres)
@@ -621,7 +621,8 @@ end) = struct
     let map2 = MyMap.add min_int 5 map in
     let map3 = MyMap.add max_int 8 map2 in
     let map4 = MyMap.add 25 8 map2 in
-    let map5 = MyMap.idempotent_inter_filter (fun _ _ _ -> None) map3 map4 in
+    let map5 = MyMap.idempotent_inter_filter (fun _ a _ -> Some a) map3 map4 in
+    let map6 = MyMap.idempotent_inter_filter (fun _ _ _ -> None) map3 map4 in
     (* Format.printf "[%a]@." pp_l (MyMap.to_list  map3);
     Format.printf "[%a]@." pp_l (MyMap.to_list  map4);
     Format.printf "[%a]@." pp_l (MyMap.to_list  map5);
@@ -633,7 +634,8 @@ end) = struct
     MyMap.to_list map2 = [(0,0); (min_int,5)] &&
     MyMap.to_list map3 = [(0,0); (max_int,8); (min_int,5)] &&
     MyMap.to_list map4 = [(0,0); (25,8); (min_int,5)] &&
-    MyMap.to_list map5 = MyMap.to_list map2
+    MyMap.to_list map5 = [(0,0); (min_int,5)] &&
+    MyMap.to_list map6 = []
 
   let test_id_unique = QCheck.Test.make ~count:1000 ~name:"unique_hashcons_id"
   gen (fun (one,two,three) ->
