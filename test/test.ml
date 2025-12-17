@@ -267,6 +267,16 @@ let tests =
     make_setop_test "slow_merge"
       (fun3 O.int O.(option char) O.(option char) (option char))
       Fn.apply Intmap.slow_merge Model.merge;
+    mk "symmetric_difference"
+      (pair (fun3 O.int O.char O.char (option char)) two)
+      print_model
+      (fun (f, (t0, t1)) ->
+        let t0 = interpret t0
+        and t1 = interpret t1
+        (* guarantee [f k v v = None] *)
+        and f k a b = if a = b then None else (Fn.apply f) k a b in
+        ( abstract @@ Intmap.symmetric_difference f t0 t1,
+          Model.symmetric_difference f (abstract t0) (abstract t1) ));
     mk "min_binding_inter" two
       Print.(option (tup3 int char char))
       (fun (t0, t1) ->

@@ -100,6 +100,16 @@ let idempotent_inter_filter f m0 m1 =
   in
   List.filter_map aux m0
 
+let symmetric_difference f m0 m1 =
+  let keys = List.sort_uniq compare_keys @@ List.append (keys m0) (keys m1)
+  and aux k =
+    match (List.assoc_opt k m0, List.assoc_opt k m1) with
+    | Some v0, Some v1 -> Option.map (fun v -> (k, v)) @@ f k v0 v1
+    | Some v, None | None, Some v -> Some (k, v)
+    | None, None -> None
+  in
+  List.filter_map aux keys
+
 let min_binding_inter m0 m1 =
   List.find_map
     (fun (i, v0) ->
