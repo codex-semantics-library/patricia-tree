@@ -44,6 +44,12 @@ let add i a m =
   let m = List.remove_assoc i m in
   List.merge cmp_keys m [ (i, a) ]
 
+let split k m =
+  let l = List.filter (fun (k', _) -> compare_keys k' k < 0) m
+  and o = List.assoc_opt k m
+  and r = List.filter (fun (k', _) -> compare_keys k' k > 0) m in
+  (l, o, r)
+
 let remove = List.remove_assoc
 let insert i f m = add i (f (List.assoc_opt i m)) m
 

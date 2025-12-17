@@ -176,6 +176,12 @@ let tests =
     mk "add" (pair char key_and_tree) print_model (fun (c, (i, t)) ->
         let t = interpret t in
         (abstract (Intmap.add i c t), Model.add i c (abstract t)));
+    mk "split" key_and_tree
+      QCheck.Print.(triple print_model (option char) print_model)
+      (fun (i, t) ->
+        let t = interpret t in
+        let l, o, r = Intmap.split i t in
+        ((abstract l, o, abstract r), Model.split i (abstract t)));
     mk "remove" key_and_tree print_model (fun (i, t) ->
         let t = interpret t in
         (abstract (Intmap.remove i t), Model.remove i (abstract t)));
