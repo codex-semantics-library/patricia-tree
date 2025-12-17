@@ -71,4 +71,9 @@
    (and
     (>= "2.4.0")
     :with-doc))
-  (sherlodoc :with-doc)))
+  (sherlodoc :with-doc)
+  ; Benchmark dependencies
+  (bechamel :with-dev)
+  (qcheck :with-dev)
+  (notty :with-dev)
+  (bechamel-notty :with-dev)))
