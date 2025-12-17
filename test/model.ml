@@ -114,6 +114,19 @@ let fold_on_nonequal_inter f m0 m1 acc =
       | _ -> acc)
     acc m0
 
+let fold_on_nonequal_union f m0 m1 acc =
+  (* Compute the nonequal union *)
+  let p x =
+    match (List.assoc_opt x m0, List.assoc_opt x m1) with
+    | Some v0, Some v1 -> v0 != v1
+    | None, None -> false
+    | _, _ -> true
+  in
+  let keys = List.filter p @@ keys @@ List.append m0 m1 in
+  (* Run the fold *)
+  let f acc k = f k (List.assoc_opt k m0) (List.assoc_opt k m1) acc in
+  List.fold_left f acc keys
+
 let nonidempotent_inter_no_share = inter
 
 let diff f m0 m1 =
