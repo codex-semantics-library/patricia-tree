@@ -135,6 +135,12 @@ let fold_on_nonequal_union f m0 m1 acc =
 
 let nonidempotent_inter_no_share = inter
 
+let reflexive_same_domain_for_all2 p m0 m1 =
+  let keys0 = keys m0
+  and keys1 = keys m1
+  and p k = p k (List.assoc k m0) (List.assoc k m1) in
+  List.equal Int.equal keys0 keys1 && List.for_all p keys0
+
 let diff f m0 m1 =
   let keys = keys @@ List.append m0 m1 in
   let aux i =

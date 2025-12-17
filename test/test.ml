@@ -235,6 +235,16 @@ let tests =
       Intmap.idempotent_inter Model.inter;
     make_setop_test "idempotent_inter_filter" idempotent_fst_or_snd_option snd
       Intmap.idempotent_inter_filter Model.idempotent_inter_filter;
+    mk "reflexive_same_domain_for_all2"
+      (pair (fun3 O.int O.char O.char bool) two)
+      Print.bool
+      (fun (f, (t0, t1)) ->
+        let t0 = interpret t0
+        and t1 = interpret t1
+        (* guarantee reflexivity of f *)
+        and f k x y = x = y || (Fn.apply f) k x y in
+        ( Intmap.reflexive_same_domain_for_all2 f t0 t1,
+          Model.reflexive_same_domain_for_all2 f (abstract t0) (abstract t1) ));
     make_setop_test "different"
       (fun3 O.int O.char O.char (option char))
       Fn.apply Intmap.difference Model.diff;
