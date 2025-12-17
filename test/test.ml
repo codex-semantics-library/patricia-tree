@@ -149,6 +149,9 @@ let tests =
         let t0 = interpret t0 and t1 = interpret t1 in
         ( Intmap.reflexive_compare Char.compare t0 t1 = 0,
           Model.compare Char.compare (abstract t0) (abstract t1) = 0 ));
+    mk "disjoint" two Print.bool (fun (t0, t1) ->
+        let t0 = interpret t0 and t1 = interpret t1 in
+        (Intmap.disjoint t0 t1, Model.disjoint (abstract t0) (abstract t1)));
     mk "equal" two Print.bool (fun (t0, t1) ->
         let t0 = interpret t0 and t1 = interpret t1 in
         ( Intmap.reflexive_equal ( = ) t0 t1,

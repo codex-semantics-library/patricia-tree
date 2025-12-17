@@ -31,6 +31,10 @@ let compare cmp m0 m1 =
   let c = List.compare_lengths m0 m1 in
   if c = 0 then List.compare cmp' m0 m1 else c
 
+let disjoint m0 m1 =
+  let keys0 = keys m0 and keys1 = keys m1 and p k m = not @@ List.mem m k in
+  List.for_all (p keys1) keys0 && List.for_all (p keys0) keys1
+
 let equal = List.equal
 let is_empty = function [] -> true | _ -> false
 let is_singleton = function [ x ] -> Some x | _ -> None
