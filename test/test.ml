@@ -245,6 +245,13 @@ let tests =
         and f k x y = x = y || (Fn.apply f) k x y in
         ( Intmap.reflexive_same_domain_for_all2 f t0 t1,
           Model.reflexive_same_domain_for_all2 f (abstract t0) (abstract t1) ));
+    mk "nonreflexive_same_domain_for_all2"
+      (pair (fun3 O.int O.char O.char bool) two)
+      Print.bool
+      (fun (f, (t0, t1)) ->
+        let t0 = interpret t0 and t1 = interpret t1 and f = Fn.apply f in
+        ( Intmap.nonreflexive_same_domain_for_all2 f t0 t1,
+          Model.reflexive_same_domain_for_all2 f (abstract t0) (abstract t1) ));
     make_setop_test "different"
       (fun3 O.int O.char O.char (option char))
       Fn.apply Intmap.difference Model.diff;
