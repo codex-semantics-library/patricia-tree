@@ -67,6 +67,7 @@
    (and
     (>= "2.4.1")
     :with-test))
+  (bisect_ppx :with-dev)
   (odoc
    (and
     (>= "2.4.0")

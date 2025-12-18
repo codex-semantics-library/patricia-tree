@@ -19,6 +19,7 @@ depends: [
   "qcheck-core" {>= "0.21.2" & with-test}
   "ppx_inline_test" {>= "v0.16.0" & with-test}
   "mdx" {>= "2.4.1" & with-test}
+  "bisect_ppx" {with-dev}
   "odoc" {>= "2.4.0" & with-doc}
   "sherlodoc" {with-doc}
 ]
