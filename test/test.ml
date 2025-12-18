@@ -132,10 +132,6 @@ let update_fun =
 let mapi_fun =
   oneofl ~print:fst [ ("Fun.id", fun _ v -> v); ("const", fun _ _ -> '0') ]
 
-(* (1* Function for [reflexive_compare]. *1) *)
-(* let reflexive_compare_fun = *)
-(*   oneofl ~print:fst [ ("compare", Char.compare); ("-> -1", fun _ _ -> ~-1) ] *)
-
 let make_setcmp_test name arb_fun intmap_setcmp model_setcmp =
   mk name (triple arb_fun tree tree) Print.bool (fun (f, t0, t1) ->
       let f = Fn.apply f and t0 = interpret t0 and t1 = interpret t1 in
@@ -261,9 +257,9 @@ let tests =
       Fn.apply Intmap.filter_map_no_share Model.filter_map;
     make_quantifier_test "for_all" Intmap.for_all Model.for_all;
     make_setop_test "idempotent_union" idempotent_fst_or_snd snd
-      Intmap.idempotent_union Model.union;
+      Intmap.idempotent_union Model.idempotent_union;
     make_setop_test "idempotent_inter" idempotent_fst_or_snd snd
-      Intmap.idempotent_inter Model.inter;
+      Intmap.idempotent_inter Model.idempotent_inter;
     make_setop_test "idempotent_inter_filter" idempotent_fst_or_snd_option snd
       Intmap.idempotent_inter_filter Model.idempotent_inter_filter;
     mk "reflexive_same_domain_for_all2" (pair reflexive_same_domain_val two)
@@ -280,16 +276,17 @@ let tests =
         ));
     make_setop_test "different"
       (fun3 O.int O.char O.char (option char))
-      Fn.apply Intmap.difference Model.diff;
+      Fn.apply Intmap.difference Model.difference;
     make_setcmp_test "reflexive_subset_domain_for_all2"
       (fun3 O.int O.char O.char bool)
-      Intmap.reflexive_subset_domain_for_all2 Model.subset;
+      Intmap.reflexive_subset_domain_for_all2
+      Model.reflexive_subset_domain_for_all2;
     mk "intersect" (pair tree tree) Print.bool (fun (t0, t1) ->
         let t0 = interpret t0 and t1 = interpret t1 in
         (intersect t0 t1, Model.intersect (abstract t0) (abstract t1)));
     make_setop_test "slow_merge"
       (fun3 O.int O.(option char) O.(option char) (option char))
-      Fn.apply Intmap.slow_merge Model.merge;
+      Fn.apply Intmap.slow_merge Model.slow_merge;
     mk "symmetric_difference"
       (pair (fun3 O.int O.char O.char (option char)) two)
       print_model

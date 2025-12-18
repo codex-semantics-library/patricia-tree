@@ -23,13 +23,14 @@ type 'a t = (int * 'a) list
 let empty = []
 let singleton i a = [ (i, a) ]
 
+(* This function doesn't model [reflexive_compare]. The output value is
+   different and the total order as well. *)
 let compare cmp m0 m1 =
   let cmp' a b =
     let c = compare_keys (fst a) (fst b) in
     if c = 0 then cmp (snd a) (snd b) else c
   in
-  let c = List.compare_lengths m0 m1 in
-  if c = 0 then List.compare cmp' m0 m1 else c
+  List.compare cmp' m0 m1
 
 let disjoint m0 m1 =
   let keys0 = keys m0 and keys1 = keys m1 and p k m = not @@ List.mem m k in
@@ -45,8 +46,9 @@ let find_opt = List.assoc_opt
 
 let add i a m =
   (* guarantee uniqueness of keys *)
-  let m = List.remove_assoc i m in
-  List.merge cmp_keys m [ (i, a) ]
+  if List.mem_assoc i m then
+    List.map (fun ((i', _) as old) -> if i' = i then (i, a) else old) m
+  else List.merge cmp_keys m [ (i, a) ]
 
 let split k m =
   let l = List.filter (fun (k', _) -> compare_keys k' k < 0) m
@@ -69,8 +71,9 @@ let filter_map f = with_secondi_opt List.filter_map f
 let for_all p = with_uncurry List.for_all p
 let exists p = with_uncurry List.exists p
 
-let union f m0 m1 =
-  let keys = keys @@ List.append m0 m1 in
+let idempotent_union f m0 m1 =
+  let k0 = keys m0 and k1 = keys m1 in
+  let keys = List.sort_uniq compare_keys @@ List.append k0 k1 in
   let aux i =
     ( i,
       match (List.assoc_opt i m0, List.assoc_opt i m1) with
@@ -81,16 +84,6 @@ let union f m0 m1 =
   in
   List.map aux keys
 
-let interf f m0 m1 =
-  let aux (i, x) =
-    match List.assoc_opt i m1 with
-    | Some y -> Option.map (fun r -> (i, r)) (f i x y)
-    | None -> None
-  in
-  List.filter_map aux m0
-
-let inter f m0 m1 = interf (fun i x y -> Some (f i x y)) m0 m1
-
 let idempotent_inter_filter f m0 m1 =
   let aux (i, x) =
     match List.assoc_opt i m1 with
@@ -99,6 +92,11 @@ let idempotent_inter_filter f m0 m1 =
     | None -> None
   in
   List.filter_map aux m0
+
+let idempotent_inter f m0 m1 =
+  idempotent_inter_filter (fun i x y -> Some (f i x y)) m0 m1
+
+let nonidempotent_inter_no_share = idempotent_inter
 
 let symmetric_difference f m0 m1 =
   let keys = List.sort_uniq compare_keys @@ List.append (keys m0) (keys m1)
@@ -147,8 +145,6 @@ let fold_on_nonequal_union f m0 m1 acc =
   let f acc k = f k (List.assoc_opt k m0) (List.assoc_opt k m1) acc in
   List.fold_left f acc keys
 
-let nonidempotent_inter_no_share = inter
-
 let reflexive_same_domain_for_all2 p m0 m1 =
   let keys0 = keys m0
   and keys1 = keys m1
@@ -158,7 +154,7 @@ let reflexive_same_domain_for_all2 p m0 m1 =
 let nonreflexive_same_domain_for_all2 p m0 m1 =
   m0 <> [] && reflexive_same_domain_for_all2 p m0 m1
 
-let diff f m0 m1 =
+let difference f m0 m1 =
   let keys = keys @@ List.append m0 m1 in
   let aux i =
     match (List.assoc_opt i m0, List.assoc_opt i m1) with
@@ -168,24 +164,18 @@ let diff f m0 m1 =
   in
   List.filter_map aux keys
 
-let rec subsetf phi s t =
+let rec reflexive_subset_domain_for_all2 phi s t =
   match (s, t) with
   | [], _ -> true
   | _, [] -> false
   | (x, a) :: xs, (y, b) :: ys ->
       let d = compare_keys x y in
-      if d = 0 then phi x a b && subsetf phi xs ys
-      else d > 0 && subsetf phi s ys
+      if d = 0 then phi x a b && reflexive_subset_domain_for_all2 phi xs ys
+      else d > 0 && reflexive_subset_domain_for_all2 phi s ys
 
-let subset = subsetf
-let subsetk s t = subsetf (fun _i _x _y -> true) s t
-let intersect m0 m1 = inter (fun _ _ _ -> ()) m0 m1 <> []
+let intersect m0 m1 = idempotent_inter (fun _ l _ -> l) m0 m1 <> []
 
-let intersectf f m0 m1 =
-  let f i (a, b) = f i a b in
-  exists f @@ inter (fun _ a b -> (a, b)) m0 m1
-
-let merge f m0 m1 =
+let slow_merge f m0 m1 =
   let k0 = keys m0 and k1 = keys m1 in
   let keys = List.sort_uniq compare_keys @@ List.append k0 k1 in
   let aux i =
