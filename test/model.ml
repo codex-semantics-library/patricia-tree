@@ -155,6 +155,9 @@ let reflexive_same_domain_for_all2 p m0 m1 =
   and p k = p k (List.assoc k m0) (List.assoc k m1) in
   List.equal Int.equal keys0 keys1 && List.for_all p keys0
 
+let nonreflexive_same_domain_for_all2 p m0 m1 =
+  m0 <> [] && reflexive_same_domain_for_all2 p m0 m1
+
 let diff f m0 m1 =
   let keys = keys @@ List.append m0 m1 in
   let aux i =
