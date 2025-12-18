@@ -132,6 +132,13 @@ let update_fun =
 let mapi_fun =
   oneofl ~print:fst [ ("Fun.id", fun _ v -> v); ("const", fun _ _ -> '0') ]
 
+let difference_fun =
+  oneofl ~print:fst
+    [
+      ("left", fun _ a b -> if a == b then None else Some a);
+      ("-> None", fun _ _ _ -> None);
+    ]
+
 let make_setcmp_test name arb_fun intmap_setcmp model_setcmp =
   mk name (triple arb_fun tree tree) Print.bool (fun (f, t0, t1) ->
       let f = Fn.apply f and t0 = interpret t0 and t1 = interpret t1 in
@@ -274,9 +281,8 @@ let tests =
         ( Intmap.nonreflexive_same_domain_for_all2 f t0 t1,
           Model.nonreflexive_same_domain_for_all2 f (abstract t0) (abstract t1)
         ));
-    make_setop_test "different"
-      (fun3 O.int O.char O.char (option char))
-      Fn.apply Intmap.difference Model.difference;
+    make_setop_test "difference" difference_fun snd Intmap.difference
+      Model.difference;
     make_setcmp_test "reflexive_subset_domain_for_all2"
       (fun3 O.int O.char O.char bool)
       Intmap.reflexive_subset_domain_for_all2
