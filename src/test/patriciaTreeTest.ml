@@ -448,6 +448,15 @@ end) = struct
           myres = modelres)
   let () = QCheck.Test.check_exn test_reflexive_same_domain_for_all2
 
+  let test_nonreflexive_same_domain_for_all2 = QCheck.Test.make ~count:1000 ~name:"nonreflexive_same_domain_for_all2"
+      gen (fun x ->
+          let (m1,model1,m2,model2) = model_from_gen x in
+          let f _key a b = a <= b in  (* This is reflexive. *)
+          let myres = MyMap.nonreflexive_same_domain_for_all2 f m1 m2 in
+          let modelres = IntMap.same_domain_for_all_2 model1 model2 f in
+          myres = modelres)
+  let () = QCheck.Test.check_exn test_nonreflexive_same_domain_for_all2
+
   let test_idempotent_union = QCheck.Test.make ~count:1000 ~name:"idempotent_union"
       gen (fun x ->
           let (m1,model1,m2,model2) = model_from_gen x in
