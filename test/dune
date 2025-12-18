@@ -1,0 +1,13 @@
+(library
+ (name model)
+ (modules model))
+
+(library
+ (name symbolic)
+ (modules symbolic)
+ (libraries qcheck model))
+
+(test
+ (name test)
+ (modules test)
+ (libraries qcheck model symbolic patricia-tree))
