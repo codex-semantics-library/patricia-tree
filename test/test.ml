@@ -60,9 +60,9 @@ let mk ?(count = count) ?(test_fun = ( = )) name arbitrary print_model f =
   true
 
 (* Test functions similar to [map] or [filter]. *)
-let make_map_test name arb intmap_map model_map =
-  mk name (pair arb tree) print_model (fun (f, t) ->
-      let f = Fn.apply f and t = interpret t in
+let make_map_test name fun_arb fun_apply intmap_map model_map =
+  mk name (pair fun_arb tree) print_model (fun (f, t) ->
+      let f = fun_apply f and t = interpret t in
       (abstract (intmap_map f t), model_map f (abstract t)))
 
 (* Test the order of iteration in functions similar to [iter]. Calls [f
@@ -119,6 +119,23 @@ let nonreflexive_same_domain_val =
       ("-> false", fun _ _ _ -> false);
     ]
 
+(* Function for [update]. *)
+let update_fun =
+  oneofl ~print:fst
+    [
+      ("Fun.id", Fun.id);
+      ("-> None", fun _ -> None);
+      ("-> Some constant", fun _ -> Some '0');
+    ]
+
+(* Function for [mapi]. *)
+let mapi_fun =
+  oneofl ~print:fst [ ("Fun.id", fun _ v -> v); ("const", fun _ _ -> '0') ]
+
+(* (1* Function for [reflexive_compare]. *1) *)
+(* let reflexive_compare_fun = *)
+(*   oneofl ~print:fst [ ("compare", Char.compare); ("-> -1", fun _ _ -> ~-1) ] *)
+
 let make_setcmp_test name arb_fun intmap_setcmp model_setcmp =
   mk name (triple arb_fun tree tree) Print.bool (fun (f, t0, t1) ->
       let f = Fn.apply f and t0 = interpret t0 and t1 = interpret t1 in
@@ -157,7 +174,7 @@ let tests =
         (Intmap.is_singleton t, Model.is_singleton (abstract t)));
     mk "singleton" (pair small_nat char) print_model (fun (n, c) ->
         (abstract (Intmap.singleton n c), Model.singleton n c));
-    mk "compare" two Print.bool (fun (t0, t1) ->
+    mk "reflexive_compare" two Print.bool (fun (t0, t1) ->
         let t0 = interpret t0 and t1 = interpret t1 in
         ( Intmap.reflexive_compare Char.compare t0 t1 = 0,
           Model.compare Char.compare (abstract t0) (abstract t1) = 0 ));
@@ -206,11 +223,9 @@ let tests =
       (fun (i, f, c, t) ->
         let f = Fn.apply f c and t = interpret t in
         (abstract (Intmap.insert i f t), Model.insert i f (abstract t)));
-    mk "update"
-      (tup3 small_nat (fun1 O.(option char) (option char)) tree)
-      print_model
-      (fun (i, f, t) ->
-        let f = Fn.apply f and t = interpret t in
+    mk "update" (tup3 small_nat update_fun tree) print_model
+      (fun (i, (_, f), t) ->
+        let t = interpret t in
         (abstract (Intmap.update i f t), Model.update i f (abstract t)));
     mk "fold (cumulative)" (pair tree int) Print.int (fun (t, acc) ->
         let f _i v acc = Char.code v + acc in
@@ -230,19 +245,20 @@ let tests =
         let t = interpret t in
         Intmap.iter f0 t;
         Model.iter f1 (abstract t));
-    make_map_test "map" (fun1 O.char char) Intmap.map Model.map;
-    make_map_test "mapi" (fun2 O.int O.char char) Intmap.mapi Model.mapi;
-    make_map_test "map_no_share" (fun1 O.char char) Intmap.map_no_share
+    make_map_test "map" (fun1 O.char char) Fn.apply Intmap.map Model.map;
+    make_map_test "mapi" mapi_fun snd Intmap.mapi Model.mapi;
+    make_map_test "map_no_share" (fun1 O.char char) Fn.apply Intmap.map_no_share
       Model.map;
-    make_map_test "mapi_no_share" (fun2 O.int O.char char) Intmap.mapi_no_share
-      Model.mapi;
-    make_map_test "filter" (fun2 O.int O.char bool) Intmap.filter Model.filter;
+    make_map_test "mapi_no_share" (fun2 O.int O.char char) Fn.apply
+      Intmap.mapi_no_share Model.mapi;
+    make_map_test "filter" (fun2 O.int O.char bool) Fn.apply Intmap.filter
+      Model.filter;
     make_map_test "filter_map"
       (fun2 O.int O.char (option char))
-      Intmap.filter_map Model.filter_map;
+      Fn.apply Intmap.filter_map Model.filter_map;
     make_map_test "filter_map_no_share"
       (fun2 O.int O.char (option char))
-      Intmap.filter_map_no_share Model.filter_map;
+      Fn.apply Intmap.filter_map_no_share Model.filter_map;
     make_quantifier_test "for_all" Intmap.for_all Model.for_all;
     make_setop_test "idempotent_union" idempotent_fst_or_snd snd
       Intmap.idempotent_union Model.union;
@@ -294,8 +310,8 @@ let tests =
       Print.(option (tup3 int char char))
       (fun (t0, t1) ->
         let t0 = interpret t0 and t1 = interpret t1 in
-        ( Intmap.min_binding_inter t0 t1,
-          Model.min_binding_inter (abstract t0) (abstract t1) ));
+        ( Intmap.max_binding_inter t0 t1,
+          Model.max_binding_inter (abstract t0) (abstract t1) ));
     mk "fold_on_nonequal_inter" two
       Print.(list (tup3 int char char))
       (fun (t0, t1) ->

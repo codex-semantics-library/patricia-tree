@@ -108,6 +108,12 @@ let two =
         pair (gen elt) (gen elt);
         (let* t = gen elt in
          return (t, t));
+        (let* a = gen elt and* b = gen elt in
+         oneof
+           [
+             return (a, Union ((fun _ a _ -> a), a, b));
+             return (Union ((fun _ a _ -> a), a, b), b);
+           ]);
       ]
   in
   let print (a, b) = print a ^ "\n" ^ print b in
