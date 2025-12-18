@@ -103,17 +103,19 @@ let tree = QCheck.make ~print ~shrink:(shrink QCheck.Shrink.char) (gen elt)
 
 let two =
   let gen =
-    oneof
+    frequency
       [
-        pair (gen elt) (gen elt);
-        (let* t = gen elt in
-         return (t, t));
-        (let* a = gen elt and* b = gen elt in
-         oneof
-           [
-             return (a, Union ((fun _ a _ -> a), a, b));
-             return (Union ((fun _ a _ -> a), a, b), b);
-           ]);
+        (* Physically distinct trees. *)
+        (4, pair (gen elt) (gen elt));
+        (* Trees are identical. *)
+        ( 1,
+          let* t = gen elt in
+          return (t, t) );
+        (* Trees physically share an intersection. *)
+        ( 5,
+          let* a = gen elt and* b = gen elt and* c = gen elt in
+          let union_left = union (fun _ l _ -> l) in
+          return (union_left a b, union_left a c) );
       ]
   in
   let print (a, b) = print a ^ "\n" ^ print b in
