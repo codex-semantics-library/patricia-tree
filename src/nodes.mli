@@ -27,7 +27,7 @@ open Signatures
 
 (** This module is such that ['map t = 'map view].
     This is the node used in {!MakeHeterogeneousMap} and {!MakeMap}. *)
-    module SimpleNode(Key: sig type 'k t end)(Value: HETEROGENEOUS_VALUE) : NODE
+module SimpleNode(Key: sig type 'k t end)(Value: HETEROGENEOUS_VALUE) : NODE
   with type 'a key = 'a Key.t
    and type ('key,'map) value = ('key,'map) Value.t
 
