@@ -52,14 +52,18 @@ module SetNode(Key: sig type 'k t end) : NODE
 
 (** {1 Weak nodes} *)
 
-(** NODE used to implement weak key hashes (the key-binding pair is an
+(** {!NODE} used to implement weak key hashes (the key-binding pair is an
     Ephemeron, the reference to the key is weak, and if the key is
-    garbage collected, the binding disappears from the map *)
+    garbage collected, the binding disappears from the map.
+
+    {b Warning: not thread-safe}. For multi-threaded use, wrap in {!MutexProtectMap}. *)
 module WeakNode(Key: sig type 'k t end)(Value: HETEROGENEOUS_VALUE) : NODE
   with type 'a key = 'a Key.t
    and type ('key,'map) value = ('key,'map) Value.t
 
-(** Both a {!WeakNode} and a {!SetNode}, useful to implement Weak sets.  *)
+(** Both a {!WeakNode} and a {!SetNode}, useful to implement Weak sets.
+
+    {b Warning: not thread-safe}. For multi-threaded use, wrap in {!MutexProtectSet}. *)
 module WeakSetNode(Key: sig type 'k t end) : NODE
   with type 'a key = 'a Key.t
    and type ('key,'map) value = unit
@@ -81,12 +85,17 @@ module WeakSetNode(Key: sig type 'k t end) : NODE
     all those maps being hash-consed together (stored in the same hash-table,
     same numbering system).
 
+    {b Warning: not thread-safe}. For multi-threaded use, wrap in {!MutexProtectMap}.
+
     @since v0.10.0 *)
 module HashconsedNode(Key: HETEROGENEOUS_KEY)(Value: HETEROGENEOUS_HASHED_VALUE)() : HASH_CONSED_NODE
   with type 'a key = 'a Key.t
    and type ('key,'map) value = ('key, 'map) Value.t
 
 (** Both a {!HashconsedNode} and a {!SetNode}.
+
+    {b Warning: not thread-safe}. For multi-threaded use, wrap in {!MutexProtectMap}.
+
     @since v0.10.0 *)
 module HashconsedSetNode(Key: HETEROGENEOUS_KEY)() : HASH_CONSED_NODE
   with type 'a key = 'a Key.t
