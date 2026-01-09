@@ -1,5 +1,7 @@
-# Unreleased
+# v0.12.0 - Unreleased
 
+- Specify that hash-consed and weak nodes are not thread safe (issue [#17](https://github.com/codex-semantics-library/patricia-tree/issues/17))
+- Add `MutexProtectXXX` functors to enable multithreaded use of hash-consed nodes ([#24](https://github.com/codex-semantics-library/patricia-tree/pull/24)).
 - Fix a bug with `nonreflexive_same_domain_forall2` (by [julow](https://github.com/Julow) in [#19](https://github.com/codex-semantics-library/patricia-tree/pull/19))
 - Add coverage with bisect_ppx (by [julow](https://github.com/Julow) in [#20](https://github.com/codex-semantics-library/patricia-tree/pull/20))
 
