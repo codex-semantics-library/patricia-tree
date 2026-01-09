@@ -128,6 +128,12 @@ module MakeCustomHeterogeneousSet
       as only one will be kept in memory.
     - hash-consed maps assume their keys and values are immutable, where regular
       maps can mutate values freely;
+    - {b WARNING: unsynchronized access to hash-consed sets and maps is
+      unsupported}, as they internally use {{: https://ocaml.org/api/Weak.html}[Stdlib.Weak]} hash-sets.
+      They are not thread-safe. You can force synchronicity via
+      the {!MutexProtectMap}, {!MutexProtectSet}, {!MutexProtectHeterogeneousMap}
+      and {!MutexProtectHeterogeneousSet} functors, or by wrapping calls with a mutex
+      yourself.
     - {b WARNING:} when using physical equality as {!HASHED_VALUE.polyeq}, some
       {b maps of different types may be given the same identifier}. See the end of
       the documentation of {!HASHED_VALUE.polyeq} for details.
@@ -148,6 +154,8 @@ module MakeCustomHeterogeneousSet
     the same arguments) will have different (incompatible) numbering systems and
     be stored in different hash-tables (thus they will never be physically equal).
 
+    {b Warning: not thread-safe}. For multi-threaded use, wrap in {!MutexProtectMap}.
+
     @since v0.10.0 *)
 module MakeHashconsedMap(Key: KEY)(Value: HASHED_VALUE)() : sig
   include MAP_WITH_VALUE with type key = Key.t and type 'a value = 'a Value.t (** @closed *)
@@ -163,6 +171,8 @@ end
     Maps/sets from different hash-consing functors (even if these functors have
     the same arguments) will have different (incompatible) numbering systems and
     be stored in different hash-tables (thus they will never be physically equal).
+
+    {b Warning: not thread-safe}. For multi-threaded use, wrap in {!MutexProtectSet}.
 
     @since v0.10.0 *)
 module MakeHashconsedSet(Key: KEY)() : sig
@@ -180,6 +190,8 @@ end
     the same arguments) will have different (incompatible) numbering systems and
     be stored in different hash-tables (thus they will never be physically equal).
 
+    {b Warning: not thread-safe}. For multi-threaded use, wrap in {!MutexProtectHeterogeneousSet}.
+
     @since v0.10.0 *)
 module MakeHashconsedHeterogeneousSet(Key: HETEROGENEOUS_KEY)() : sig
   include HETEROGENEOUS_SET with type 'a elt = 'a Key.t (** @closed *)
@@ -195,6 +207,8 @@ end
     Maps/sets from different hash-consing functors (even if these functors have
     the same arguments) will have different (incompatible) numbering systems and
     be stored in different hash-tables (thus they will never be physically equal).
+
+    {b Warning: not thread-safe}. For multi-threaded use, wrap in {!MutexProtectHeterogeneousMap}.
 
     @since v0.10.0 *)
 module MakeHashconsedHeterogeneousMap(Key: HETEROGENEOUS_KEY)(Value: HETEROGENEOUS_HASHED_VALUE)() : sig
