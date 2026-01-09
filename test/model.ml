@@ -6,11 +6,6 @@ let second f (a, b) = (a, f b)
 let second_opt f (a, b) = Option.map (fun x -> (a, x)) @@ f b
 let secondi f (i, x) = (i, f i x)
 let secondi_opt f (i, x) = Option.map (fun x -> (i, x)) @@ f i x
-let with_uncurry comb = Fun.compose comb uncurry
-let with_second comb = Fun.compose comb second
-let with_second_opt comb = Fun.compose comb second_opt
-let with_secondi comb = Fun.compose comb secondi
-let with_secondi_opt comb = Fun.compose comb secondi_opt
 
 (** Unsigned integer comparison. *)
 let compare_keys k0 k1 = Int.compare (k0 - min_int) (k1 - min_int)
@@ -64,12 +59,12 @@ let update i f m =
 
 let fold f t acc = List.fold_left (fun acc (k, v) -> f k v acc) acc t
 let iter f t = List.iter (fun (k, v) -> f k v) t
-let map f = with_second List.map f
-let mapi f = with_secondi List.map f
-let filter f = with_uncurry List.filter f
-let filter_map f = with_secondi_opt List.filter_map f
-let for_all p = with_uncurry List.for_all p
-let exists p = with_uncurry List.exists p
+let map f = List.map (second f)
+let mapi f = List.map (secondi f)
+let filter f = List.filter (uncurry f)
+let filter_map f = List.filter_map (secondi_opt f)
+let for_all p = List.for_all (uncurry p)
+let exists p = List.exists (uncurry p)
 
 let idempotent_union f m0 m1 =
   let k0 = keys m0 and k1 = keys m1 in
