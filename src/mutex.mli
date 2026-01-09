@@ -15,13 +15,17 @@ open Signatures
 
     @canonical PatriciaTree.MutexProtectMap
     @since 0.12.0 *)
-module MutexProtectMap(Map: MAP)(Mutex: MUTEX) : MAP with type key = Map.key
+module MutexProtectMap(Map: MAP)(Mutex: MUTEX) : MAP
+ with type key = Map.key
+  and type 'a t = 'a Map.t
 
 (** Add {!MUTEX} protection around a {!SET}.
 
     @canonical PatriciaTree.MutexProtectSet
     @since 0.12.0 *)
-module MutexProtectSet(Set: SET)(Mutex: MUTEX) : SET with type elt = Set.elt
+module MutexProtectSet(Set: SET)(Mutex: MUTEX) : SET
+ with type elt = Set.elt
+  and type 'a BaseMap.t = 'a Set.BaseMap.t
 
 (** Add {!MUTEX} protection around a {!HETEROGENEOUS_MAP}.
 
@@ -31,6 +35,7 @@ module MutexProtectHeterogeneousMap(Map: HETEROGENEOUS_MAP)(Mutex: MUTEX)
 : HETEROGENEOUS_MAP
     with type 'k key = 'k Map.key
      and type ('k, 'm) value = ('k, 'm) Map.value
+     and type 'm t = 'm Map.t
 
 (** Add {!MUTEX} protection around a {!HETEROGENEOUS_SET}.
 
@@ -39,3 +44,4 @@ module MutexProtectHeterogeneousMap(Map: HETEROGENEOUS_MAP)(Mutex: MUTEX)
 module MutexProtectHeterogeneousSet(Set: HETEROGENEOUS_SET)(Mutex: MUTEX)
 : HETEROGENEOUS_SET
   with type 'a elt = 'a Set.elt
+   and type 'a BaseMap.t = 'a Set.BaseMap.t
