@@ -1,0 +1,10 @@
+(executable
+ (name main)
+ (libraries patricia-tree bechamel qcheck notty.unix bechamel-notty))
+
+; Run with: dune build @bench
+
+(rule
+ (alias bench)
+ (action
+  (run ./main.exe)))
