@@ -567,6 +567,7 @@ module MakeCustomHeterogeneousMap
       reflexive_same_domain_for_all2 f ta1 tb1
 
   let rec nonreflexive_same_domain_for_all2 f ta tb = match (NODE.view ta),(NODE.view tb) with
+    | Empty, Empty -> true
     | Empty, _ | _, Empty -> false
     | Leaf _, Branch _ | Branch _, Leaf _ -> false
     | Leaf{key=keya;value=valuea}, Leaf{key=keyb;value=valueb} ->
