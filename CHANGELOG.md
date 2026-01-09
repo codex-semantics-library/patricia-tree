@@ -1,3 +1,8 @@
+# Unreleased
+
+- Fix a bug with `nonreflexive_same_domain_forall2` (by [julow](https://github.com/Julow) in [#19](https://github.com/codex-semantics-library/patricia-tree/pull/19))
+- Add coverage with bisect_ppx (by [julow](https://github.com/Julow) in [#20](https://github.com/codex-semantics-library/patricia-tree/pull/20))
+
 # v0.11.0 - 2025-01-27
 
 - Add some `reflexive_equal` and `reflexive_compare` functions
