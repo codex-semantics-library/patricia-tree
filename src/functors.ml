@@ -1112,7 +1112,7 @@ module MakeCustomHeterogeneousSet
   (* Likewise with union and inter: we do not have to worry about
      reconciling the values here, so we could reimplement if the
      compiler is not smart enough. *)
-  let  union =
+  let union =
     let f:(unit,unit,unit) BaseMap.polyunion = {f=fun _ () () -> ()} in
     fun [@specialise] sa sb -> BaseMap.idempotent_union f sa sb
 
@@ -1332,7 +1332,6 @@ module MakeCustomSet
   let to_seq m = Seq.map (fun (BaseMap.KeyValue(elt,())) -> elt) (BaseMap.to_seq m)
   let to_rev_seq m = Seq.map (fun (BaseMap.KeyValue(elt,())) -> elt) (BaseMap.to_rev_seq m)
   let add_seq s m = BaseMap.add_seq (Seq.map (fun (elt) -> BaseMap.KeyValue(elt,())) s) m
-
   let of_seq s = add_seq s empty
   let of_list l = of_seq (List.to_seq l)
   let to_list s = List.of_seq (to_seq s)
