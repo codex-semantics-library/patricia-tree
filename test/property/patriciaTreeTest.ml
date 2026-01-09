@@ -725,6 +725,12 @@ end
 
 module MyMap = MakeMap(HIntKey)
 module MyHashedMap = MakeHashconsedMap(HIntKey)(HashedValue)()
+module Mutex = struct
+  let is_locked = ref false
+  let lock () = assert (not !is_locked); is_locked := true
+  let unlock () = assert !is_locked; is_locked := false
+end
+module MyMutexProtectedMap = MutexProtectMap(MyMap)(Mutex)
 
 let%test_module "TestMap_SmallNat" = (module TestImpl(MyMap)(struct
   let test_id = false
@@ -745,6 +751,16 @@ let%test_module "TestHashconsedMap_Int" = (module TestImpl(MyHashedMap)(struct
   let test_id = true
   let number_gen = QCheck.int
 end))
+
+let%test_module "TestHashconsedMap_SmallNat" = (module TestImpl(MyMutexProtectedMap)(struct
+  let test_id = true
+  let number_gen = QCheck.small_nat
+end))
+
+(* let%test_module "TestHashconsedMap_Int" = (module TestImpl(MyMutexProtectedMap)(struct
+  let test_id = true
+  let number_gen = QCheck.int
+end)) *)
 
 let%test_module "TestWeak" = (module struct
 
