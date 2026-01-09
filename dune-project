@@ -57,7 +57,7 @@
   dune
   (qcheck-core
    (and
-    (>= "0.21.2")
+    (and (>= "0.21.2") (< "0.90"))
     :with-test))
   (ppx_inline_test
    (and
