@@ -625,7 +625,13 @@ module type HETEROGENEOUS_MAP = sig
   include BASE_MAP (** @closed *)
 
   (** Operation with maps/set of different types.
-      [Map2] must use the same {!KEY.to_int} function. *)
+      [Map2] must use the same {!KEY.to_int} function.
+
+      {b Warning:} when using {!MutexProtectMap} or its variants, instanciating
+      a [WithForeign] functor with a map protected by the same mutex will lead to
+      recursive locking, and thus an error.
+      To avoid this, either create a new mutex for each map, or only call
+      [WithForeign] with the unprotected version of the other map. *)
   module WithForeign(Map2: NODE_WITH_FIND with type 'a key = 'a key):sig
     type ('map1,'map2) polyinter_foreign = { f: 'a. 'a key -> ('a,'map1) value -> ('a,'map2) Map2.value -> ('a,'map1) value } [@@unboxed]
 
@@ -1403,7 +1409,13 @@ module type MAP_WITH_VALUE = sig
       @since v0.11.0 *)
 
   (** Combination with other kinds of maps.
-      [Map2] must use the same {!KEY.to_int} function. *)
+      [Map2] must use the same {!KEY.to_int} function.
+
+      {b Warning:} when using {!MutexProtectMap} or its variants, instanciating
+      a [WithForeign] functor with a map protected by the same mutex will lead to
+      recursive locking, and thus an error.
+      To avoid this, either create a new mutex for each map, or only call
+      [WithForeign] with the unprotected version of the other map. *)
   module WithForeign(Map2: NODE_WITH_FIND with type _ key = key):sig
 
     type ('b,'c) polyfilter_map_foreign = { f: 'a. key -> ('a,'b) Map2.value -> 'c value option } [@@unboxed]
