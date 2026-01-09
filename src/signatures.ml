@@ -1803,3 +1803,14 @@ module type HETEROGENEOUS_HASHED_VALUE = sig
           using this function can lead to {b identifiers no longer being unique across
           types}. See {!HASHED_VALUE.polyeq} for more information on this.}} *)
 end
+
+(** {1 Mutex} *)
+
+(** Simple mutex (mutual-exclusive lock) signature.
+
+    @since v0.12.0
+    @canonical PatriciaTree.MUTEX *)
+module type MUTEX = sig
+  val lock: unit -> unit
+  val unlock: unit -> unit
+end
