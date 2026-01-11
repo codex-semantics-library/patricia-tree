@@ -112,7 +112,7 @@ module HashconsedSetNode(Key: HETEROGENEOUS_KEY)() : HASH_CONSED_NODE
     {!MutexProtectNode} functor. *)
 
 (** Adds {!Mutex} protection around a {!NODE} by wrapping its contructors in
-    {!Mutex.lock} / {!Mutex.unlock}.
+    {!MUTEX.lock} / {!MUTEX.unlock}.
 
     @since v0.12.0 *)
 module MutexProtectNode(Node: NODE)(Mutex: MUTEX) : NODE
