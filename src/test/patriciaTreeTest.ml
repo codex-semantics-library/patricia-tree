@@ -305,7 +305,7 @@ end = struct
 end
 
 
-module TestImpl(MyMap : MAP with type key = int)(ForeignMap : MAP with type key = int)(Param : sig
+module TestImpl(MyMap : MAP with type key = int)(Param : sig
   val test_id : bool
   val number_gen : int QCheck.arbitrary
   (* val to_int : 'a MyMap.t -> int option *)
@@ -326,25 +326,12 @@ end) = struct
 
   let intmap_of_mymap m =
     MyMap.fold (fun key value acc -> IntMap.add key value acc) m IntMap.empty
-  let intmap_of_foreignmap m =
-    ForeignMap.fold (fun key value acc -> IntMap.add key value acc) m IntMap.empty
 
   let two_maps_from_three_lists (alist1,alist2,alist3) =
     let first = extend_map MyMap.empty alist1 in
     let second = extend_map first alist2 in
     let third = extend_map first alist3 in
     (second,third)
-
-  let rec extend_map' mymap alist =
-    match alist with
-    | [] -> mymap
-    | (a,b)::rest ->
-      extend_map' (ForeignMap.add a b mymap) rest
-  let map_from_two_lists (alist1, alist3) =
-    let first = extend_map' ForeignMap.empty alist1 in
-    let third = extend_map' first alist3 in
-    third
-
 
   let number_gen = Param.number_gen
 
@@ -356,10 +343,6 @@ end) = struct
   let model_from_gen x =
     let (m1,m2) = two_maps_from_three_lists x in
     (m1,intmap_of_mymap m1,m2,intmap_of_mymap m2)
-
-  let model_from_gen' x =
-    let (m2) = map_from_two_lists x in
-    (m2,intmap_of_foreignmap m2)
 
   (* let dump_model m =
     Printf.printf "[";
@@ -378,7 +361,7 @@ end) = struct
   let sdbm x y = y + (x lsl 16) + (x lsl 6) - x
   let sdbm3 x y z = sdbm x @@ sdbm y z
 
-  module Foreign = MyMap.WithForeign(ForeignMap.BaseMap)
+  module Foreign = MyMap.WithForeign(MyMap.BaseMap)
 
   let test_pop_minimum = QCheck.Test.make ~count:1000 ~name:"pop_unsigned_minimum"
       QCheck.(small_list (pair number_gen number_gen)) (fun x ->
@@ -515,9 +498,8 @@ end) = struct
 
 
   let test_nonidempotent_inter_no_share_foreign = QCheck.Test.make ~count:1000 ~name:"nonidempotent_inter_no_share_foreign"
-      gen (fun ((l1, _, l3) as x) ->
-          let (m1,model1,_,_) = model_from_gen x in
-          let (m2,model2) = model_from_gen' (l1,l3) in
+      gen (fun x ->
+          let (m1,model1,m2,model2) = model_from_gen x in
           let orig_f = sdbm3 in
           let chk_calls = check_increases () in
           let f : int -> int -> int -> int = fun key (a:int) b -> chk_calls key; orig_f key a b in
@@ -530,9 +512,8 @@ end) = struct
 
 
   let test_update_multiple_foreign = QCheck.Test.make ~count:1000 ~name:"update_multiple_foreign"
-      gen (fun ((l1, _, l3) as x) ->
-          let (m1,model1,_,_) = model_from_gen x in
-          let (m2,model2) = model_from_gen' (l1,l3) in
+      gen (fun x ->
+          let (m1,model1,m2,model2) = model_from_gen x in
           let orig_f key va vb =
             let res = match va with
               | None -> sdbm key vb
@@ -549,9 +530,8 @@ end) = struct
   let () = QCheck.Test.check_exn test_update_multiple_foreign
 
   let test_update_multiple_inter_foreign = QCheck.Test.make ~count:1000 ~name:"update_multiple_inter_foreign"
-      gen (fun ((l1, _, l3) as x) ->
-          let (m1,model1,_,_) = model_from_gen x in
-          let (m2,model2) = model_from_gen' (l1,l3) in
+      gen (fun x ->
+          let (m1,model1,m2,model2) = model_from_gen x in
           let orig_f = fun key va vb ->
             let res = sdbm3 key va vb in
             if res mod 2 == 0 then None else Some res
@@ -747,47 +727,39 @@ module MyMap = MakeMap(HIntKey)
 module MyHashedMap = MakeHashconsedMap(HIntKey)(HashedValue)()
 module Mutex = struct
   let is_locked = ref false
+
+  (* The assertions check for recursive mutex locking. *)
   let lock () = assert (not !is_locked); is_locked := true
   let unlock () = assert !is_locked; is_locked := false
 end
-module MyMutexProtectedMap = MutexProtectMap(MyHashedMap)(Mutex)
+module MyMutexMap = MakeHashconsedMapWithMutex(HIntKey)(HashedValue)(Mutex)()
 
-let%test_module "TestMap_SmallNat" = (module TestImpl(MyMap)(MyMap)(struct
+let%test_module "TestMap_SmallNat" = (module TestImpl(MyMap)(struct
   let test_id = false
   let number_gen = QCheck.small_nat
 end))
 
-let%test_module "TestMap_Int" = (module TestImpl(MyMap)(MyMap)(struct
+let%test_module "TestMap_Int" = (module TestImpl(MyMap)(struct
   let test_id = false
   let number_gen = QCheck.int
 end))
 
-let%test_module "TestHashconsedMap_SmallNat" = (module TestImpl(MyHashedMap)(MyHashedMap)(struct
+let%test_module "TestHashconsedMap_SmallNat" = (module TestImpl(MyHashedMap)(struct
   let test_id = true
   let number_gen = QCheck.small_nat
 end))
 
-let%test_module "TestHashconsedMap_Int" = (module TestImpl(MyHashedMap)(MyHashedMap)(struct
+let%test_module "TestHashconsedMap_Int" = (module TestImpl(MyHashedMap)(struct
   let test_id = true
   let number_gen = QCheck.int
 end))
 
-let%test_module "TestCrossMap_Int" = (module TestImpl(MyMap)(MyHashedMap)(struct
-  let test_id = false
-  let number_gen = QCheck.int
-end))
-
-let%test_module "TestCrossMap2_Int" = (module TestImpl(MyHashedMap)(MyMap)(struct
-  let test_id = true
-  let number_gen = QCheck.int
-end))
-
-let%test_module "TestMutexMap_SmallNat" = (module TestImpl(MyMutexProtectedMap)(MyMap)(struct
+let%test_module "TestHashconsedMapMutex_SmallNat" = (module TestImpl(MyMutexMap)(struct
   let test_id = true
   let number_gen = QCheck.small_nat
 end))
 
-let%test_module "TestMutexMap_Int" = (module TestImpl(MyMutexProtectedMap)(MyHashedMap)(struct
+let%test_module "TestHashconsedMapMutex_Int" = (module TestImpl(MyMutexMap)(struct
   let test_id = true
   let number_gen = QCheck.int
 end))
