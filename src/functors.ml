@@ -1374,3 +1374,49 @@ module MakeHashconsedMap(Key: KEY)(Value: HASHED_VALUE)() = struct
   let compare = Node.compare
   let to_int = Node.to_int
 end
+
+
+module MakeHashconsedHeterogeneousMapWithMutex
+    (Key: HETEROGENEOUS_KEY)
+    (Value: HETEROGENEOUS_HASHED_VALUE)
+    (Mutex: MUTEX)
+    ()
+= struct
+  module BaseNode = HashconsedNode(Key)(Value)()
+  module Node = MutexProtectNode(BaseNode)(Mutex)
+  include MakeCustomHeterogeneousMap(Key)(Value)(Node)
+
+  let equal = BaseNode.equal
+  let compare = BaseNode.compare
+  let to_int = BaseNode.to_int
+end
+
+module MakeHashconsedHeterogeneousSetWithMutex(Key: HETEROGENEOUS_KEY)(Mutex: MUTEX)() = struct
+  module BaseNode = HashconsedSetNode(Key)()
+  module Node = MutexProtectNode(BaseNode)(Mutex)
+  include MakeCustomHeterogeneousSet(Key)(Node)
+
+  let equal = BaseNode.equal
+  let compare = BaseNode.compare
+  let to_int = BaseNode.to_int
+end
+
+module MakeHashconsedSetWithMutex(Key: KEY)(Mutex: MUTEX)() = struct
+  module BaseNode = HashconsedSetNode(HeterogeneousKeyFromKey(Key))()
+  module Node = MutexProtectNode(BaseNode)(Mutex)
+  include MakeCustomSet(Key)(Node)
+  let equal = BaseNode.equal
+  let compare = BaseNode.compare
+  let to_int = BaseNode.to_int
+end
+
+module MakeHashconsedMapWithMutex(Key: KEY)(Value: HASHED_VALUE)(Mutex: MUTEX)() = struct
+  module HetValue = HeterogeneousHashedValueFromHashedValue(Value)
+  module BaseNode = HashconsedNode(HeterogeneousKeyFromKey(Key))(HetValue)()
+  module Node = MutexProtectNode(BaseNode)(Mutex)
+  include MakeCustomMap(Key)(Value)(Node)
+
+  let equal = BaseNode.equal
+  let compare = BaseNode.compare
+  let to_int = BaseNode.to_int
+end

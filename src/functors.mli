@@ -128,6 +128,11 @@ module MakeCustomHeterogeneousSet
       as only one will be kept in memory.
     - hash-consed maps assume their keys and values are immutable, where regular
       maps can mutate values freely;
+    - {b WARNING: unsynchronized access to hash-consed sets and maps is
+      unsupported}, as they internally use {{: https://ocaml.org/api/Weak.html}[Stdlib.Weak]} hash-sets.
+      They are not thread-safe. You can force synchronicity with a {!MUTEX}
+      using the {!MakeHashconsedMapWithMutex} functor (and its heterogeneous/set variants),
+      or manually by wrapping {!HashconsedNode} in the {!MutexProtectNode} functor.
     - {b WARNING:} when using physical equality as {!HASHED_VALUE.polyeq}, some
       {b maps of different types may be given the same identifier}. See the end of
       the documentation of {!HASHED_VALUE.polyeq} for details.
@@ -148,6 +153,8 @@ module MakeCustomHeterogeneousSet
     the same arguments) will have different (incompatible) numbering systems and
     be stored in different hash-tables (thus they will never be physically equal).
 
+    {b Warning: not thread-safe}. For a thread-safe version, use {!MakeHashconsedMapWithMutex}.
+
     @since v0.10.0 *)
 module MakeHashconsedMap(Key: KEY)(Value: HASHED_VALUE)() : sig
   include MAP_WITH_VALUE with type key = Key.t and type 'a value = 'a Value.t (** @closed *)
@@ -163,6 +170,8 @@ end
     Maps/sets from different hash-consing functors (even if these functors have
     the same arguments) will have different (incompatible) numbering systems and
     be stored in different hash-tables (thus they will never be physically equal).
+
+    {b Warning: not thread-safe}. For a thread-safe version, use {!MakeHashconsedSetWithMutex}.
 
     @since v0.10.0 *)
 module MakeHashconsedSet(Key: KEY)() : sig
@@ -180,6 +189,8 @@ end
     the same arguments) will have different (incompatible) numbering systems and
     be stored in different hash-tables (thus they will never be physically equal).
 
+    {b Warning: not thread-safe}. For a thread-safe version, use {!MakeHashconsedHeterogeneousSetWithMutex}.
+
     @since v0.10.0 *)
 module MakeHashconsedHeterogeneousSet(Key: HETEROGENEOUS_KEY)() : sig
   include HETEROGENEOUS_SET with type 'a elt = 'a Key.t (** @closed *)
@@ -196,8 +207,59 @@ end
     the same arguments) will have different (incompatible) numbering systems and
     be stored in different hash-tables (thus they will never be physically equal).
 
+    {b Warning: not thread-safe}. For a thread-safe version, use {!MakeHashconsedHeterogeneousMapWithMutex}.
+
     @since v0.10.0 *)
 module MakeHashconsedHeterogeneousMap(Key: HETEROGENEOUS_KEY)(Value: HETEROGENEOUS_HASHED_VALUE)() : sig
+  include HETEROGENEOUS_MAP
+      with type 'a key = 'a Key.t
+      and type ('k,'m) value = ('k, 'm) Value.t (** @closed *)
+
+  include HASH_CONSED_OPERATIONS with type 'a t := 'a t (** @inline *)
+end
+
+(** {2 Mutex-protected hashconsed maps and sets} *)
+
+(** Thread-safe variant of {!MakeHashconsedMap}, using a {!MUTEX} to
+    synchronize access.
+
+    @since v0.12.0 *)
+module MakeHashconsedMapWithMutex(Key: KEY)(Value: HASHED_VALUE)(Mutex: MUTEX)() : sig
+  include MAP_WITH_VALUE with type key = Key.t and type 'a value = 'a Value.t (** @closed *)
+
+  include HASH_CONSED_OPERATIONS with type 'a t := 'a t (** @inline *)
+end
+
+(** Thread-safe variant of {!MakeHashconsedSet}, using a {!MUTEX} to
+    synchronize access.
+
+    @since v0.12.0 *)
+module MakeHashconsedSetWithMutex(Key: KEY)(Mutex: MUTEX)() : sig
+  include SET with type elt = Key.t (** @closed *)
+
+  include HASH_CONSED_OPERATIONS with type 'a t := t (** @inline *)
+end
+
+(** Thread-safe variant of {!MakeHashconsedHeterogeneousSet}, using a {!MUTEX} to
+    synchronize access.
+
+    @since v0.12.0 *)
+module MakeHashconsedHeterogeneousSetWithMutex(Key: HETEROGENEOUS_KEY)(Mutex: MUTEX)() : sig
+  include HETEROGENEOUS_SET with type 'a elt = 'a Key.t (** @closed *)
+
+  include HASH_CONSED_OPERATIONS with type 'a t := t (** @inline *)
+end
+
+(** Thread-safe variant of {!MakeHashconsedHeterogeneousMap}, using a {!MUTEX} to
+    synchronize access.
+
+    @since v0.12.0 *)
+module MakeHashconsedHeterogeneousMapWithMutex
+    (Key: HETEROGENEOUS_KEY)
+    (Value: HETEROGENEOUS_HASHED_VALUE)
+    (Mutex: MUTEX)
+    ()
+: sig
   include HETEROGENEOUS_MAP
       with type 'a key = 'a Key.t
       and type ('k,'m) value = ('k, 'm) Value.t (** @closed *)

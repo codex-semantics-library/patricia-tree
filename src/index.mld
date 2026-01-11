@@ -85,7 +85,7 @@ See the {{!examples}examples} to jump right into using this library.
   be extended to store size information in nodes if needed.}
 {li Exposes a common interface ({!type:PatriciaTree.NODE.view}) to allow users to write their own pattern
   matching on the tree structure without depending on the {{!PatriciaTree.NODE}[NODE]} being used.}
-{li Additionally, hash-consed versions of heterogeneous/homogeneous maps/sets are
+{li Additionally, {{!PatriciaTree.section-hash_consed}hash-consed versions} of heterogeneous/homogeneous maps/sets are
   available. These provide constant time equality and comparison, and ensure
   maps/set with the same constants are always physically equal. It comes at the cost
   of a constant overhead in memory usage (at worst, as hash-consing may allow
