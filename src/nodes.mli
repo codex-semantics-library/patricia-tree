@@ -56,14 +56,14 @@ module SetNode(Key: sig type 'k t end) : NODE
     Ephemeron, the reference to the key is weak, and if the key is
     garbage collected, the binding disappears from the map.
 
-    {b Warning: not thread-safe}. For multi-threaded use, wrap in {!MutexProtectMap}. *)
+    {b Warning: not thread-safe}. For multi-threaded use, wrap in {!MutexProtectNode}. *)
 module WeakNode(Key: sig type 'k t end)(Value: HETEROGENEOUS_VALUE) : NODE
   with type 'a key = 'a Key.t
    and type ('key,'map) value = ('key,'map) Value.t
 
 (** Both a {!WeakNode} and a {!SetNode}, useful to implement Weak sets.
 
-    {b Warning: not thread-safe}. For multi-threaded use, wrap in {!MutexProtectSet}. *)
+    {b Warning: not thread-safe}. For multi-threaded use, wrap in {!MutexProtectNode}. *)
 module WeakSetNode(Key: sig type 'k t end) : NODE
   with type 'a key = 'a Key.t
    and type ('key,'map) value = unit
@@ -85,7 +85,7 @@ module WeakSetNode(Key: sig type 'k t end) : NODE
     all those maps being hash-consed together (stored in the same hash-table,
     same numbering system).
 
-    {b Warning: not thread-safe}. For multi-threaded use, wrap in {!MutexProtectMap}.
+    {b Warning: not thread-safe}. For multi-threaded use, wrap in {!MutexProtectNode}.
 
     @since v0.10.0 *)
 module HashconsedNode(Key: HETEROGENEOUS_KEY)(Value: HETEROGENEOUS_HASHED_VALUE)() : HASH_CONSED_NODE
@@ -94,9 +94,28 @@ module HashconsedNode(Key: HETEROGENEOUS_KEY)(Value: HETEROGENEOUS_HASHED_VALUE)
 
 (** Both a {!HashconsedNode} and a {!SetNode}.
 
-    {b Warning: not thread-safe}. For multi-threaded use, wrap in {!MutexProtectMap}.
+    {b Warning: not thread-safe}. For multi-threaded use, wrap in {!MutexProtectNode}.
 
     @since v0.10.0 *)
 module HashconsedSetNode(Key: HETEROGENEOUS_KEY)() : HASH_CONSED_NODE
   with type 'a key = 'a Key.t
    and type ('key,'map) value = unit
+
+(** {1 Mutex-protected nodes} *)
+(** Some {!NODE} implementations are {b not thread-safe}. Namely {!WeakNode},
+    {!WeakSetNode}, {!HashconsedNode} and {!HashconsedSetNode}, as they rely
+    on {{: https://ocaml.org/api/Weak.html}[Stdlib.Weak]} hash-sets. This means
+    any map or set using these, like {!MakeHashconsedMap}, {!MakeHashconsedSet}
+    or their heterogeneous versions, are not thread safe.
+
+    To use them in a mutli-threaded context, wrap these {!NODE}s in the
+    {!MutexProtectNode} functor. *)
+
+(** Adds {!Mutex} protection around a {!NODE} by wrapping its contructors in
+    {!Mutex.lock} / {!Mutex.unlock}.
+
+    @since v0.12.0 *)
+module MutexProtectNode(Node: NODE)(Mutex: MUTEX) : NODE
+ with type 'k key = 'k Node.key
+  and type ('k,'m) value = ('k,'m) Node.value
+  and type 'm t = 'm Node.t

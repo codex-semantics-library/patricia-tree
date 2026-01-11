@@ -361,3 +361,17 @@ module HashconsedSetNode(Key:HETEROGENEOUS_KEY)(): HASH_CONSED_NODE
   let equal x y = x == y
   let compare x y = Int.compare (to_int x) (to_int y)
 end
+
+module MutexProtectNode(Node: NODE)(Mutex: MUTEX) = struct
+  include Node
+
+  let protect f arg =
+    Mutex.lock ();
+    match f arg with
+    | x -> Mutex.unlock (); x
+    | exception e -> Mutex.unlock (); raise e
+
+  let leaf k v = protect (leaf k) v
+  let branch ~prefix ~branching_bit ~tree0 ~tree1 =
+    protect (fun () -> branch ~prefix ~branching_bit ~tree0 ~tree1) ()
+end

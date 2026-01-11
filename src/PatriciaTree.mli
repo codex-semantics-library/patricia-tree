@@ -130,8 +130,6 @@ include module type of Signatures
 
 include module type of Functors
 
-include module type of Mutex
-
 (** {1 Default KEY and VALUE implementations} *)
 (** These can be used as parameters to {!MakeMap}/{!MakeSet} functors in the
     most common use cases. *)
