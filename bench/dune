@@ -2,7 +2,7 @@
  (name main)
  (libraries patricia-tree bechamel qcheck notty.unix bechamel-notty))
 
-; Run with: dune build @bench
+; Run with: dune build @bench --force
 
 (rule
  (alias bench)
