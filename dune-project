@@ -74,6 +74,5 @@
   (sherlodoc :with-doc)
   ; Benchmark dependencies
   (bechamel :with-dev)
-  (qcheck :with-dev)
-  (notty :with-dev)
-  (bechamel-notty :with-dev)))
+  (csv :with-dev)
+  (qcheck :with-dev)))

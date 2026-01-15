@@ -22,9 +22,8 @@ depends: [
   "odoc" {>= "2.4.0" & with-doc}
   "sherlodoc" {with-doc}
   "bechamel" {with-dev}
+  "csv" {with-dev}
   "qcheck" {with-dev}
-  "notty" {with-dev}
-  "bechamel-notty" {with-dev}
 ]
 build: [
   ["dune" "subst"] {dev}
