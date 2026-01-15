@@ -380,3 +380,13 @@ There is no imposed coding style for this repository, here are just a few guidel
 - Please document any new functions in the interface, using [ocamldoc style comments](https://v2.ocaml.org/manual/ocamldoc.html#s%3Aocamldoc-comments).
 - Please consider adding test for new features/fixed bugs if at all possible.
   This library uses a [QuickCheck](https://www.ocaml.org/p/quickcheck/latest/doc/QuickCheck/index.html) framework for tests.
+
+To run the tests, do:
+```
+dune runtest
+```
+
+To run the benchmarks, do:
+```
+dune build @bench --force
+```
