@@ -41,4 +41,4 @@
 (mdx
  (files *.mld *.mli)
  (libraries patricia-tree)
- (preludes test/mdx_prelude.ml))
+ (preludes mdx/mdx_prelude.ml))
