@@ -22,6 +22,9 @@ depends: [
   "bisect_ppx" {with-dev}
   "odoc" {>= "2.4.0" & with-doc}
   "sherlodoc" {with-doc}
+  "bechamel" {with-dev}
+  "csv" {with-dev}
+  "qcheck" {with-dev}
 ]
 build: [
   ["dune" "subst"] {dev}
