@@ -43,8 +43,11 @@ jobs:
         with:
           ocaml-compiler: ${{ matrix.ocaml-compiler }}
 
+      # --with-dev-setup seems to be broken
       - name: Install dependencies
-        run: opam install . --deps-only --with-test --with-dev-setup
+        run: |
+          opam install . --deps-only --with-test --with-dev-setup
+          opam install bechamel csv qcheck
 
       - name: Build library
         run: opam exec -- dune build
