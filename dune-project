@@ -55,9 +55,12 @@
   (ocaml
    (>= 4.14))
   dune
+  ; Test dependencies
   (qcheck-core
    (and
-    (and (>= "0.21.2") (< "0.90"))
+    (and
+     (>= "0.21.2")
+     (< "0.90"))
     :with-test))
   (ppx_inline_test
    (and
@@ -67,13 +70,15 @@
    (and
     (>= "2.4.1")
     :with-test))
-  (bisect_ppx :with-dev)
+  ; Coverage metrics
+  (bisect_ppx :with-dev-setup)
+  ; Doc dependencies
   (odoc
    (and
     (>= "2.4.0")
     :with-doc))
   (sherlodoc :with-doc)
   ; Benchmark dependencies
-  (bechamel :with-dev)
-  (csv :with-dev)
-  (qcheck :with-dev)))
+  (bechamel :with-dev-setup)
+  (csv :with-dev-setup)
+  (qcheck :with-dev-setup)))
