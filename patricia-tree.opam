@@ -20,12 +20,12 @@ depends: [
   "qcheck" {with-test}
   "ppx_inline_test" {>= "v0.16.0" & with-test}
   "mdx" {>= "2.4.1" & with-test}
-  "bisect_ppx" {with-dev}
+  "bisect_ppx" {with-dev-setup}
   "odoc" {>= "2.4.0" & with-doc}
   "sherlodoc" {with-doc}
-  "bechamel" {with-dev}
-  "csv" {with-dev}
-  "qcheck" {with-dev}
+  "bechamel" {with-dev-setup}
+  "csv" {with-dev-setup}
+  "qcheck" {with-dev-setup}
 ]
 build: [
   ["dune" "subst"] {dev}
