@@ -246,7 +246,7 @@ Here is a small example of a non-generic map:
     This allows faster than [O(n)] intersections.
   {[
   # let map2 =
-      IMap.idempotent_inter_filter (fun _key _l _r -> None)
+      IMap.idempotent_inter (fun _key l _r -> l)
         (IMap.add 4 "something" map)
         (IMap.add 5 "something else" map);;
   val map2 : string IMap.t = <abstr>
