@@ -62,6 +62,7 @@
      (>= "0.21.2")
      (< "0.90"))
     :with-test))
+  (qcheck :with-test)
   (ppx_inline_test
    (and
     (>= "v0.16.0")
