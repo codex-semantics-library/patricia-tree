@@ -1,4 +1,4 @@
-# v0.12.0 - Unreleased
+# v0.12.0 - 2026-01-19
 
 - Specify that hash-consed and weak nodes are not thread safe (issue [#17](https://github.com/codex-semantics-library/patricia-tree/issues/17))
 - Add `MutexProtectNode` functors to enable multithreaded use of non-thread safe nodes ([#24](https://github.com/codex-semantics-library/patricia-tree/pull/24)).

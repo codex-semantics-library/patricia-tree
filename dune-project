@@ -70,8 +70,8 @@
    (and
     (>= "2.4.1")
     :with-test))
-  ; Coverage metrics
-  (bisect_ppx :with-dev-setup)
+  ; Coverage metrics - incompatible with OCaml 5.4
+  ; (bisect_ppx :with-dev-setup)
   ; Doc dependencies
   (odoc
    (and

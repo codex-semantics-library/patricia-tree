@@ -21,8 +21,8 @@
 ;;                                                                        ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-; The library is instrumented with bisect_ppx. To obtain a test coverage
-; report, do:
+; The library is instrumented with bisect_ppx. To obtain a test coverage report
+; install bisect_ppx, then run
 ;   dune runtest --instrument-with bisect_ppx --force
 ;   bisect-ppx-report html
 
