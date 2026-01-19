@@ -3,7 +3,7 @@
 (*    (patricia-tree sub-component).                                      *)
 (*                                                                        *)
 (*                                                                        *)
-(*  Copyright (C) 2013-2025                                               *)
+(*  Copyright (C) 2013-2026                                               *)
 (*    CEA (Commissariat à l'énergie atomique et aux énergies              *)
 (*         alternatives)                                                  *)
 (*                                                                        *)

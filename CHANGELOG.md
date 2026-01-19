@@ -5,7 +5,12 @@
 - Also add `Make[Heterogeneous]Hashconsed[Set|Map]WithMutex` functors using `MutexProtectNode`
   for convenience  ([#24](https://github.com/codex-semantics-library/patricia-tree/pull/24)).
 - Fix a bug with `nonreflexive_same_domain_forall2` (by [julow](https://github.com/Julow) in [#19](https://github.com/codex-semantics-library/patricia-tree/pull/19))
+
+## Dev changes
+
 - Add coverage with bisect_ppx (by [julow](https://github.com/Julow) in [#20](https://github.com/codex-semantics-library/patricia-tree/pull/20))
+- Add model based qcheck test (by [julow](https://github.com/Julow) in [#21](https://github.com/codex-semantics-library/patricia-tree/pull/21))
+- Add benchmarks (by [julow](https://github.com/Julow) in [#22](https://github.com/codex-semantics-library/patricia-tree/pull/22))
 
 # v0.11.0 - 2025-01-27
 

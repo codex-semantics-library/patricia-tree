@@ -23,7 +23,7 @@
 
 (name patricia-tree)
 
-(version 0.11.0)
+(version 0.12.0)
 
 (using mdx 0.2)
 
@@ -56,13 +56,12 @@
    (>= 4.14))
   dune
   ; Test dependencies
-  (qcheck-core
+  (qcheck
    (and
     (and
      (>= "0.21.2")
      (< "0.90"))
     :with-test))
-  (qcheck :with-test)
   (ppx_inline_test
    (and
     (>= "v0.16.0")
@@ -81,5 +80,4 @@
   (sherlodoc :with-doc)
   ; Benchmark dependencies
   (bechamel :with-dev-setup)
-  (csv :with-dev-setup)
-  (qcheck :with-dev-setup)))
+  (csv :with-dev-setup)))
