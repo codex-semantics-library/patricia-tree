@@ -46,7 +46,7 @@ See the {{!examples}examples} to jump right into using this library.
   using the same function names when possible
   and the same convention for order of arguments. This should allow switching to
   and from Patricia Tree with minimal effort.}
-{li The functor parameters ({{!PatriciaTree.KEY}[KEY]} module) requires an injective [to_int : t -> int]
+{li The functor parameters ({{!PatriciaTree.KEY}[KEY]} module) requires an injective {{!PatriciaTree.KEY.to_int}[to_int : t -> int]}
   function instead of a [compare] function. {{!PatriciaTree.KEY.to_int}[KEY.to_int]} should be fast,
   and injective.
   This works well with {{: https://en.wikipedia.org/wiki/Hash_consing}hash-consed} types.}
@@ -61,7 +61,8 @@ See the {{!examples}examples} to jump right into using this library.
   To do so, these functions often have extra requirements on their argument
   (e.g. [inter f m1 m2] can be optimized by not inspecting common subtrees when
   [f] is idempotent). To avoid accidental errors, they are renamed (e.g. to
-  [idempotent_inter] for the efficient version and [nonidempotent_inter_no_share]
+  {{!PatriciaTree.BASE_MAP.idempotent_inter}[idempotent_inter]} for the efficient version and
+  {{!PatriciaTree.BASE_MAP.nonidempotent_inter_no_share}[nonidempotent_inter_no_share]}
   for the general one)}
 {li Since our Patricia Tree use big-endian order on keys, the maps and sets are
   sorted in increasing {b {{!PatriciaTree.unsigned_lt}unsigned order}} of keys.
@@ -83,7 +84,7 @@ See the {{!examples}examples} to jump right into using this library.
 {li Multiple choices for internal representation ({{!PatriciaTree.NODE}[NODE]}), which allows for efficient
   storage (no need to store a value for sets), or using weak nodes only (values removed from the tree if no other pointer to it exists). This system can also
   be extended to store size information in nodes if needed.}
-{li Exposes a common interface ({!type:PatriciaTree.NODE.view}) to allow users to write their own pattern
+{li Exposes a common interface ({{!type:PatriciaTree.NODE.view}[NODE.view]}) to allow users to write their own pattern
   matching on the tree structure without depending on the {{!PatriciaTree.NODE}[NODE]} being used.}
 {li Additionally, {{!PatriciaTree.section-hash_consed}hash-consed versions} of heterogeneous/homogeneous maps/sets are
   available. These provide constant time equality and comparison, and ensure
