@@ -29,6 +29,8 @@
 
 (maintainers "Dorian Lesbre <dorian.lesbre@cea.fr>")
 
+; (maintenance_intent "(latest)")
+
 (authors
  "Matthieu Lemerre <matthieu.lemerre@cea.fr>"
  "Dorian Lesbre <dorian.lesbre@cea.fr>")
