@@ -490,6 +490,16 @@ module type BASE_MAP = sig
       Complexity is O(log(n)*Delta) where Delta is the number of
       different keys between [map1] and [map2]. *)
 
+  val nonidempotent_union : ('a, 'a, 'a) polyunion -> 'a t -> 'a t -> 'a t
+  (** [nonidempotent_union f map1 map2] returns a map whose keys is the
+      union of the keys of [map1] and [map2]. [f.f] is used to combine
+      the values of keys mapped in both maps.
+      [f.f] is called in increasing {{!unsigned_lt}unsigned order} of
+      {!KEY.to_int}.
+
+      Unlike [idempotent_union], [f.f] is not required to be idempotent. [f.f]
+      is called on two values that are physically equal. *)
+
   type ('map1, 'map2, 'map3) polyinter = {
     f : 'a. 'a key -> ('a, 'map1) value -> ('a, 'map2) value -> ('a, 'map3) value;
   } [@@unboxed]
@@ -1338,6 +1348,16 @@ module type MAP_WITH_VALUE = sig
       different keys between [map1] and [map2].
       [f] is called in increasing {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
       [f] is never called on physically equal values. *)
+
+  val nonidempotent_union : (key -> 'a value -> 'a value -> 'a value) -> 'a t -> 'a t -> 'a t
+  (** [nonidempotent_union f map1 map2] returns a map whose keys is the
+      union of the keys of [map1] and [map2]. [f] is used to combine the values
+      of keys mapped in both maps.
+      [f] is called in increasing {{!unsigned_lt}unsigned order} of
+      {!KEY.to_int}.
+
+      Unlike [idempotent_union], [f] is not required to be idempotent. [f] is
+      called on two values that are physically equal. *)
 
   val idempotent_inter : (key -> 'a value -> 'a value -> 'a value) -> 'a t -> 'a t -> 'a t
   (** [idempotent_inter f map1 map2] returns a map whose keys is the

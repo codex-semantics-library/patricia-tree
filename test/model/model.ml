@@ -90,7 +90,7 @@ let filter_map f = List.filter_map (secondi_opt f)
 let for_all p = List.for_all (uncurry p)
 let exists p = List.exists (uncurry p)
 
-let idempotent_union f m0 m1 =
+let nonidempotent_union f m0 m1 =
   let k0 = keys m0 and k1 = keys m1 in
   let keys = List.sort_uniq compare_keys @@ List.append k0 k1 in
   let aux i =
@@ -102,6 +102,8 @@ let idempotent_union f m0 m1 =
       | None, None -> assert false )
   in
   List.map aux keys
+
+let idempotent_union = nonidempotent_union
 
 let idempotent_inter_filter f m0 m1 =
   let aux (i, x) =
