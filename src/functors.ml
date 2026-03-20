@@ -521,8 +521,8 @@ module MakeCustomHeterogeneousMap
 
   (* Note: Insert is a bit weird, I am not sure it should be exported. *)
   type 'map polyinsert = { f: 'a . key:'a Key.t -> old:('a,'map) Value.t -> value:('a,'map) Value.t -> ('a,'map) Value.t } [@@unboxed]
-  let idempotent_insert_for_union: type a map. map polyinsert -> a Key.t -> (a,map) Value.t -> map t -> map t =
-    fun f thekey value t ->
+  let insert_for_union: type a map. idempotent:bool -> map polyinsert -> a Key.t -> (a,map) Value.t -> map t -> map t =
+    fun ~idempotent f thekey value t ->
     let thekeyint = Key.to_int thekey in
     (* Preserve physical equality whenever possible. *)
     let exception Unmodified in
@@ -532,7 +532,9 @@ module MakeCustomHeterogeneousMap
         | Leaf{key;value=old} ->
           begin match Key.polyeq key thekey with
             | Eq ->
-              if value == old then raise Unmodified else
+              (* We want to call [f.f] when [value == old] when called from
+                 [nonidempotent_union]. *)
+              if idempotent && value == old then raise Unmodified else
               let newv = f.f ~key ~old ~value in
               if newv == old then raise Unmodified
               else leaf key newv
@@ -548,28 +550,6 @@ module MakeCustomHeterogeneousMap
           else join thekeyint (leaf thekey value) (prefix :> int) t
       in loop t
     with Unmodified -> t
-
-  let nonidempotent_insert_for_union: type a map. map polyinsert -> a Key.t -> (a,map) Value.t -> map t -> map t =
-    fun f thekey value t ->
-    let thekeyint = Key.to_int thekey in
-    let rec loop t = match NODE.view t with
-      | Empty -> leaf thekey value
-      | Leaf{key;value=old} ->
-        begin match Key.polyeq key thekey with
-          | Eq ->
-            let newv = f.f ~key ~old ~value in
-            leaf key newv
-          | Diff ->
-            let keyint = (Key.to_int key) in
-            join thekeyint (leaf thekey value) keyint t
-        end
-      | Branch{prefix;branching_bit;tree0;tree1} ->
-        if match_prefix thekeyint prefix branching_bit then
-          if (thekeyint land (branching_bit :> int)) == 0
-          then branch ~prefix ~branching_bit ~tree0:(loop tree0) ~tree1
-          else branch ~prefix ~branching_bit ~tree0 ~tree1:(loop tree1)
-        else join thekeyint (leaf thekey value) (prefix :> int) t
-    in loop t
 
   type ('map1,'map2) polysame_domain_for_all2 = { f: 'a 'b. 'a Key.t -> ('a,'map1) Value.t -> ('a,'map2) Value.t -> bool } [@@unboxed]
   (* Fast equality test between two maps. *)
@@ -711,9 +691,11 @@ module MakeCustomHeterogeneousMap
       | Empty, _ -> tb
       | _, Empty -> ta
       | Leaf{key;value},_ ->
-        idempotent_insert_for_union ({f=fun ~key ~old ~value -> f.f key value old}) key value tb
+        insert_for_union ~idempotent:true
+          ({f=fun ~key ~old ~value -> f.f key value old}) key value tb
       | _,Leaf{key;value} ->
-        idempotent_insert_for_union ({f=fun ~key ~old ~value -> f.f key old value}) key value ta
+        insert_for_union ~idempotent:true
+          ({f=fun ~key ~old ~value -> f.f key old value}) key value ta
       | Branch{prefix=pa;branching_bit=ma;tree0=ta0;tree1=ta1},
         Branch{prefix=pb;branching_bit=mb;tree0=tb0;tree1=tb1} ->
         if ma == mb && pa == pb
@@ -739,9 +721,11 @@ module MakeCustomHeterogeneousMap
     | Empty, _ -> tb
     | _, Empty -> ta
     | Leaf{key;value},_ ->
-      nonidempotent_insert_for_union ({f=fun ~key ~old ~value -> f.f key value old}) key value tb
+      insert_for_union ~idempotent:false
+        ({f=fun ~key ~old ~value -> f.f key value old}) key value tb
     | _,Leaf{key;value} ->
-      nonidempotent_insert_for_union ({f=fun ~key ~old ~value -> f.f key old value}) key value ta
+      insert_for_union ~idempotent:false
+        ({f=fun ~key ~old ~value -> f.f key old value}) key value ta
     | Branch{prefix=pa;branching_bit=ma;tree0=ta0;tree1=ta1},
       Branch{prefix=pb;branching_bit=mb;tree0=tb0;tree1=tb1} ->
       if ma == mb && pa == pb
