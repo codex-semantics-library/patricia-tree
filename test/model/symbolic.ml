@@ -50,11 +50,11 @@ let merge f m0 m1 = Merge (f, m0, m1)
 
 open QCheck.Gen
 
-let key = small_signed_int
+let key = int_small
 let elt = char_range 'a' 'z'
 
 let gen_f =
-  oneofl
+  oneof_list
     [
       (fun _ x _ -> x);
       (fun _ _ x -> x);
@@ -62,7 +62,7 @@ let gen_f =
     ]
 
 let gen_f_opt =
-  oneofl
+  oneof_list
     [
       (fun _ _ _ -> None);
       (fun _ x _ -> x);
@@ -78,7 +78,7 @@ let gen g =
   match size with
   | 0 -> oneof [ return Empty; singleton <$> key <*> g ]
   | n ->
-      frequency
+      oneof_weighted
         [
           (1, return Empty);
           (1, singleton <$> key <*> g);
@@ -126,7 +126,7 @@ let tree = QCheck.make ~print ~shrink:(shrink QCheck.Shrink.char) (gen elt)
 
 let two =
   let gen =
-    frequency
+    oneof_weighted
       [
         (* Physically distinct trees. *)
         (4, pair (gen elt) (gen elt));

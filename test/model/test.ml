@@ -60,7 +60,7 @@ let key_and_tree =
     let* t = tree.gen in
     match Model.keys @@ abstract @@ interpret t with
     | [] -> pair key (return t)
-    | keys -> oneof [ pair key (return t); pair (oneofl keys) (return t) ]
+    | keys -> oneof [ pair key (return t); pair (oneof_list keys) (return t) ]
   in
   let print (k, tree) = Int.to_string k ^ ", " ^ print tree in
   QCheck.make ~print gen
@@ -119,10 +119,10 @@ let make_setop_test name fun_arb fun_apply intmap_op model_op =
    implementation uses physical equality to perform optimisations, which are
    hard to model. Only two reconciliation functions are used. *)
 let idempotent_fst_or_snd =
-  oneofl ~print:fst [ ("fst", fun _ a _ -> a); ("snd", fun _ _ b -> b) ]
+  oneof_list ~print:fst [ ("fst", fun _ a _ -> a); ("snd", fun _ _ b -> b) ]
 
 let nonidempotent_union_f =
-  oneofl ~print:fst
+  oneof_list ~print:fst
     [
       ("fst", fun _ a _ -> a);
       ("snd", fun _ _ b -> b);
@@ -131,7 +131,7 @@ let nonidempotent_union_f =
 
 (* Like [idempotent_fst_or_snd] but with an extra [None] case. *)
 let idempotent_fst_or_snd_option =
-  oneofl ~print:fst
+  oneof_list ~print:fst
     [
       ("-> Some a", fun _ a _ -> Some a);
       ("-> Some b", fun _ _ b -> Some b);
@@ -139,11 +139,11 @@ let idempotent_fst_or_snd_option =
     ]
 
 let reflexive_same_domain_val =
-  oneofl ~print:fst
+  oneof_list ~print:fst
     [ ("(=)", fun _ a b -> a = b); ("-> false", fun _ _ _ -> false) ]
 
 let nonreflexive_same_domain_val =
-  oneofl ~print:fst
+  oneof_list ~print:fst
     [
       ("(=)", fun _ a b -> a = b);
       ("-> true", fun _ _ _ -> true);
@@ -152,7 +152,7 @@ let nonreflexive_same_domain_val =
 
 (* Function for [update]. *)
 let update_fun =
-  oneofl ~print:fst
+  oneof_list ~print:fst
     [
       ("Fun.id", Fun.id);
       ("-> None", fun _ -> None);
@@ -161,10 +161,10 @@ let update_fun =
 
 (* Function for [mapi]. *)
 let mapi_fun =
-  oneofl ~print:fst [ ("Fun.id", fun _ v -> v); ("const", fun _ _ -> '0') ]
+  oneof_list ~print:fst [ ("Fun.id", fun _ v -> v); ("const", fun _ _ -> '0') ]
 
 let difference_fun =
-  oneofl ~print:fst
+  oneof_list ~print:fst
     [
       ("left", fun _ a b -> if a == b then None else Some a);
       ("-> None", fun _ _ _ -> None);
@@ -206,7 +206,7 @@ let tests =
       (fun t ->
         let t = interpret t in
         (Intmap.is_singleton t, Model.is_singleton (abstract t)));
-    mk "singleton" (pair small_nat char) print_model (fun (n, c) ->
+    mk "singleton" (pair nat_small char) print_model (fun (n, c) ->
         (abstract (Intmap.singleton n c), Model.singleton n c));
     mk "reflexive_compare" two Print.bool (fun (t0, t1) ->
         let t0 = interpret t0 and t1 = interpret t1 in
@@ -252,12 +252,12 @@ let tests =
         let t = interpret t in
         (abstract (Intmap.remove i t), Model.remove i (abstract t)));
     mk "insert"
-      (quad small_nat (fun2 O.char O.(option char) char) char tree)
+      (quad nat_small (fun2 O.char O.(option char) char) char tree)
       print_model
       (fun (i, f, c, t) ->
         let f = Fn.apply f c and t = interpret t in
         (abstract (Intmap.insert i f t), Model.insert i f (abstract t)));
-    mk "update" (tup3 small_nat update_fun tree) print_model
+    mk "update" (tup3 nat_small update_fun tree) print_model
       (fun (i, (_, f), t) ->
         let t = interpret t in
         (abstract (Intmap.update i f t), Model.update i f (abstract t)));

@@ -60,9 +60,7 @@
   ; Test dependencies
   (qcheck
    (and
-    (and
-     (>= "0.21.2")
-     (< "0.90"))
+    (>= "0.90")
     :with-test))
   (ppx_inline_test
    (and

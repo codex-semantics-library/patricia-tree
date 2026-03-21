@@ -336,9 +336,9 @@ end) = struct
   let number_gen = Param.number_gen
 
   let gen = QCheck.(triple
-                      (small_list (pair number_gen number_gen))
-                      (small_list (pair number_gen number_gen))
-                      (small_list (pair number_gen number_gen)))
+                      (list_small (pair number_gen number_gen))
+                      (list_small (pair number_gen number_gen))
+                      (list_small (pair number_gen number_gen)))
 
   let model_from_gen x =
     let (m1,m2) = two_maps_from_three_lists x in
@@ -364,7 +364,7 @@ end) = struct
   module Foreign = MyMap.WithForeign(MyMap.BaseMap)
 
   let test_pop_minimum = QCheck.Test.make ~count:1000 ~name:"pop_unsigned_minimum"
-      QCheck.(small_list (pair number_gen number_gen)) (fun x ->
+      QCheck.(list_small (pair number_gen number_gen)) (fun x ->
           let m = extend_map MyMap.empty x in
           let model = intmap_of_mymap m in
           match MyMap.pop_unsigned_minimum m, IntMap.pop_unsigned_minimum model with
@@ -375,7 +375,7 @@ end) = struct
   let () = QCheck.Test.check_exn test_pop_minimum
 
   let test_pop_maximum = QCheck.Test.make ~count:1000 ~name:"pop_unsigned_maximum"
-      QCheck.(small_list (pair number_gen number_gen)) (fun x ->
+      QCheck.(list_small (pair number_gen number_gen)) (fun x ->
           let m = extend_map MyMap.empty x in
           let model = intmap_of_mymap m in
           match MyMap.pop_unsigned_maximum m, IntMap.pop_unsigned_maximum model with
@@ -413,7 +413,7 @@ end) = struct
     in f
 
   let test_map_filter = QCheck.Test.make ~count:1000 ~name:"map_filter"
-      QCheck.(small_list (pair number_gen number_gen)) (fun x ->
+      QCheck.(list_small (pair number_gen number_gen)) (fun x ->
           let m1 = extend_map MyMap.empty x in
           let model1 = intmap_of_mymap m1 in
           let chk_calls1 = check_increases () in
@@ -736,7 +736,7 @@ module MyMutexMap = MakeHashconsedMapWithMutex(HIntKey)(HashedValue)(Mutex)()
 
 let%test_module "TestMap_SmallNat" = (module TestImpl(MyMap)(struct
   let test_id = false
-  let number_gen = QCheck.small_nat
+  let number_gen = QCheck.nat_small
 end))
 
 let%test_module "TestMap_Int" = (module TestImpl(MyMap)(struct
@@ -746,7 +746,7 @@ end))
 
 let%test_module "TestHashconsedMap_SmallNat" = (module TestImpl(MyHashedMap)(struct
   let test_id = true
-  let number_gen = QCheck.small_nat
+  let number_gen = QCheck.nat_small
 end))
 
 let%test_module "TestHashconsedMap_Int" = (module TestImpl(MyHashedMap)(struct
@@ -756,7 +756,7 @@ end))
 
 let%test_module "TestHashconsedMapMutex_SmallNat" = (module TestImpl(MyMutexMap)(struct
   let test_id = true
-  let number_gen = QCheck.small_nat
+  let number_gen = QCheck.nat_small
 end))
 
 let%test_module "TestHashconsedMapMutex_Int" = (module TestImpl(MyMutexMap)(struct
