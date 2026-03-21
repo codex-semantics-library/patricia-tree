@@ -219,36 +219,37 @@ module type BASE_MAP = sig
   (** Create a map with a single binding. *)
 
   val cardinal : 'a t -> int
-  (** The size of the map, O(n) complexity *)
+  (** The size of the map, [O(n)] complexity. *)
 
   val is_singleton : 'a t -> 'a key_value_pair option
   (** [is_singleton m] returns [Some(KeyValue(k,v))] if and only if
-      [m] contains a unique binding [k->v]. *)
+      [m] contains a unique binding [k->v].
+      [O(1)] complexity. *)
 
   val mem : 'key key -> 'map t -> bool
-  (** [mem key map] returns [true] iff [key] is bound in [map], O(log(n)) complexity. *)
+  (** [mem key map] returns [true] iff [key] is bound in [map], [O(log(n))] complexity. *)
 
   val remove : 'key key -> 'map t -> 'map t
-  (** Returns a map with the element removed, O(log(n)) complexity.
+  (** Returns a map with the element removed, [O(log(n))] complexity.
       Returns a physically equal map if the element is absent. *)
 
   val pop_unsigned_minimum: 'map t -> ('map key_value_pair * 'map t) option
   (** [pop_unsigned_minimum m] returns [None] if [is_empty m], or [Some(key,value,m')] where
       [(key,value) = unsigned_min_binding m] and [m' = remove m key].
       Uses the {{!unsigned_lt}unsigned order} on {!KEY.to_int}.
-      O(log(n)) complexity. *)
+      [O(log(n))] complexity. *)
 
   val pop_unsigned_maximum: 'map t -> ('map key_value_pair * 'map t) option
   (** [pop_unsigned_maximum m] returns [None] if [is_empty m], or [Some(key,value,m')] where
       [(key,value) = unsigned_max_binding m] and [m' = remove m key].
       Uses the {{!unsigned_lt}unsigned order} on {!KEY.to_int}.
-      O(log(n)) complexity. *)
+      [O(log(n))] complexity. *)
 
   val insert: 'a key -> (('a,'map) value option -> ('a,'map) value) -> 'map t -> 'map t
   (** [insert key f map] modifies or insert an element of the map; [f]
       takes [None] if the value was not previously bound, and [Some old]
       where [old] is the previously bound value otherwise. The function
-      preserves physical equality when possible. O(log(n))
+      preserves physical equality when possible. [O(log(n))]
       complexity.
       Preserves physical equality if the new value is physically equal to the old. *)
 
@@ -257,12 +258,12 @@ module type BASE_MAP = sig
       the map; [f] takes [None] if the value was not previously bound, and
       [Some old] where [old] is the previously bound value otherwise. The
       function preserves physical equality when possible. It returns
-      None if the element should be removed O(log(n)) complexity.
+      [None] if the element should be removed. [O(log(n))] complexity.
       Preserves physical equality if the new value is physically equal to the old. *)
 
   val add : 'key key -> ('key, 'map) value -> 'map t -> 'map t
   (** Unconditionally adds a value in the map (independently from
-      whether the old value existed). O(log(n)) complexity.
+      whether the old value existed). [O(log(n))] complexity.
       Preserves physical equality if the new value is physically equal to the old. *)
 
   (** {1 Iterators} *)
@@ -464,12 +465,13 @@ module type BASE_MAP = sig
         | [m1] | [x] | [y] | [z] |     |
         | [m2] |     | [y] | [u] | [v] |
         | {{!idempotent_union}[idempotent_union f m1 m2]} | [x] | [y] | [f c z u] | [v] |
-        | {{!slow_merge}[slow_merge f m1 m2]}{^ \[1\]}{^ \[2\]} | [f a x _] | [f b y y] | [f c z u] | [f d _ v] |
+        | {{!nonidempotent_union}[idempotent_union f m1 m2]} | [x] | [f b y y] | [f c z u] | [v] |
         | {{!idempotent_inter}[idempotent_inter f m1 m2]} |    | [y] | [f c z u] |   |
         | {{!idempotent_inter_filter}[idempotent_inter_filter f m1 m2]}{^ \[1\]} |    | [y] | [f c z u] |   |
         | {{!nonidempotent_inter_no_share}[nonidempotent_inter_no_share f m1 m2]} |    | [f b y y] | [f c z u] |   |
         | {{!difference}[difference f m1 m2]}{^ \[1\]} | [x] |  | [f c z u] |   |
         | {{!symmetric_difference}[symmetric_difference f m1 m2]}{^ \[1\]} | [x] |  | [f c z u] | [v] |
+        | {{!slow_merge}[slow_merge f m1 m2]}{^ \[1\]}{^ \[2\]} | [f a x _] | [f b y y] | [f c z u] | [f d _ v] |
       }
       {b \[1\]}: Here [f] returns an optional value, returning [None] removes the binding.
 
@@ -487,8 +489,9 @@ module type BASE_MAP = sig
       [f.f] is called in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
       [f.f] is never called on physically equal values.
       Preserves physical equality as much as possible.
-      Complexity is O(log(n)*Delta) where Delta is the number of
-      different keys between [map1] and [map2]. *)
+      Complexity is [O(log(n) * Delta)] where [Delta] is the number of
+      keys that are bound to different values [map1] and [map2]
+      (it does not count keys bound in only one of the two maps). *)
 
   val nonidempotent_union : ('a, 'a, 'a) polyunion -> 'a t -> 'a t -> 'a t
   (** [nonidempotent_union f map1 map2] returns a map whose keys is the
@@ -497,8 +500,10 @@ module type BASE_MAP = sig
       [f.f] is called in increasing {{!unsigned_lt}unsigned order} of
       {!KEY.to_int}.
 
-      Unlike [idempotent_union], [f.f] is not required to be idempotent. [f.f]
-      is called on two values that are physically equal. *)
+      Unlike {!idempotent_union}, [f.f] is not required to be idempotent. [f.f]
+      is called on two values that are physically equal.
+
+      @since v0.13.0 *)
 
   type ('map1, 'map2, 'map3) polyinter = {
     f : 'a. 'a key -> ('a, 'map1) value -> ('a, 'map2) value -> ('a, 'map3) value;
@@ -512,15 +517,17 @@ module type BASE_MAP = sig
       [f.f] is called in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
       [f.f] is never called on physically equal values.
       Preserves physical equality as much as possible.
-      Complexity is O(log(n)*Delta) where Delta is the number of
-      different keys between [map1] and [map2]. *)
+      Complexity is [O(log(n) * Delta)] where [Delta] is the number of
+      keys that are bound to different values [map1] and [map2]
+      (it does not count keys bound in only one of the two maps).. *)
 
   val nonidempotent_inter_no_share: ('a, 'b, 'c) polyinter -> 'a t -> 'b t -> 'c t
   (** [nonidempotent_inter_no_share f map1 map2] is the same as {!idempotent_inter}
       but doesn't preverse physical equality, doesn't assume [f.f] is idempotent,
       and can change the type of values. [f.f] is called on every shared binding.
       [f.f] is called in increasing {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
-      O(n) complexity *)
+      [O(log(n)*i)] complexity, where [i] is the size of the intersection (number
+      of keys bound in both maps). *)
 
 
   type ('map1, 'map2, 'map3) polyinterfilter = { f : 'a. 'a key -> ('a, 'map1) value -> ('a, 'map2) value -> ('a, 'map3) value option; } [@@unboxed]
@@ -546,8 +553,9 @@ module type BASE_MAP = sig
       [f.f] is called in increasing {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
       [f.f] is never called on physically equal values.
 
-      Complexity is [O(log n + d)] where [n] is the size of the maps, and [d] the
-      size of the difference.
+      Complexity is [O(log(n) * Delta)] where [n] is the size of the maps, and [Delta] the
+      number of keys bound in both maps to different values (does not count keys bound in a single map,
+      nor keys bound to physically equal values).
 
       @since v0.11.0 *)
 
@@ -560,6 +568,10 @@ module type BASE_MAP = sig
       {b Assumes} [f.f] is [None] on the diagonal: [f.f k v v = None].
       [f.f] is called in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
       [f.f] is never called on physically equal values.
+
+      Complexity is [O(log(n) * Delta)] where [n] is the size of the maps, and [Delta] the
+      number of keys bound in both maps to different values (does not count keys bound in a single map,
+      nor keys bound to physically equal values).
 
       @since v0.11.0 *)
 
@@ -657,7 +669,7 @@ module type HETEROGENEOUS_MAP = sig
         key of [m_from], says if the corresponding value also exists in [m_to],
         and adds or remove the element in [m_to] depending on the value of [f.f].
         [f.f] is called in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
-        O(size(m_from) + size(m_to)) complexity. *)
+        [O(size(m_from) + size(m_to))] complexity. *)
 
     type ('map1,'map2,'map3) polyupdate_multiple_inter = { f: 'a. 'a key -> ('a,'map1) value -> ('a,'map2) Map2.value -> ('a,'map3) value option } [@@unboxed]
     val update_multiple_from_inter_with_foreign : 'b Map2.t -> ('a,'b,'a) polyupdate_multiple_inter -> 'a t ->'a t
@@ -747,21 +759,22 @@ module type HETEROGENEOUS_SET = sig
   (** [is_empty st] is [true] if [st] contains no elements, [false] otherwise *)
 
   val mem: 'a elt -> t -> bool
-  (** [mem elt set] is [true] if [elt] is contained in [set], O(log(n)) complexity. *)
+  (** [mem elt set] is [true] if [elt] is contained in [set], [O(log(n))] complexity. *)
 
   val add: 'a elt -> t -> t
   (** [add elt set] adds element [elt] to the [set].
       Preserves physical equality if [elt] was already present.
-      O(log(n)) complexity. *)
+      [O(log(n))] complexity. *)
 
   val singleton: 'a elt -> t
   (** [singleton elt] returns a set containing a single element: [elt] *)
 
   val cardinal: t -> int
-  (** the size of the set (number of elements), O(n) complexity. *)
+  (** the size of the set (number of elements), [O(n)] complexity. *)
 
   val is_singleton: t -> any_elt option
-  (** [is_singleton set] is [Some (Any elt)] if [set] is [singleton elt] and [None] otherwise. *)
+  (** [is_singleton set] is [Some (Any elt)] if [set] is [singleton elt] and [None] otherwise.
+      [O(1)] complexity. *)
 
   val remove: 'a elt -> t -> t
   (** [remove elt set] returns a set containing all elements of [set] except [elt].
@@ -919,21 +932,22 @@ module type SET = sig
   (** [is_empty st] is [true] if [st] contains no elements, [false] otherwise *)
 
   val mem: elt -> t -> bool
-  (** [mem elt set] is [true] if [elt] is contained in [set], O(log(n)) complexity. *)
+  (** [mem elt set] is [true] if [elt] is contained in [set], [O(log(n))] complexity. *)
 
   val add: elt -> t -> t
   (** [add elt set] adds element [elt] to the [set].
       Preserves physical equality if [elt] was already present.
-      O(log(n)) complexity. *)
+      [O(log(n))] complexity. *)
 
   val singleton: elt -> t
   (** [singleton elt] returns a set containing a single element: [elt] *)
 
   val cardinal: t -> int
-  (** [cardinal set] is the size of the set (number of elements), O(n) complexity. *)
+  (** [cardinal set] is the size of the set (number of elements), [O(n)] complexity. *)
 
   val is_singleton: t -> elt option
-  (** [is_singleton set] is [Some (Any elt)] if [set] is [singleton elt] and [None] otherwise. *)
+  (** [is_singleton set] is [Some (Any elt)] if [set] is [singleton elt] and [None] otherwise.
+      [O(1)] complexity. *)
 
   val remove: elt -> t -> t
   (** [remove elt set] returns a set containing all elements of [set] except [elt].
@@ -1101,56 +1115,57 @@ module type MAP_WITH_VALUE = sig
   (** The empty map. *)
 
   val is_empty : 'a t -> bool
-  (** Test if a map is empty; O(1) complexity. *)
+  (** Test if a map is empty; [O(1)] complexity. *)
 
   val unsigned_min_binding : 'a t -> (key * 'a value)
   (** Returns the [(key,value)] pair where [Key.to_int key] is minimal (in the
-      {{!unsigned_lt}unsigned representation} of integers); O(log n) complexity.
+      {{!unsigned_lt}unsigned representation} of integers); [O(log n)] complexity.
       @raises Not_found if the map is empty. *)
 
   val unsigned_max_binding : 'a t -> (key * 'a value)
   (** Returns the [(key,value)] pair where [Key.to_int key] is maximal (in the
-      {{!unsigned_lt}unsigned representation} of integers); O(log n) complexity.
+      {{!unsigned_lt}unsigned representation} of integers); [O(log n)] complexity.
       @raises Not_found if the map is empty. *)
 
   val singleton : key -> 'a value -> 'a t
-  (** [singleton key value] creates a map with a single binding, O(1) complexity.  *)
+  (** [singleton key value] creates a map with a single binding, [O(1)] complexity.  *)
 
   val cardinal : 'a t -> int
-  (** The size of the map. O(n) complexity. *)
+  (** The size of the map. [O(n)] complexity. *)
 
   val is_singleton : 'a t -> (key * 'a value) option
-  (** [is_singleton m] is [Some (k,v)] iff [m] is [singleton k v]. *)
+  (** [is_singleton m] is [Some (k,v)] iff [m] is [singleton k v].
+      [O(1)] complexity. *)
 
   val find : key -> 'a t -> 'a value
-  (** Return an element in the map, or raise [Not_found], O(log(n)) complexity. *)
+  (** Return an element in the map, or raise [Not_found], [O(log(n))] complexity. *)
 
   val find_opt : key -> 'a t -> 'a value option
-  (** Return an element in the map, or [None], O(log(n)) complexity. *)
+  (** Return an element in the map, or [None], [O(log(n))] complexity. *)
 
   val mem : key -> 'a t -> bool
   (** [mem key map] returns [true] if and only if [key] is bound in [map].
-      O(log(n)) complexity. *)
+      [O(log(n))] complexity. *)
 
   val remove : key -> 'a t -> 'a t
-  (** Returns a map with the element removed, O(log(n)) complexity.
+  (** Returns a map with the element removed, [O(log(n))] complexity.
       Returns a physically equal map if the element is absent. *)
 
   val pop_unsigned_minimum : 'a t -> (key * 'a value * 'a t) option
   (** [pop_unsigned_minimum m] returns [None] if [is_empty m], or [Some(key,value,m')] where
-      [(key,value) = unsigned_min_binding m] and [m' = remove m key]. O(log(n)) complexity.
+      [(key,value) = unsigned_min_binding m] and [m' = remove m key]. [O(log(n))] complexity.
       Uses the {{!unsigned_lt}unsigned order} on {!KEY.to_int}. *)
 
   val pop_unsigned_maximum : 'a t -> (key * 'a value * 'a t) option
   (** [pop_unsigned_maximum m] returns [None] if [is_empty m], or [Some(key,value,m')] where
-      [(key,value) = unsigned_max_binding m] and [m' = remove m key]. O(log(n)) complexity.
+      [(key,value) = unsigned_max_binding m] and [m' = remove m key]. [O(log(n))] complexity.
       Uses the {{!unsigned_lt}unsigned order} on {!KEY.to_int}. *)
 
   val insert : key -> ('a value option -> 'a value) -> 'a t -> 'a t
   (** [insert key f map] modifies or insert an element of the map; [f]
       takes [None] if the value was not previously bound, and [Some old]
       where [old] is the previously bound value otherwise. The function
-      preserves physical equality when possible. O(log(n))
+      preserves physical equality when possible. [O(log(n))]
       complexity.
       Preserves physical equality if the new value is physically equal to the old. *)
 
@@ -1159,12 +1174,12 @@ module type MAP_WITH_VALUE = sig
       the map; [f] takes [None] if the value was not previously bound, and
       [Some old] where [old] is the previously bound value otherwise. The
       function preserves physical equality when possible. It returns
-      None if the element should be removed O(log(n)) complexity.
+      [None] if the element should be removed. [O(log(n))] complexity.
       Preserves physical equality if the new value is physically equal to the old. *)
 
   val add : key -> 'a value -> 'a t -> 'a t
   (** Unconditionally adds a value in the map (independently from
-      whether the old value existed). O(log(n)) complexity.
+      whether the old value existed). [O(log(n))] complexity.
       Preserves physical equality if the new value is physically equal to the old. *)
 
   (** {1 Iterators} *)
@@ -1219,12 +1234,12 @@ module type MAP_WITH_VALUE = sig
       replaced by [f value]. The subtrees for which the returned
       value is physically the same (i.e. [f key value == value] for
       all the keys in the subtree) are guaranteed to be physically
-      equal to the original subtree. O(n) complexity.
+      equal to the original subtree. [O(n)] complexity.
       [f] is called in increasing {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
 
   val map_no_share : ('a value -> 'b value) -> 'a t -> 'b t
   (** [map_no_share f m] returns a map where the [value] bound to each
-      [key] is replaced by [f value]. O(n) complexity.
+      [key] is replaced by [f value]. [O(n)] complexity.
       [f] is called in increasing {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
 
   val mapi : (key -> 'a value -> 'a value) -> 'a t -> 'a t
@@ -1232,12 +1247,12 @@ module type MAP_WITH_VALUE = sig
       replaced by [f key value]. The subtrees for which the returned
       value is physically the same (i.e. [f key value == value] for
       all the keys in the subtree) are guaranteed to be physically
-      equal to the original subtree. O(n) complexity.
+      equal to the original subtree. [O(n)] complexity.
       [f] is called in increasing {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
 
   val mapi_no_share : (key -> 'a value -> 'b value) -> 'a t -> 'b t
   (** [mapi_no_share f m] returns a map where the [value] bound to each
-      [key] is replaced by [f key value]. O(n) complexity.
+      [key] is replaced by [f key value]. [O(n)] complexity.
       [f] is called in increasing {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
 
   val filter_map : (key -> 'a value -> 'a value option) -> 'a t -> 'a t
@@ -1247,7 +1262,7 @@ module type MAP_WITH_VALUE = sig
       subtrees for which the returned value is physically the same
       (i.e. [f key value = Some v] with [value == v] for all the keys
       in the subtree) are guaranteed to be physically equal to the
-      original subtree. O(n) complexity.
+      original subtree. [O(n)] complexity.
       [f] is called in increasing {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
 
   val filter_map_no_share : (key -> 'a value -> 'b value option) -> 'a t -> 'b t
@@ -1271,14 +1286,14 @@ module type MAP_WITH_VALUE = sig
       returns true for each mapping pair of keys. We assume that [f]
       is reflexive (i.e. [f key value value] returns [true]) to avoid
       visiting physically equal subtrees of [map1] and [map2]. The
-      complexity is O(log(n)+Delta) where Delta is the number of
+      complexity is [O(log(n) * Delta)] where Delta is the number of
       different keys between [map1] and [map2]. *)
 
   val nonreflexive_same_domain_for_all2 : (key -> 'a value -> 'b value -> bool) -> 'a t -> 'b t -> bool
-  (** [nonreflexive_same_domain_for_all2 f map1 map2] returns true if
-      map1 and map2 have the same keys, and [f key value1 value2]
+  (** [nonreflexive_same_domain_for_all2 f map1 map2] returns [true] if
+      [map1] and [map2] have the same keys, and [f key value1 value2]
       returns true for each mapping pair of keys. The complexity is
-      O(min(|map1|,|map2|)). *)
+      [O(min(|map1|,|map2|))]. *)
 
   val reflexive_subset_domain_for_all2 : (key -> 'a value -> 'a value -> bool) -> 'a t -> 'a t -> bool
   (** [reflexive_subset_domain_for_all2 f map1 map2] returns true if
@@ -1286,8 +1301,8 @@ module type MAP_WITH_VALUE = sig
       [f key (find map1 key) (find map2 key)] returns [true] when both keys are present
       in the map. We assume that [f] is reflexive (i.e.
       [f key value value] returns true) to avoid visiting physically equal subtrees
-      of [map1] and [map2]. The complexity is O(log(n)*Delta) where
-      Delta is the number of different keys between [map1] and
+      of [map1] and [map2]. The complexity is [O(log(n) * Delta)] where
+      [Delta] is the number of different keys bound to different values in [map1] and
       [map2]. *)
 
   val reflexive_equal: ('a value -> 'a value -> bool) -> 'a t -> 'a t -> bool
@@ -1298,7 +1313,7 @@ module type MAP_WITH_VALUE = sig
 
   val reflexive_compare: ('a value -> 'a value -> int) -> 'a t -> 'a t -> int
   (** [reflexive_compare f m1 m2] is an order on both maps.
-      [m1] and [m2] are equal (return [0]) if they have the same domain and for all bindings
+      [m1] and [m2] are equal (return [0]) if they have the same domain and, for all bindings
       [(k,v)] in [m1], [(k,v')] in [m2], we have [f v v' = 0].
 
       [m1] is considered striclty smaller than [m2] (return a negative integer)
@@ -1343,9 +1358,12 @@ module type MAP_WITH_VALUE = sig
       the values a key is mapped in both maps. We assume that [f] is
       idempotent (i.e. [f key value value == value]) to avoid visiting
       physically equal subtrees of [map1] and [map2], and also to
-      preserve physical equality of the subtreess in that case.  The
-      complexity is O(log(n)*Delta) where Delta is the number of
-      different keys between [map1] and [map2].
+      preserve physical equality of the subtreess in that case.
+
+      The complexity is [O(log(n) * Delta)] where [Delta] is the number of
+      different keys bound to different values in [map1] and [map2] (does not count
+      keys bound in only one of the maps, of keys bound to physically equal values).
+
       [f] is called in increasing {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
       [f] is never called on physically equal values. *)
 
@@ -1356,8 +1374,10 @@ module type MAP_WITH_VALUE = sig
       [f] is called in increasing {{!unsigned_lt}unsigned order} of
       {!KEY.to_int}.
 
-      Unlike [idempotent_union], [f] is not required to be idempotent. [f] is
-      called on two values that are physically equal. *)
+      Unlike {!idempotent_union}, [f] is not required to be idempotent. [f] is
+      called on two values that are physically equal.
+
+      @since v0.13.0 *)
 
   val idempotent_inter : (key -> 'a value -> 'a value -> 'a value) -> 'a t -> 'a t -> 'a t
   (** [idempotent_inter f map1 map2] returns a map whose keys is the
@@ -1365,9 +1385,13 @@ module type MAP_WITH_VALUE = sig
       the values a key is mapped in both maps. We assume that [f] is
       idempotent (i.e. [f key value value == value]) to avoid visiting
       physically equal subtrees of [map1] and [map2], and also to
-      preserve physical equality of the subtrees in that case.  The
-      complexity is O(log(n)*Delta) where Delta is the number of
-      different keys between [map1] and [map2].
+      preserve physical equality of the subtrees in that case.
+
+      The complexity is [O(log(n) * Delta)] where [Delta] is the number of
+      different keys bound to different values in [map1] and [map2] (does not count
+      keys bound in only one of the maps, of keys bound to physically equal values).
+      The
+
       [f] is called in increasing {{!unsigned_lt}unsigned order} of {!KEY.to_int}!.
       [f] is never called on physically equal values. *)
 
@@ -1377,7 +1401,7 @@ module type MAP_WITH_VALUE = sig
       to combine the values a key is mapped in both maps. [f] does not
       need to be idempotent, which imply that we have to visit
       physically equal subtrees of [map1] and [map2].  The complexity
-      is O(log(n)*min(|map1|,|map2|)).
+      is [O(log(n)*min(|map1|,|map2|))].
       [f] is called in increasing {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
       [f] is called on every shared binding. *)
 
@@ -1392,7 +1416,7 @@ module type MAP_WITH_VALUE = sig
       keys of [m1] and [m2].  The [f] function is used to combine
       keys, similarly to the [Map.merge] function.  This funcion has
       to traverse all the bindings in [m1] and [m2]; its complexity is
-      O(|m1|+|m2|). Use one of faster functions above if you can. *)
+      [O(|m1|+|m2|)]. Use one of faster functions above if you can. *)
 
   val symmetric_difference: (key -> 'a value -> 'a value -> 'a value option) -> 'a t -> 'a t -> 'a t
   (** [symmetric_difference f map1 map2] returns a map comprising of the bindings
@@ -1406,8 +1430,8 @@ module type MAP_WITH_VALUE = sig
       [f] is called in increasing {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
       [f] is never called on physically equal values.
 
-      Complexity is [O(log n + d)] where [n] is the size of the maps, and [d] the
-      size of the difference.
+      Complexity is [O(log(n) * Delta)] where [n] is the size of the maps, and [Delta] the
+      number of keys bound to different values in [map1] and [map2].
 
       @since v0.11.0 *)
 
@@ -1428,12 +1452,12 @@ module type MAP_WITH_VALUE = sig
 
     type ('b,'c) polyfilter_map_foreign = { f: 'a. key -> ('a,'b) Map2.value -> 'c value option } [@@unboxed]
     val filter_map_no_share : ('b, 'c) polyfilter_map_foreign -> 'b Map2.t ->  'c t
-    (** Like [filter_map_no_share], but takes another map. *)
+    (** Like {!MAP_WITH_VALUE.filter_map_no_share}, but takes a foreign map as a second argument. *)
 
     type ('value,'map2) polyinter_foreign =
       { f: 'a. 'a Map2.key -> 'value value-> ('a, 'map2) Map2.value -> 'value value } [@@unboxed]
     val nonidempotent_inter : ('a, 'b) polyinter_foreign -> 'a t -> 'b Map2.t -> 'a t
-    (** Like [nonidempotent_inter], but takes another map as an argument. *)
+    (** Like {!nonidempotent_inter_no_share}, but takes a foreign map as a second argument. *)
 
 
     type ('map1,'map2) polyupdate_multiple = { f: 'a. key -> 'map1 value option -> ('a,'map2) Map2.value -> 'map1 value option } [@@unboxed]
@@ -1446,7 +1470,7 @@ module type MAP_WITH_VALUE = sig
         key of [m_from], says if the corresponding value also exists in [m_to],
         and adds or remove the element in [m_to] depending on the value of [f.f].
         [f.f] is called in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
-        O(size(m_from) + size(m_to)) complexity. *)
+        [O(size(m_from) + size(m_to))] complexity. *)
 
 
     type ('map1,'map2) polyupdate_multiple_inter = { f: 'a. key -> 'map1 value -> ('a,'map2) Map2.value -> 'map1 value option } [@@unboxed]
