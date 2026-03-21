@@ -521,8 +521,8 @@ module MakeCustomHeterogeneousMap
 
   (* Note: Insert is a bit weird, I am not sure it should be exported. *)
   type 'map polyinsert = { f: 'a . key:'a Key.t -> old:('a,'map) Value.t -> value:('a,'map) Value.t -> ('a,'map) Value.t } [@@unboxed]
-  let insert_for_union: type a map. map polyinsert -> a Key.t -> (a,map) Value.t -> map t -> map t =
-    fun f thekey value t ->
+  let insert_for_union: type a map. idempotent:bool -> map polyinsert -> a Key.t -> (a,map) Value.t -> map t -> map t =
+    fun ~idempotent f thekey value t ->
     let thekeyint = Key.to_int thekey in
     (* Preserve physical equality whenever possible. *)
     let exception Unmodified in
@@ -532,7 +532,9 @@ module MakeCustomHeterogeneousMap
         | Leaf{key;value=old} ->
           begin match Key.polyeq key thekey with
             | Eq ->
-              if value == old then raise Unmodified else
+              (* We want to call [f.f] when [value == old] when called from
+                 [nonidempotent_union]. *)
+              if idempotent && value == old then raise Unmodified else
               let newv = f.f ~key ~old ~value in
               if newv == old then raise Unmodified
               else leaf key newv
@@ -688,8 +690,12 @@ module MakeCustomHeterogeneousMap
       match NODE.view ta,NODE.view tb with
       | Empty, _ -> tb
       | _, Empty -> ta
-      | Leaf{key;value},_ -> insert_for_union ({f=fun ~key ~old ~value -> f.f key value old}) key value tb
-      | _,Leaf{key;value} -> insert_for_union ({f=fun ~key ~old ~value -> f.f key old value}) key value ta
+      | Leaf{key;value},_ ->
+        insert_for_union ~idempotent:true
+          ({f=fun ~key ~old ~value -> f.f key value old}) key value tb
+      | _,Leaf{key;value} ->
+        insert_for_union ~idempotent:true
+          ({f=fun ~key ~old ~value -> f.f key old value}) key value ta
       | Branch{prefix=pa;branching_bit=ma;tree0=ta0;tree1=ta1},
         Branch{prefix=pb;branching_bit=mb;tree0=tb0;tree1=tb1} ->
         if ma == mb && pa == pb
@@ -709,6 +715,34 @@ module MakeCustomHeterogeneousMap
           then branch ~prefix:pb ~branching_bit:mb ~tree0:(idempotent_union f ta tb0) ~tree1:tb1
           else branch ~prefix:pb ~branching_bit:mb ~tree0:tb0 ~tree1:(idempotent_union f ta tb1)
         else join (pa :> int) ta (pb :> int) tb
+
+  let rec nonidempotent_union f ta tb =
+    match NODE.view ta,NODE.view tb with
+    | Empty, _ -> tb
+    | _, Empty -> ta
+    | Leaf{key;value},_ ->
+      insert_for_union ~idempotent:false
+        ({f=fun ~key ~old ~value -> f.f key value old}) key value tb
+    | _,Leaf{key;value} ->
+      insert_for_union ~idempotent:false
+        ({f=fun ~key ~old ~value -> f.f key old value}) key value ta
+    | Branch{prefix=pa;branching_bit=ma;tree0=ta0;tree1=ta1},
+      Branch{prefix=pb;branching_bit=mb;tree0=tb0;tree1=tb1} ->
+      if ma == mb && pa == pb
+      (* Same prefix: merge the subtrees *)
+      then
+        let tree0 = nonidempotent_union f ta0 tb0 in
+        let tree1 = nonidempotent_union f ta1 tb1 in
+        branch ~prefix:pa ~branching_bit:ma ~tree0 ~tree1
+      else if branches_before pa ma pb mb
+      then if (ma :> int) land (pb :> int) == 0
+        then branch ~prefix:pa ~branching_bit:ma ~tree0:(nonidempotent_union f ta0 tb) ~tree1:ta1
+        else branch ~prefix:pa ~branching_bit:ma ~tree0:ta0 ~tree1:(nonidempotent_union f ta1 tb)
+      else if branches_before pb mb pa ma
+      then if (mb :> int) land (pa :> int) == 0
+        then branch ~prefix:pb ~branching_bit:mb ~tree0:(nonidempotent_union f ta tb0) ~tree1:tb1
+        else branch ~prefix:pb ~branching_bit:mb ~tree0:tb0 ~tree1:(nonidempotent_union f ta tb1)
+      else join (pa :> int) ta (pb :> int) tb
 
   type ('map1,'map2,'map3) polyinter = { f: 'a. 'a Key.t -> ('a,'map1) Value.t -> ('a,'map2) Value.t -> ('a,'map3) Value.t } [@@unboxed]
   let rec idempotent_inter f ta tb =
@@ -1226,6 +1260,8 @@ module MakeCustomMap
     BaseMap.filter_map_no_share {f=fun k (Snd v) -> snd_opt (f k v) } a
   let idempotent_union (f: key -> 'a value -> 'a value -> 'a value) a b =
     BaseMap.idempotent_union {f=fun k (Snd v1) (Snd v2) -> Snd (f k v1 v2)} a b
+  let nonidempotent_union (f: key -> 'a value -> 'a value -> 'a value) a b =
+    BaseMap.nonidempotent_union {f=fun k (Snd v1) (Snd v2) -> Snd (f k v1 v2)} a b
   let idempotent_inter (f: key -> 'a value -> 'a value -> 'a value) a b =
     BaseMap.idempotent_inter {f=fun k (Snd v1) (Snd v2) -> Snd (f k v1 v2)} a b
   let nonidempotent_inter_no_share (f: key -> 'a value -> 'b value -> 'c value) a b =

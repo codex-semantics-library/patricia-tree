@@ -121,6 +121,14 @@ let make_setop_test name fun_arb fun_apply intmap_op model_op =
 let idempotent_fst_or_snd =
   oneofl ~print:fst [ ("fst", fun _ a _ -> a); ("snd", fun _ _ b -> b) ]
 
+let nonidempotent_union_f =
+  oneofl ~print:fst
+    [
+      ("fst", fun _ a _ -> a);
+      ("snd", fun _ _ b -> b);
+      ("const", fun _ _ _ -> 'a');
+    ]
+
 (* Like [idempotent_fst_or_snd] but with an extra [None] case. *)
 let idempotent_fst_or_snd_option =
   oneofl ~print:fst
@@ -288,6 +296,8 @@ let tests =
     make_quantifier_test "for_all" Intmap.for_all Model.for_all;
     make_setop_test "idempotent_union" idempotent_fst_or_snd snd
       Intmap.idempotent_union Model.idempotent_union;
+    make_setop_test "nonidempotent_union" nonidempotent_union_f snd
+      Intmap.nonidempotent_union Model.nonidempotent_union;
     make_setop_test "idempotent_inter" idempotent_fst_or_snd snd
       Intmap.idempotent_inter Model.idempotent_inter;
     make_setop_test "idempotent_inter_filter" idempotent_fst_or_snd_option snd
