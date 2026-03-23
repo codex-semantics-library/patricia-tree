@@ -560,6 +560,7 @@ module MakeCustomHeterogeneousMap
   (* Fast equality test between two maps. *)
   let rec same_domain_for_all2 ~reflexive f ta tb = match (NODE.view ta),(NODE.view tb) with
     | _ when reflexive && phys_same ta tb -> true (* Skip same subtrees thanks to reflexivity. *)
+    | Empty, Empty -> true
     | Empty, _ | _, Empty -> false
     | Leaf _, Branch _ | Branch _, Leaf _ -> false
     | Leaf{key=keya;value=valuea}, Leaf{key=keyb;value=valueb} ->
