@@ -26,6 +26,9 @@ open Signatures
 open Key_value
 open Nodes
 
+external phys_same : 'a -> 'b -> bool = "%eq"
+(** Physical equality with permissive types *)
+
 (** [match_prefix k p m] returns [true] if and only if the key [k] has prefix [p] up to bit [m]. *)
 let match_prefix k p m = mask k m = p
 
@@ -553,8 +556,8 @@ module MakeCustomHeterogeneousMap
 
   type ('map1,'map2) polysame_domain_for_all2 = { f: 'a 'b. 'a Key.t -> ('a,'map1) Value.t -> ('a,'map2) Value.t -> bool } [@@unboxed]
   (* Fast equality test between two maps. *)
-  let rec reflexive_same_domain_for_all2 f ta tb = match (NODE.view ta),(NODE.view tb) with
-    | _ when ta == tb -> true (* Skip same subtrees thanks to reflexivity. *)
+  let rec same_domain_for_all2 ~reflexive f ta tb = match (NODE.view ta),(NODE.view tb) with
+    | _ when reflexive && phys_same ta tb -> true (* Skip same subtrees thanks to reflexivity. *)
     | Empty, _ | _, Empty -> false
     | Leaf _, Branch _ | Branch _, Leaf _ -> false
     | Leaf{key=keya;value=valuea}, Leaf{key=keyb;value=valueb} ->
@@ -565,26 +568,14 @@ module MakeCustomHeterogeneousMap
     | Branch{prefix=pa;branching_bit=ma;tree0=ta0;tree1=ta1},
       Branch{prefix=pb;branching_bit=mb;tree0=tb0;tree1=tb1} ->
       pa == pb && ma == mb &&
-      reflexive_same_domain_for_all2 f ta0 tb0 &&
-      reflexive_same_domain_for_all2 f ta1 tb1
+      same_domain_for_all2 ~reflexive f ta0 tb0 &&
+      same_domain_for_all2 ~reflexive f ta1 tb1
 
-  let rec nonreflexive_same_domain_for_all2 f ta tb = match (NODE.view ta),(NODE.view tb) with
-    | Empty, Empty -> true
-    | Empty, _ | _, Empty -> false
-    | Leaf _, Branch _ | Branch _, Leaf _ -> false
-    | Leaf{key=keya;value=valuea}, Leaf{key=keyb;value=valueb} ->
-      begin match Key.polyeq keya keyb with
-        | Diff -> false
-        | Eq -> f.f keya valuea valueb
-      end
-    | Branch{prefix=pa;branching_bit=ma;tree0=ta0;tree1=ta1},
-      Branch{prefix=pb;branching_bit=mb;tree0=tb0;tree1=tb1} ->
-      pa == pb && ma == mb &&
-      nonreflexive_same_domain_for_all2 f ta0 tb0 &&
-      nonreflexive_same_domain_for_all2 f ta1 tb1
+  let reflexive_same_domain_for_all2 f ta tb = same_domain_for_all2 ~reflexive:true f ta tb
+  let nonreflexive_same_domain_for_all2 f ta tb = same_domain_for_all2 ~reflexive:false f ta tb
 
-  let rec reflexive_subset_domain_for_all2 f ta tb = match (NODE.view ta),(NODE.view tb) with
-    | _ when ta == tb -> true   (* Skip same subtrees thanks to reflexivity. *)
+  let rec subset_domain_for_all2 ~reflexive f ta tb = match (NODE.view ta),(NODE.view tb) with
+    | _ when reflexive && phys_same ta tb -> true   (* Skip same subtrees thanks to reflexivity. *)
     | Empty, _ -> true
     | _, Empty -> false
     | Branch _, Leaf _ -> false
@@ -610,51 +601,18 @@ module MakeCustomHeterogeneousMap
       if ma == mb && pa == pb
       (* Same prefix: divide the search. *)
       then
-        (reflexive_subset_domain_for_all2 f ta0 tb0) &&
-        (reflexive_subset_domain_for_all2 f ta1 tb1)
+        (subset_domain_for_all2 ~reflexive f ta0 tb0) &&
+        (subset_domain_for_all2 ~reflexive f ta1 tb1)
         (* Case where ta have to be included in one of tb0 or tb1. *)
       else if branches_before pb mb pa ma
       then if (mb :> int) land (pa :> int) == 0
-        then reflexive_subset_domain_for_all2 f ta tb0
-        else reflexive_subset_domain_for_all2 f ta tb1
+        then subset_domain_for_all2 ~reflexive f ta tb0
+        else subset_domain_for_all2 ~reflexive f ta tb1
         (* Any other case: there are elements in ta that are unmatched in tb. *)
       else false
 
-  let rec nonreflexive_subset_domain_for_all2 f ta tb = match (NODE.view ta),(NODE.view tb) with
-    | Empty, _ -> true
-    | _, Empty -> false
-    | Branch _, Leaf _ -> false
-    | Leaf {key=keya;value=valuea}, viewb ->
-      (* Reimplement find locally, mostly because of typing issues
-         (which could be solved if we had a version of find that
-         returns a (key,value) pair. *)
-      let searched = Key.to_int keya in
-      let rec search = function
-        | Leaf{key=keyb;value=valueb} ->
-          begin match Key.polyeq keya keyb with
-            | Diff -> false
-            | Eq -> f.f keya valuea valueb
-          end
-        | Branch{branching_bit;tree0;tree1;_} ->
-          if ((branching_bit :> int) land searched == 0)
-          then search (NODE.view tree0)
-          else search (NODE.view tree1)
-        | Empty -> false (* Can only happen on weak nodes. *)
-      in search viewb
-    | Branch{prefix=pa;branching_bit=ma;tree0=ta0;tree1=ta1},
-      Branch{prefix=pb;branching_bit=mb;tree0=tb0;tree1=tb1} ->
-      if ma == mb && pa == pb
-      (* Same prefix: divide the search. *)
-      then
-        (nonreflexive_subset_domain_for_all2 f ta0 tb0) &&
-        (nonreflexive_subset_domain_for_all2 f ta1 tb1)
-        (* Case where ta have to be included in one of tb0 or tb1. *)
-      else if branches_before pb mb pa ma
-      then if (mb :> int) land (pa :> int) == 0
-        then nonreflexive_subset_domain_for_all2 f ta tb0
-        else nonreflexive_subset_domain_for_all2 f ta tb1
-        (* Any other case: there are elements in ta that are unmatched in tb. *)
-      else false
+  let reflexive_subset_domain_for_all2 f ta tb = subset_domain_for_all2 ~reflexive:true f ta tb
+  let nonreflexive_subset_domain_for_all2 f ta tb = subset_domain_for_all2 ~reflexive:false f ta tb
 
   type 'map polycompare =
       { f : 'a. 'a key -> ('a, 'map) value -> ('a, 'map) value -> int; } [@@unboxed]
