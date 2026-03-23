@@ -455,7 +455,9 @@ module type BASE_MAP = sig
       - [m1]'s domain is a subset of [m2]'s. (all keys defined in [m1] are also defined in [m2])
       - for all bindings [(k, v1)] in [m1] and [(k, v2)] in [m2], [f.f k v1 v2] holds
 
-      Unlike {!reflexive_subset_domain_for_all2}, this does not assume that [f.f] is reflexive.
+      Unlike {!reflexive_subset_domain_for_all2}, this does not assume that [f.f] is reflexive
+      and thus does not skip identical subtrees.
+
       Calls [f.f] in ascending {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
       Exits early if the domains mismatch or if [f.f] returns [false].
 
@@ -1363,7 +1365,8 @@ module type MAP_WITH_VALUE = sig
       - [m1]'s domain is a subset of [m2]'s. (all keys defined in [m1] are also defined in [m2])
       - for all bindings [(k, v1)] in [m1] and [(k, v2)] in [m2], [f k v1 v2] holds
 
-      Unlike {!reflexive_subset_domain_for_all2}, this does not assume that [f] is reflexive.
+      Unlike {!reflexive_subset_domain_for_all2}, this does not assume that [f] is reflexive,
+      and thus does not skip identical subtrees.
       Calls [f] in ascending {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
       Exits early if the domains mismatch or if [f] returns [false].
 
