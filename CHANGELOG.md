@@ -1,3 +1,12 @@
+# v0.13.0 - UNRELEASED
+
+- Add `nonidemptotent_union` (by [julow](https://github.com/Julow) in [#26](https://github.com/codex-semantics-library/patricia-tree/pull/26))
+- Add `nonreflexive_subset_domain_for_all2`, `fold2` and `for_all2` ([#27](https://github.com/codex-semantics-library/patricia-tree/pull/27))
+- Type changes: `polyfold2` is renamed to `polyfold2_inter`; `polyfold2_union` is renamed to `polyfold2`
+  and gains a new parameter to allow use with maps of different types. This should not break code that
+  instantiate these types but will break code that has explicit type annotations.
+- Optimize `difference`: it can now skip physically equal subtrees.
+
 # v0.12.0 - 2026-01-19
 
 - Specify that hash-consed and weak nodes are not thread safe (issue [#17](https://github.com/codex-semantics-library/patricia-tree/issues/17))
