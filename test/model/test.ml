@@ -320,6 +320,10 @@ let tests =
       (fun3 O.int O.char O.char bool)
       Intmap.reflexive_subset_domain_for_all2
       Model.reflexive_subset_domain_for_all2;
+    make_setcmp_test "nonreflexive_subset_domain_for_all2"
+      (fun3 O.int O.char O.char bool)
+      Intmap.nonreflexive_subset_domain_for_all2
+      Model.nonreflexive_subset_domain_for_all2;
     mk "intersect" (pair tree tree) Print.bool (fun (t0, t1) ->
         let t0 = interpret t0 and t1 = interpret t1 in
         (intersect t0 t1, Model.intersect (abstract t0) (abstract t1)));

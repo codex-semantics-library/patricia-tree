@@ -192,6 +192,7 @@ let rec reflexive_subset_domain_for_all2 phi s t =
       let d = compare_keys x y in
       if d = 0 then phi x a b && reflexive_subset_domain_for_all2 phi xs ys
       else d > 0 && reflexive_subset_domain_for_all2 phi s ys
+let nonreflexive_subset_domain_for_all2 = reflexive_subset_domain_for_all2
 
 let intersect m0 m1 = idempotent_inter (fun _ l _ -> l) m0 m1 <> []
 

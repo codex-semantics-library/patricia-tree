@@ -620,6 +620,42 @@ module MakeCustomHeterogeneousMap
         (* Any other case: there are elements in ta that are unmatched in tb. *)
       else false
 
+  let rec nonreflexive_subset_domain_for_all2 f ta tb = match (NODE.view ta),(NODE.view tb) with
+    | Empty, _ -> true
+    | _, Empty -> false
+    | Branch _, Leaf _ -> false
+    | Leaf {key=keya;value=valuea}, viewb ->
+      (* Reimplement find locally, mostly because of typing issues
+         (which could be solved if we had a version of find that
+         returns a (key,value) pair. *)
+      let searched = Key.to_int keya in
+      let rec search = function
+        | Leaf{key=keyb;value=valueb} ->
+          begin match Key.polyeq keya keyb with
+            | Diff -> false
+            | Eq -> f.f keya valuea valueb
+          end
+        | Branch{branching_bit;tree0;tree1;_} ->
+          if ((branching_bit :> int) land searched == 0)
+          then search (NODE.view tree0)
+          else search (NODE.view tree1)
+        | Empty -> false (* Can only happen on weak nodes. *)
+      in search viewb
+    | Branch{prefix=pa;branching_bit=ma;tree0=ta0;tree1=ta1},
+      Branch{prefix=pb;branching_bit=mb;tree0=tb0;tree1=tb1} ->
+      if ma == mb && pa == pb
+      (* Same prefix: divide the search. *)
+      then
+        (nonreflexive_subset_domain_for_all2 f ta0 tb0) &&
+        (nonreflexive_subset_domain_for_all2 f ta1 tb1)
+        (* Case where ta have to be included in one of tb0 or tb1. *)
+      else if branches_before pb mb pa ma
+      then if (mb :> int) land (pa :> int) == 0
+        then nonreflexive_subset_domain_for_all2 f ta tb0
+        else nonreflexive_subset_domain_for_all2 f ta tb1
+        (* Any other case: there are elements in ta that are unmatched in tb. *)
+      else false
+
   type 'map polycompare =
       { f : 'a. 'a key -> ('a, 'map) value -> ('a, 'map) value -> int; } [@@unboxed]
 
@@ -1274,6 +1310,8 @@ module MakeCustomMap
     BaseMap.nonreflexive_same_domain_for_all2 {f=fun k (Snd v1) (Snd v2) -> f k v1 v2} a b
   let reflexive_subset_domain_for_all2 (f: key -> 'a value -> 'a value -> bool) a b =
     BaseMap.reflexive_subset_domain_for_all2 {f=fun k (Snd v1) (Snd v2) -> f k v1 v2} a b
+  let nonreflexive_subset_domain_for_all2 (f: key -> 'a value -> 'a value -> bool) a b =
+    BaseMap.nonreflexive_subset_domain_for_all2 {f=fun k (Snd v1) (Snd v2) -> f k v1 v2} a b
   let slow_merge (f : key -> 'a value option -> 'b value option -> 'c value option) a b = BaseMap.slow_merge {f=fun k v1 v2 -> snd_opt (f k (opt_snd v1) (opt_snd v2))} a b
   let symmetric_difference (f: key -> 'a value -> 'a value -> 'a value option) a b = BaseMap.symmetric_difference {f=fun k (Snd v1) (Snd v2) -> snd_opt (f k v1 v2)} a b
   let difference (f: key -> 'a value -> 'b value -> 'a value option) a b = BaseMap.difference { f=fun k (Snd v1) (Snd v2) -> snd_opt (f k v1 v2) } a b

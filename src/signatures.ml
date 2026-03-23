@@ -416,7 +416,7 @@ module type BASE_MAP = sig
   (** [nonreflexive_same_domain_for_all2 f m1 m2] is the same as
       {!reflexive_same_domain_for_all2}, but doesn't assume [f.f] is reflexive.
       It thus calls [f.f] on every binding, in ascending {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
-      Exits early if the domains mismatch or if [f.f] returns false. *)
+      Exits early if the domains mismatch or if [f.f] returns [false]. *)
 
   val reflexive_subset_domain_for_all2 :
     ('map,'map) polysame_domain_for_all2 -> 'map t -> 'map t -> bool
@@ -426,7 +426,7 @@ module type BASE_MAP = sig
 
       {b Assumes} [f.f] is reflexive, i.e. [f.f k v v = true] to skip calls to equal subtrees.
       Calls [f.f] in ascending {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
-      Exits early if the domains mismatch.
+      Exits early if the domains mismatch or if [f.f] returns [false].
 
       It is useful to implement inclusion test on maps:
       {[
@@ -435,6 +435,18 @@ module type BASE_MAP = sig
           m1 m2;;
         val is_submap : 'a MyMap.t -> 'a MyMap.t -> bool = <fun>
       ]} *)
+
+  val nonreflexive_subset_domain_for_all2 :
+    ('map,'map) polysame_domain_for_all2 -> 'map t -> 'map t -> bool
+  (** [nonreflexive_subset_domain_for_all2 f m1 m2] is true if and only if
+      - [m1]'s domain is a subset of [m2]'s. (all keys defined in [m1] are also defined in [m2])
+      - for all bindings [(k, v1)] in [m1] and [(k, v2)] in [m2], [f.f k v1 v2] holds
+
+      Unlike {!reflexive_subset_domain_for_all2}, this does not assume that [f.f] is reflexive.
+      Calls [f.f] in ascending {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
+      Exits early if the domains mismatch or if [f.f] returns [false].
+
+      @since v0.13.0  *)
 
   type 'map polycompare =
       { f : 'a. 'a key -> ('a, 'map) value -> ('a, 'map) value -> int; } [@@unboxed]
@@ -1304,6 +1316,17 @@ module type MAP_WITH_VALUE = sig
       of [map1] and [map2]. The complexity is [O(log(n) * Delta)] where
       [Delta] is the number of different keys bound to different values in [map1] and
       [map2]. *)
+
+  val nonreflexive_subset_domain_for_all2 : (key -> 'a value -> 'a value -> bool) -> 'a t -> 'a t -> bool
+  (** [nonreflexive_subset_domain_for_all2 f m1 m2] is true if and only if
+      - [m1]'s domain is a subset of [m2]'s. (all keys defined in [m1] are also defined in [m2])
+      - for all bindings [(k, v1)] in [m1] and [(k, v2)] in [m2], [f k v1 v2] holds
+
+      Unlike {!reflexive_subset_domain_for_all2}, this does not assume that [f] is reflexive.
+      Calls [f] in ascending {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
+      Exits early if the domains mismatch or if [f] returns [false].
+
+      @since v0.13.0  *)
 
   val reflexive_equal: ('a value -> 'a value -> bool) -> 'a t -> 'a t -> bool
   (** [reflexive_equal f m1 m2] is true if both maps are equal, using [f] to compare values.
