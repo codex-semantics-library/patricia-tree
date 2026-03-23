@@ -358,6 +358,7 @@ module MakeCustomHeterogeneousMap
     type ('map1, 'map2) polydifference = ('map1,'map2,'map1) polyupdate_multiple_inter
     let rec difference f ta tb =
       match NODE.view ta, Map2.view tb with
+      | _ when phys_same ta tb -> empty
       | Empty, _
       | _, Empty -> ta
       | Leaf{key;value=va},_ -> (try let vb = Map2.find key tb in
