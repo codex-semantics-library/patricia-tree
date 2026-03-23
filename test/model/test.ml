@@ -324,6 +324,10 @@ let tests =
       (fun3 O.int O.char O.char bool)
       Intmap.nonreflexive_subset_domain_for_all2
       Model.nonreflexive_subset_domain_for_all2;
+    make_setcmp_test "for_all2"
+      (fun3 O.int (O.option O.char) (O.option O.char) bool)
+      Intmap.for_all2
+      Model.for_all2;
     mk "intersect" (pair tree tree) Print.bool (fun (t0, t1) ->
         let t0 = interpret t0 and t1 = interpret t1 in
         (intersect t0 t1, Model.intersect (abstract t0) (abstract t1)));
@@ -370,6 +374,16 @@ let tests =
             (fun i a b acc -> (i, a, b) :: acc)
             t0 t1 [],
           Model.fold_on_nonequal_union
+            (fun i a b acc -> (i, a, b) :: acc)
+            (abstract t0) (abstract t1) [] ));
+    mk "fold2" two
+      Print.(list (tup3 int (option char) (option char)))
+      (fun (t0, t1) ->
+        let t0 = interpret t0 and t1 = interpret t1 in
+        ( Intmap.fold2
+            (fun i a b acc -> (i, a, b) :: acc)
+            t0 t1 [],
+          Model.fold2
             (fun i a b acc -> (i, a, b) :: acc)
             (abstract t0) (abstract t1) [] ));
     make_setop_test "nonidempotent_inter_no_share" idempotent_fst_or_snd snd
