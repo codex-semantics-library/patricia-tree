@@ -287,8 +287,8 @@ module type BASE_MAP = sig
       where [(key_1, value_1) ... (key_n, value_n)] are the bindings of [m], in
       the {{!unsigned_lt}unsigned order} on {!KEY.to_int}. *)
 
-  type ('acc,'map) polyfold2 = { f: 'a. 'a key -> ('a,'map) value -> ('a,'map) value -> 'acc -> 'acc } [@@unboxed]
-  val fold_on_nonequal_inter : ('acc,'map) polyfold2 -> 'map t -> 'map t -> 'acc -> 'acc
+  type ('acc,'map) polyfold2_inter = { f: 'a. 'a key -> ('a,'map) value -> ('a,'map) value -> 'acc -> 'acc } [@@unboxed]
+  val fold_on_nonequal_inter : ('acc,'map) polyfold2_inter -> 'map t -> 'map t -> 'acc -> 'acc
   (** [fold_on_nonequal_inter f m1 m2 acc] returns
       [f.f key_n value1_n value2n (... (f.f key_1 value1_1 value2_1 acc))] where
       [(key_1, value1_1, value2_1) ... (key_n, value1_n, value2_n)] are the
@@ -296,14 +296,27 @@ module type BASE_MAP = sig
       Calls to [f.f] are performed in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
 
 
-  type ('acc,'map) polyfold2_union = { f: 'a. 'a key -> ('a,'map) value option -> ('a,'map) value option -> 'acc -> 'acc } [@@unboxed]
-  val fold_on_nonequal_union : ('acc,'map) polyfold2_union -> 'map t -> 'map t -> 'acc -> 'acc
+  type ('acc,'map1,'map2) polyfold2 = { f: 'a. 'a key -> ('a,'map1) value option -> ('a,'map2) value option -> 'acc -> 'acc } [@@unboxed]
+  val fold_on_nonequal_union : ('acc,'map,'map) polyfold2 -> 'map t -> 'map t -> 'acc -> 'acc
   (** [fold_on_nonequal_union f m1 m2 acc] returns
       [f.f key_n value1_n value2n (... (f.f key_1 value1_1 value2_1 acc))] where
       [(key_1, value1_1, value2_1) ... (key_n, value1_n, value2_n)] are the
       bindings that exists in either map ([m1 ∪ m2]) whose values are physically
       different.
       Calls to [f.f] are performed in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
+
+  val fold2 : ('acc,'map1,'map2) polyfold2 -> 'map1 t -> 'map2 t -> 'acc -> 'acc
+  (** [fold2 f m1 m2 acc] iterates both maps [m1] and [m2] simultaneously, calling
+      [f.f k v1_opt v2_opt acc] for each binding [k,v1] in [m1] ([v1_opt = Some v1])
+      and [k,v2] in [m2]. [v1_opt] (resp [v2_opt]) will be [None] if [k] is not
+      bound in [m1] (resp [m2]).
+
+      This is an alternative to {!fold_on_nonequal_union}. It is slower but does not
+      skip physically equal bindings.
+
+      Calls to [f.f] are performed in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
+
+      @since v0.13.0 *)
 
   type 'map polypredicate = { f: 'a. 'a key -> ('a,'map) value -> bool; } [@@unboxed]
   val filter : 'map polypredicate -> 'map t -> 'map t
@@ -437,7 +450,7 @@ module type BASE_MAP = sig
       ]} *)
 
   val nonreflexive_subset_domain_for_all2 :
-    ('map,'map) polysame_domain_for_all2 -> 'map t -> 'map t -> bool
+    ('map1,'map2) polysame_domain_for_all2 -> 'map1 t -> 'map2 t -> bool
   (** [nonreflexive_subset_domain_for_all2 f m1 m2] is true if and only if
       - [m1]'s domain is a subset of [m2]'s. (all keys defined in [m1] are also defined in [m2])
       - for all bindings [(k, v1)] in [m1] and [(k, v2)] in [m2], [f.f k v1 v2] holds
@@ -447,6 +460,21 @@ module type BASE_MAP = sig
       Exits early if the domains mismatch or if [f.f] returns [false].
 
       @since v0.13.0  *)
+
+  type ('map1,'map2) polyfor_all2 =
+    { f : 'a. 'a key -> ('a, 'map1) value option -> ('a, 'map2) value option -> bool; } [@@unboxed]
+  val for_all2 : ('map1,'map2) polyfor_all2 -> 'map1 t -> 'map2 t -> bool
+  (** [for_all2 f m1 m2] is [true] if [f.f k v1_opt v2_opt] for all bindings [k]
+      in [m1 ∪ m2] (where [vi_opt] is [Some v] if [k] is bound to [v] is [mi], and [None] otherwise).
+
+      This is a slower alternative to {!nonreflexive_same_domain_for_all2}/{!nonreflexive_subset_domain_for_all2},
+      which comes with no restriction about the domains of [m1] and [m2].
+
+      Calls [f.f] in ascending {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
+      Exits early if [f.f] returns [false].
+
+      @since v0.13.0 *)
+
 
   type 'map polycompare =
       { f : 'a. 'a key -> ('a, 'map) value -> ('a, 'map) value -> int; } [@@unboxed]
