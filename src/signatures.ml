@@ -1255,6 +1255,19 @@ module type MAP_WITH_VALUE = sig
       different.
       Calls to [f.f] are performed in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
 
+  val fold2 : (key -> 'a value option -> 'b value option -> 'acc -> 'acc) -> 'a t -> 'b t -> 'acc -> 'acc
+  (** [fold2 f m1 m2 acc] iterates both maps [m1] and [m2] simultaneously, calling
+      [f k v1_opt v2_opt acc] for each binding [k,v1] in [m1] ([v1_opt = Some v1])
+      and [k,v2] in [m2]. [v1_opt] (resp [v2_opt]) will be [None] if [k] is not
+      bound in [m1] (resp [m2]).
+
+      This is an alternative to {!fold_on_nonequal_union}. It is slower but does not
+      skip physically equal bindings.
+
+      Calls to [f] are performed in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
+
+      @since v0.13.0 *)
+
   val filter : (key -> 'a value -> bool) -> 'a t -> 'a t
   (** Returns the submap containing only the key->value pairs satisfying the
       given predicate. [f] is called in increasing {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
@@ -1355,6 +1368,18 @@ module type MAP_WITH_VALUE = sig
       Exits early if the domains mismatch or if [f] returns [false].
 
       @since v0.13.0  *)
+
+  val for_all2 : (key -> 'a value option -> 'b value option -> bool) -> 'a t -> 'b t -> bool
+  (** [for_all2 f m1 m2] is [true] if [f k v1_opt v2_opt] for all bindings [k]
+      in [m1 ∪ m2] (where [vi_opt] is [Some v] if [k] is bound to [v] is [mi], and [None] otherwise).
+
+      This is a slower alternative to {!nonreflexive_same_domain_for_all2}/{!nonreflexive_subset_domain_for_all2},
+      which comes with no restriction about the domains of [m1] and [m2].
+
+      Calls [f] in ascending {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
+      Exits early if [f] returns [false].
+
+      @since v0.13.0 *)
 
   val reflexive_equal: ('a value -> 'a value -> bool) -> 'a t -> 'a t -> bool
   (** [reflexive_equal f m1 m2] is true if both maps are equal, using [f] to compare values.

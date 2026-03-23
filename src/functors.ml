@@ -1297,11 +1297,25 @@ module MakeCustomMap
       let vb = Option.map (fun (Snd v) -> v) vb in
       f k va vb acc in
     BaseMap.fold_on_nonequal_union {f} ma mb acc
+  let fold2
+      (f: key -> 'a value option -> 'b value option -> 'acc -> 'acc) ma mb acc =
+    let f k va vb acc =
+      let va = Option.map (fun (Snd v) -> v) va in
+      let vb = Option.map (fun (Snd v) -> v) vb in
+      f k va vb acc in
+    BaseMap.fold2 {f} ma mb acc
 
   let pretty ?pp_sep (f: Format.formatter -> key -> 'a value -> unit) fmt m =
     BaseMap.pretty ?pp_sep {f=fun fmt k (Snd v) -> f fmt k v} fmt m
 
   let for_all (f : key -> 'a value -> bool) m = BaseMap.for_all {f = fun k (Snd v) -> f k v} m
+  let for_all2
+      (f: key -> 'a value option -> 'b value option -> bool) ma mb =
+    let f k va vb =
+      let va = Option.map (fun (Snd v) -> v) va in
+      let vb = Option.map (fun (Snd v) -> v) vb in
+      f k va vb in
+    BaseMap.for_all2 {f} ma mb
 
   module WithForeign(Map2 : NODE_WITH_FIND with type _ key = key) = struct
     module BaseForeign = BaseMap.WithForeign(Map2)
