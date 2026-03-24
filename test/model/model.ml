@@ -183,7 +183,7 @@ let reflexive_same_domain_for_all2 p m0 m1 =
 
 let nonreflexive_same_domain_for_all2 = reflexive_same_domain_for_all2
 
-let for_all2 p m0 m1 =
+let nonreflexive_any_domain_for_all2 p m0 m1 =
   List.for_all (fun k -> p k (List.assoc_opt k m0) (List.assoc_opt k m1)) (keys m0 @ keys m1)
 
 let difference f m0 m1 =

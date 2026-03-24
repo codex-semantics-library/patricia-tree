@@ -1104,7 +1104,7 @@ module MakeCustomHeterogeneousMap
 
   type ('map1,'map2) polyfor_all2 =
     { f : 'a. 'a key -> ('a, 'map1) value option -> ('a, 'map2) value option -> bool; } [@@unboxed]
-  let for_all2 f ta tb =
+  let nonreflexive_any_domain_for_all2 f ta tb =
     try fold2 {f=fun k v1 v2 ()-> if f.f k v1 v2 then () else raise False} ta tb (); true
     with False -> false
 
@@ -1311,13 +1311,13 @@ module MakeCustomMap
     BaseMap.pretty ?pp_sep {f=fun fmt k (Snd v) -> f fmt k v} fmt m
 
   let for_all (f : key -> 'a value -> bool) m = BaseMap.for_all {f = fun k (Snd v) -> f k v} m
-  let for_all2
+  let nonreflexive_any_domain_for_all2
       (f: key -> 'a value option -> 'b value option -> bool) ma mb =
     let f k va vb =
       let va = Option.map (fun (Snd v) -> v) va in
       let vb = Option.map (fun (Snd v) -> v) vb in
       f k va vb in
-    BaseMap.for_all2 {f} ma mb
+    BaseMap.nonreflexive_any_domain_for_all2 {f} ma mb
 
   module WithForeign(Map2 : NODE_WITH_FIND with type _ key = key) = struct
     module BaseForeign = BaseMap.WithForeign(Map2)
