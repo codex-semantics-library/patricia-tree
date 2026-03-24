@@ -21,7 +21,6 @@
 (*                                                                        *)
 (**************************************************************************)
 
-
 (** A naive model that we trust. Can be used both with QCheck (following Jan's
     paper) and Monolith *)
 
@@ -118,6 +117,7 @@ let idempotent_inter f m0 m1 =
   idempotent_inter_filter (fun i x y -> Some (f i x y)) m0 m1
 
 let nonidempotent_inter_no_share = idempotent_inter
+let nonidempotent_inter_filter_no_share = idempotent_inter_filter
 
 let symmetric_difference f m0 m1 =
   let keys = List.sort_uniq compare_keys @@ List.append (keys m0) (keys m1)
