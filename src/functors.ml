@@ -941,13 +941,12 @@ module MakeCustomHeterogeneousMap
           else branch ~prefix:pb ~branching_bit:mb ~tree0:tb0 ~tree1:(symmetric_difference f ta tb1)
         else join (pa :> int) ta (pb :> int) tb
 
-  type 'map polyiter = { f: 'a. 'a Key.t -> ('a,'map) Value.t -> unit } [@@unboxed]
+  type ('map,'res) polyfold = { f: 'a. 'a key -> ('a,'map) value -> 'res } [@@unboxed]
   let rec iter f x = match NODE.view x with
     | Empty -> ()
     | Leaf{key;value} -> f.f key value
     | Branch{tree0;tree1;_} -> iter f tree0; iter f tree1
 
-  type ('acc,'map) polyfold = { f: 'a. 'a Key.t -> ('a,'map) Value.t -> 'acc -> 'acc } [@@unboxed]
   let rec fold f m acc = match NODE.view m with
     | Empty -> acc
     | Leaf{key;value} -> f.f key value acc
@@ -990,13 +989,12 @@ module MakeCustomHeterogeneousMap
         else acc
 
 
-  type ('acc,'map1,'map2) polyfold2=
-    { f: 'a. 'a key -> ('a,'map1) value option -> ('a,'map2) value option ->
-        'acc -> 'acc } [@@unboxed]
+  type ('map1,'map2,'res) polyfold2 =
+    { f: 'a. 'a key -> ('a,'map1) value option -> ('a,'map2) value option -> 'res } [@@unboxed]
 
   (** Intermediate function for folding on union, when folding on a leaf and a branch:
       Call fall on the branch and insert the correct call to leaf as needed. *)
-  let fold_with_missing_key (type k v1 v2 a) ~reflexive (f: (a,v1,v2) polyfold2) (key: k Key.t) value m acc =
+  let fold_with_missing_key (type k v1 v2 a) ~reflexive (f: (v1,v2,a->a) polyfold2) (key: k Key.t) value m acc =
     let id_a = Key.to_int key in
     let fold_func (type k') (keyb: k' Key.t) valueb (acc, found_key) =
       if found_key then f.f keyb None (Some valueb) acc, found_key else
@@ -1013,9 +1011,8 @@ module MakeCustomHeterogeneousMap
       in let (acc, found) = fold {f=fun k v a -> fold_func k v a} m (acc, false) in
       if found then acc else f.f key (Some value) None acc
 
-  let rec fold_on_nonequal_union:
-    'm 'acc. ('acc,'m,'m) polyfold2 -> 'm t -> 'm t -> 'acc -> 'acc =
-    fun (type m) f (ta:m t) (tb:m t) acc ->
+  let rec fold_on_nonequal_union: type m acc. (m,m,acc->acc) polyfold2 -> m t -> m t -> acc -> acc =
+    fun f ta tb acc ->
     if ta == tb then acc
     else
       let fleft:(_,_) polyfold =
@@ -1067,7 +1064,7 @@ module MakeCustomHeterogeneousMap
           acc
 
   let rec fold2: type
-    m1 m2 acc. (acc,m1,m2) polyfold2 -> m1 t -> m2 t -> acc -> acc =
+    m1 m2 acc. (m1,m2,acc->acc) polyfold2 -> m1 t -> m2 t -> acc -> acc =
     fun f ta tb acc ->
       let fleft:(_,_) polyfold = {f=fun key value acc -> f.f key (Some value) None acc} in
       let fright:(_,_)polyfold = {f=fun key value acc -> f.f key None (Some value) acc} in
@@ -1094,6 +1091,8 @@ module MakeCustomHeterogeneousMap
         if unsigned_lt (pa :> int) (pb :> int)
         then acc |> fold fleft ta |> fold fright tb
         else acc |> fold fright tb |> fold fleft ta
+
+  let iter2 f m1 m2 = fold2 { f=fun k v1 v2 () -> f.f k v1 v2 } m1 m2 ()
 
   type 'map polypredicate = { f: 'a. 'a key -> ('a,'map) value -> bool; } [@@unboxed]
   let filter f m = filter_map {f = fun k v -> if f.f k v then Some v else None } m
@@ -1162,11 +1161,10 @@ module MakeCustomHeterogeneousSet
     let f:(unit,unit,unit) BaseMap.polyinter = {f=fun _ () () -> ()} in
     fun [@specialise] sa sb -> (BaseMap.idempotent_inter (* [@specialised] *)) f sa sb
 
-  type polyiter = { f: 'a. 'a elt -> unit; } [@@unboxed]
+  type 'res polyfold = { f: 'a. 'a key -> 'res } [@@unboxed]
   let iter f set = BaseMap.iter {f=fun k () -> f.f k} set
 
   (* TODO: A real implementation of fold would be faster. *)
-  type 'acc polyfold = { f: 'a. 'a key -> 'acc -> 'acc } [@@unboxed]
   let fold f set acc =
     let f: type a. a key -> unit -> 'acc -> 'acc = fun k () acc -> f.f k acc in
     BaseMap.fold { f } set acc

@@ -276,13 +276,12 @@ module type BASE_MAP = sig
 
       Where the order is given by the {{!unsigned_lt}unsigned order} on {!KEY.to_int}. *)
 
-  type 'map polyiter = { f : 'a. 'a key -> ('a, 'map) value -> unit; } [@@unboxed]
-  val iter : 'map polyiter -> 'map t -> unit
+  type ('map,'res) polyfold = { f: 'a. 'a key -> ('a,'map) value -> 'res } [@@unboxed]
+  val iter : ('map, unit) polyfold -> 'map t -> unit
   (** [iter f m] calls [f.f] on all bindings of [m],
       in the {{!unsigned_lt}unsigned order} on {!KEY.to_int} *)
 
-  type ('acc,'map) polyfold = { f: 'a. 'a key -> ('a,'map) value -> 'acc -> 'acc } [@@unboxed]
-  val fold : ('acc,'map) polyfold -> 'map t -> 'acc -> 'acc
+  val fold : ('map, 'acc -> 'acc) polyfold -> 'map t -> 'acc -> 'acc
   (** [fold f m acc] returns [f.f key_n value_n (... (f.f key_1 value_1 acc))]
       where [(key_1, value_1) ... (key_n, value_n)] are the bindings of [m], in
       the {{!unsigned_lt}unsigned order} on {!KEY.to_int}. *)
@@ -295,9 +294,8 @@ module type BASE_MAP = sig
       bindings that exist in both maps ([m1 ∩ m2]) whose values are physically different.
       Calls to [f.f] are performed in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
 
-
-  type ('acc,'map1,'map2) polyfold2 = { f: 'a. 'a key -> ('a,'map1) value option -> ('a,'map2) value option -> 'acc -> 'acc } [@@unboxed]
-  val fold_on_nonequal_union : ('acc,'map,'map) polyfold2 -> 'map t -> 'map t -> 'acc -> 'acc
+  type ('map1,'map2,'res) polyfold2 = { f: 'a. 'a key -> ('a,'map1) value option -> ('a,'map2) value option -> 'res } [@@unboxed]
+  val fold_on_nonequal_union : ('map,'map,'acc->'acc) polyfold2 -> 'map t -> 'map t -> 'acc -> 'acc
   (** [fold_on_nonequal_union f m1 m2 acc] returns
       [f.f key_n value1_n value2n (... (f.f key_1 value1_1 value2_1 acc))] where
       [(key_1, value1_1, value2_1) ... (key_n, value1_n, value2_n)] are the
@@ -305,7 +303,7 @@ module type BASE_MAP = sig
       different.
       Calls to [f.f] are performed in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
 
-  val fold2 : ('acc,'map1,'map2) polyfold2 -> 'map1 t -> 'map2 t -> 'acc -> 'acc
+  val fold2 : ('map1,'map2,'acc->'acc) polyfold2 -> 'map1 t -> 'map2 t -> 'acc -> 'acc
   (** [fold2 f m1 m2 acc] iterates both maps [m1] and [m2] simultaneously, calling
       [f.f k v1_opt v2_opt acc] for each binding [k,v1] in [m1] ([v1_opt = Some v1])
       and [k,v2] in [m2]. [v1_opt] (resp [v2_opt]) will be [None] if [k] is not
@@ -317,6 +315,8 @@ module type BASE_MAP = sig
       Calls to [f.f] are performed in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
 
       @since v0.13.0 *)
+
+  val iter2 : ('map1,'map2,unit) polyfold2 -> 'map1 t -> 'map2 t -> unit
 
   type 'map polypredicate = { f: 'a. 'a key -> ('a,'map) value -> bool; } [@@unboxed]
   val filter : 'map polypredicate -> 'map t -> 'map t
@@ -677,7 +677,7 @@ module type HETEROGENEOUS_MAP = sig
       - The type of {!key} is replaced by a type constructor ['k key].
         Because of that, most higher-order arguments require higher-ranking
         polymorphism, and we provide records that allows to
-        pass them as arguments (e.g. {!polyiter}, {!polymap}, {!polyunion}, etc.)
+        pass them as arguments (e.g. {!polyfold}, {!polymap}, {!polyunion}, etc.)
       - The type of the map ({!type:t}) is still parameterized by an argument (['m t])
       - The type of {!type:value} depend on both the type of the key and the
         type of the map, hence the type [('k,'m) value].
@@ -894,9 +894,8 @@ module type HETEROGENEOUS_SET = sig
       @since v0.11.0 *)
 
   (** {1 Iterators} *)
-
-  type polyiter = { f: 'a. 'a elt -> unit; } [@@unboxed]
-  val iter: polyiter -> t -> unit
+  type 'res polyfold = { f: 'a. 'a key  -> 'res } [@@unboxed]
+  val iter: unit polyfold -> t -> unit
   (** [iter f set] calls [f.f] on all elements of [set], in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
 
   type polypredicate = { f: 'a. 'a elt -> bool; } [@@unboxed]
@@ -908,8 +907,7 @@ module type HETEROGENEOUS_SET = sig
   (** [for_all f set] is [true] if [f.f] is [true] on all elements of [set].
       Short-circuits on first [false]. [f.f] is called in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
 
-  type 'acc polyfold = { f: 'a. 'a elt -> 'acc -> 'acc } [@@unboxed]
-  val fold: 'acc polyfold -> t -> 'acc -> 'acc
+  val fold: ('acc -> 'acc) polyfold -> t -> 'acc -> 'acc
   (** [fold f set acc] returns [f.f elt_n (... (f.f elt_1 acc) ...)], where
       [elt_1, ..., elt_n] are the elements of [set], in increasing {{!unsigned_lt}unsigned order} of
       {!KEY.to_int} *)
