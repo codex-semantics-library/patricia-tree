@@ -899,7 +899,7 @@ module type HETEROGENEOUS_SET = sig
       @since v0.11.0 *)
 
   (** {1 Iterators} *)
-  type 'res polyfold = { f: 'a. 'a key  -> 'res } [@@unboxed]
+  type 'res polyfold = { f: 'a. 'a elt  -> 'res } [@@unboxed]
   val iter: unit polyfold -> t -> unit
   (** [iter f set] calls [f.f] on all elements of [set], in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
 

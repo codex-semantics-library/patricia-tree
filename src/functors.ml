@@ -1161,7 +1161,7 @@ module MakeCustomHeterogeneousSet
     let f:(unit,unit,unit) BaseMap.polyinter = {f=fun _ () () -> ()} in
     fun [@specialise] sa sb -> (BaseMap.idempotent_inter (* [@specialised] *)) f sa sb
 
-  type 'res polyfold = { f: 'a. 'a key -> 'res } [@@unboxed]
+  type 'res polyfold = { f: 'a. 'a elt -> 'res } [@@unboxed]
   let iter f set = BaseMap.iter {f=fun k () -> f.f k} set
 
   (* TODO: A real implementation of fold would be faster. *)
