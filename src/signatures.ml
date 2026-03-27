@@ -469,6 +469,7 @@ module type BASE_MAP = sig
         | {{!idempotent_inter}[idempotent_inter f m1 m2]} |    | [y] | [f c z u] |   |
         | {{!idempotent_inter_filter}[idempotent_inter_filter f m1 m2]}{^ \[1\]} |    | [y] | [f c z u] |   |
         | {{!nonidempotent_inter_no_share}[nonidempotent_inter_no_share f m1 m2]} |    | [f b y y] | [f c z u] |   |
+        | {{!nonidempotent_inter_filter_no_share}[nonidempotent_inter_filter_no_share f m1 m2]}{^ \[1\]} |    | [f b y y] | [f c z u] |   |
         | {{!difference}[difference f m1 m2]}{^ \[1\]} | [x] |  | [f c z u] |   |
         | {{!symmetric_difference}[symmetric_difference f m1 m2]}{^ \[1\]} | [x] |  | [f c z u] | [v] |
         | {{!slow_merge}[slow_merge f m1 m2]}{^ \[1\]}{^ \[2\]} | [f a x _] | [f b y y] | [f c z u] | [f d _ v] |
@@ -540,7 +541,9 @@ module type BASE_MAP = sig
       bindings for which [f] returns [None].
       The complexity is [O(log(n)*i)] where [i] is the size of the intersection.
       [f] is called on every elements of the intersection in increasing
-      {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
+      {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
+
+      @since v0.13.0 *)
 
   type ('map1, 'map2, 'map3) polymerge = {
     f : 'a. 'a key -> ('a, 'map1) value option -> ('a, 'map2) value option -> ('a, 'map3) value option; } [@@unboxed]
@@ -1424,7 +1427,9 @@ module type MAP_WITH_VALUE = sig
       bindings for which [f] returns [None].
       The complexity is [O(m)] where [m] is the size of the intersection.
       [f] is called on every elements of the intersection in increasing
-      {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
+      {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
+
+      @since v0.13.0 *)
 
   val slow_merge : (key -> 'a value option -> 'b value option -> 'c value option) -> 'a t -> 'b t -> 'c t
   (** [slow_merge f m1 m2] returns a map whose keys are a subset of the
