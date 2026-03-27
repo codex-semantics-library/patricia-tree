@@ -1304,6 +1304,7 @@ module MakeCustomMap
       let vb = Option.map (fun (Snd v) -> v) vb in
       f k va vb acc in
     BaseMap.fold2 {f} ma mb acc
+  let iter2 f ma mb = fold2 (fun k va vb () -> f k va vb) ma mb ()
 
   let pretty ?pp_sep (f: Format.formatter -> key -> 'a value -> unit) fmt m =
     BaseMap.pretty ?pp_sep {f=fun fmt k (Snd v) -> f fmt k v} fmt m

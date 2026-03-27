@@ -317,6 +317,11 @@ module type BASE_MAP = sig
       @since v0.13.0 *)
 
   val iter2 : ('map1,'map2,unit) polyfold2 -> 'map1 t -> 'map2 t -> unit
+  (** [iter2 f m1 m2] calls [f.f k v1_opt v2_opt] for every key [k]
+      in [m1] or [m2], with [v1_opt] (resp [v2_opt]) bound to the value of [k] in
+      [m1] (resp [m2]), or [None] if the value is absent.
+
+      @since v0.13.0 *)
 
   type 'map polypredicate = { f: 'a. 'a key -> ('a,'map) value -> bool; } [@@unboxed]
   val filter : 'map polypredicate -> 'map t -> 'map t
@@ -1265,6 +1270,13 @@ module type MAP_WITH_VALUE = sig
       skip physically equal bindings.
 
       Calls to [f] are performed in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
+
+      @since v0.13.0 *)
+
+  val iter2 : (key -> 'a value option -> 'b value option -> unit) -> 'a t -> 'b t -> unit
+  (** [iter2 f m1 m2] calls [f.f k v1_opt v2_opt] for every key [k]
+      in [m1] or [m2], with [v1_opt] (resp [v2_opt]) bound to the value of [k] in
+      [m1] (resp [m2]), or [None] if the value is absent.
 
       @since v0.13.0 *)
 
