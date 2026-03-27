@@ -286,8 +286,8 @@ module type BASE_MAP = sig
       where [(key_1, value_1) ... (key_n, value_n)] are the bindings of [m], in
       the {{!unsigned_lt}unsigned order} on {!KEY.to_int}. *)
 
-  type ('acc,'map) polyfold2_inter = { f: 'a. 'a key -> ('a,'map) value -> ('a,'map) value -> 'acc -> 'acc } [@@unboxed]
-  val fold_on_nonequal_inter : ('acc,'map) polyfold2_inter -> 'map t -> 'map t -> 'acc -> 'acc
+  type ('acc,'map1,'map2) polyfold2_inter = { f: 'a. 'a key -> ('a,'map1) value -> ('a,'map2) value -> 'acc -> 'acc } [@@unboxed]
+  val fold_on_nonequal_inter : ('acc,'map1,'map2) polyfold2_inter -> 'map1 t -> 'map2 t -> 'acc -> 'acc
   (** [fold_on_nonequal_inter f m1 m2 acc] returns
       [f.f key_n value1_n value2n (... (f.f key_1 value1_1 value2_1 acc))] where
       [(key_1, value1_1, value2_1) ... (key_n, value1_n, value2_n)] are the
@@ -295,7 +295,7 @@ module type BASE_MAP = sig
       Calls to [f.f] are performed in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
 
   type ('map1,'map2,'res) polyfold2 = { f: 'a. 'a key -> ('a,'map1) value option -> ('a,'map2) value option -> 'res } [@@unboxed]
-  val fold_on_nonequal_union : ('map,'map,'acc->'acc) polyfold2 -> 'map t -> 'map t -> 'acc -> 'acc
+  val fold_on_nonequal_union : ('map1,'map2,'acc->'acc) polyfold2 -> 'map1 t -> 'map2 t -> 'acc -> 'acc
   (** [fold_on_nonequal_union f m1 m2 acc] returns
       [f.f key_n value1_n value2n (... (f.f key_1 value1_1 value2_1 acc))] where
       [(key_1, value1_1, value2_1) ... (key_n, value1_n, value2_n)] are the
@@ -470,10 +470,25 @@ module type BASE_MAP = sig
 
   type ('map1,'map2) polyfor_all2 =
     { f : 'a. 'a key -> ('a, 'map1) value option -> ('a, 'map2) value option -> bool; } [@@unboxed]
+  val reflexive_any_domain_for_all2 : ('map1,'map2) polyfor_all2 -> 'map1 t -> 'map2 t -> bool
+  (** [reflexive_any_domain_for_all2 f m1 m2] is [true] if [f.f k v1_opt v2_opt] for all bindings [k]
+      in [m1 ∪ m2] (where [vi_opt] is [Some v] if [k] is bound to [v] is [mi], and [None] otherwise).
+
+      {b Assumes} [f.f] is reflexive, i.e. [f.f k (Some v) (Some v) = true] to skip calls to equal subtrees.
+      Calls [f.f] in ascending {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
+      Exits early if [f.f] returns [false].
+
+      This is a slower alternative to {!reflexive_same_domain_for_all2}/{!reflexive_subset_domain_for_all2},
+      which comes with no restriction about the domains of [m1] and [m2].
+
+      @since v0.13.0 *)
+
   val nonreflexive_any_domain_for_all2 : ('map1,'map2) polyfor_all2 -> 'map1 t -> 'map2 t -> bool
   (** [nonreflexive_any_domain_for_all2 f m1 m2] is [true] if [f.f k v1_opt v2_opt] for all bindings [k]
       in [m1 ∪ m2] (where [vi_opt] is [Some v] if [k] is bound to [v] is [mi], and [None] otherwise).
 
+      Unlike {!reflexive_any_domain_for_all2}, this does not assume that [f.f] is reflexive
+      and thus does not skip identical subtrees.
       This is a slower alternative to {!nonreflexive_same_domain_for_all2}/{!nonreflexive_subset_domain_for_all2},
       which comes with no restriction about the domains of [m1] and [m2].
 
@@ -1243,16 +1258,16 @@ module type MAP_WITH_VALUE = sig
   val fold : (key -> 'a value -> 'acc -> 'acc) ->  'a t -> 'acc -> 'acc
   (** Fold on each [(key,value)] pair of the map, in increasing {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
 
-  val fold_on_nonequal_inter : (key -> 'a value -> 'a value -> 'acc -> 'acc) ->
-    'a t -> 'a t -> 'acc -> 'acc
+  val fold_on_nonequal_inter : (key -> 'a value -> 'b value -> 'acc -> 'acc) ->
+    'a t -> 'b t -> 'acc -> 'acc
   (** [fold_on_nonequal_inter f m1 m2 acc] returns
       [f key_n value1_n value2n (... (f key_1 value1_1 value2_1 acc))] where
       [(key_1, value1_1, value2_1) ... (key_n, value1_n, value2_n)] are the
       bindings that exist in both maps ([m1 ∩ m2]) whose values are physically different.
       Calls to [f] are performed in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
 
-  val fold_on_nonequal_union: (key -> 'a value option -> 'a value option -> 'acc -> 'acc) ->
-    'a t -> 'a t -> 'acc -> 'acc
+  val fold_on_nonequal_union: (key -> 'a value option -> 'b value option -> 'acc -> 'acc) ->
+    'a t -> 'b t -> 'acc -> 'acc
   (** [fold_on_nonequal_union f m1 m2 acc] returns
       [f key_n value1_n value2n (... (f key_1 value1_1 value2_1 acc))] where
       [(key_1, value1_1, value2_1) ... (key_n, value1_n, value2_n)] are the
@@ -1382,10 +1397,25 @@ module type MAP_WITH_VALUE = sig
 
       @since v0.13.0  *)
 
+  val reflexive_any_domain_for_all2 : (key -> 'a value option -> 'b value option -> bool) -> 'a t -> 'b t -> bool
+  (** [reflexive_any_domain_for_all2 f m1 m2] is [true] if [f.f k v1_opt v2_opt] for all bindings [k]
+      in [m1 ∪ m2] (where [vi_opt] is [Some v] if [k] is bound to [v] is [mi], and [None] otherwise).
+
+      {b Assumes} [f.f] is reflexive, i.e. [f.f k (Some v) (Some v) = true] to skip calls to equal subtrees.
+      Calls [f.f] in ascending {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
+      Exits early if [f.f] returns [false].
+
+      This is a slower alternative to {!reflexive_same_domain_for_all2}/{!reflexive_subset_domain_for_all2},
+      which comes with no restriction about the domains of [m1] and [m2].
+
+      @since v0.13.0 *)
+
   val nonreflexive_any_domain_for_all2 : (key -> 'a value option -> 'b value option -> bool) -> 'a t -> 'b t -> bool
   (** [nonreflexive_any_domain_for_all2 f m1 m2] is [true] if [f k v1_opt v2_opt] for all bindings [k]
       in [m1 ∪ m2] (where [vi_opt] is [Some v] if [k] is bound to [v] is [mi], and [None] otherwise).
 
+      Unlike {!reflexive_any_domain_for_all2}, this does not assume that [f.f] is reflexive
+      and thus does not skip identical subtrees.
       This is a slower alternative to {!nonreflexive_same_domain_for_all2}/{!nonreflexive_subset_domain_for_all2},
       which comes with no restriction about the domains of [m1] and [m2].
 
