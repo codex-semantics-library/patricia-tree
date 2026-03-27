@@ -129,6 +129,17 @@ let nonidempotent_union_f =
       ("const", fun _ _ _ -> 'a');
     ]
 
+let nonidempotent_union_f_option =
+  oneof_list ~print:fst
+    [
+      ("fst", fun _ a _ -> Some a);
+      ("snd", fun _ _ b -> Some b);
+      ("const", fun _ _ _ -> Some 'a');
+      ("-> None", fun _ _ _ -> None);
+      ( "filter",
+        fun _ a _ -> if Char.code a < Char.code 'n' then Some a else None );
+    ]
+
 (* Like [idempotent_fst_or_snd] but with an extra [None] case. *)
 let idempotent_fst_or_snd_option =
   oneof_list ~print:fst
@@ -136,6 +147,8 @@ let idempotent_fst_or_snd_option =
       ("-> Some a", fun _ a _ -> Some a);
       ("-> Some b", fun _ _ b -> Some b);
       ("-> None", fun _ _ _ -> None);
+      ( "filter",
+        fun _ a _ -> if Char.code a < Char.code 'n' then Some a else None );
     ]
 
 let reflexive_same_domain_val =
@@ -302,6 +315,10 @@ let tests =
       Intmap.idempotent_inter Model.idempotent_inter;
     make_setop_test "idempotent_inter_filter" idempotent_fst_or_snd_option snd
       Intmap.idempotent_inter_filter Model.idempotent_inter_filter;
+    make_setop_test "nonidempotent_inter_filter_no_share"
+      nonidempotent_union_f_option snd
+      Intmap.nonidempotent_inter_filter_no_share
+      Model.nonidempotent_inter_filter_no_share;
     mk "reflexive_same_domain_for_all2" (pair reflexive_same_domain_val two)
       Print.bool (fun ((_, f), (t0, t1)) ->
         let t0 = interpret t0 and t1 = interpret t1 in

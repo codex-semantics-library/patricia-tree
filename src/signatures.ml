@@ -529,11 +529,18 @@ module type BASE_MAP = sig
       [O(log(n)*i)] complexity, where [i] is the size of the intersection (number
       of keys bound in both maps). *)
 
-
   type ('map1, 'map2, 'map3) polyinterfilter = { f : 'a. 'a key -> ('a, 'map1) value -> ('a, 'map2) value -> ('a, 'map3) value option; } [@@unboxed]
   val idempotent_inter_filter : ('a, 'a, 'a) polyinterfilter -> 'a t -> 'a t -> 'a t
   (** [idempotent_inter_filter f map1 map2] is the same as {!idempotent_inter}
       but [f.f] can return [None] to remove a binding from the resutling map. *)
+
+  val nonidempotent_inter_filter_no_share : ('a, 'b, 'c) polyinterfilter -> 'a t -> 'b t -> 'c t
+  (** [nonidempotent_inter_filter_no_share f m1 m2] is like
+      {!nonidempotent_inter_no_share}, but it also removes the key->value
+      bindings for which [f] returns [None].
+      The complexity is [O(log(n)*i)] where [i] is the size of the intersection.
+      [f] is called on every elements of the intersection in increasing
+      {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
 
   type ('map1, 'map2, 'map3) polymerge = {
     f : 'a. 'a key -> ('a, 'map1) value option -> ('a, 'map2) value option -> ('a, 'map3) value option; } [@@unboxed]
@@ -1410,6 +1417,14 @@ module type MAP_WITH_VALUE = sig
       (assuming idempotence, using and preserving physically
       equal subtrees), but it also removes the key->value bindings for
       which [f] returns [None]. *)
+
+  val nonidempotent_inter_filter_no_share : (key -> 'a value -> 'b value -> 'c value option) -> 'a t -> 'b t -> 'c t
+  (** [nonidempotent_inter_filter_no_share f m1 m2] is like
+      {!nonidempotent_inter_no_share}, but it also removes the key->value
+      bindings for which [f] returns [None].
+      The complexity is [O(m)] where [m] is the size of the intersection.
+      [f] is called on every elements of the intersection in increasing
+      {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
 
   val slow_merge : (key -> 'a value option -> 'b value option -> 'c value option) -> 'a t -> 'b t -> 'c t
   (** [slow_merge f m1 m2] returns a map whose keys are a subset of the

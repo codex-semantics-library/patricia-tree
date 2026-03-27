@@ -850,6 +850,40 @@ module MakeCustomHeterogeneousMap
           else idempotent_inter_filter f ta tb1
         else empty
 
+  let rec nonidempotent_inter_filter_no_share
+      (f : ('a, 'b, 'c) polyinterfilter) ta tb =
+    match NODE.view ta,NODE.view tb with
+    | Empty, _ | _, Empty -> empty
+    | Leaf{key;value},_ ->
+      (try let res = find key tb in
+         match (f.f key value res) with
+         | Some v -> leaf key v
+         | None -> empty
+       with Not_found -> empty)
+    | _,Leaf{key;value} ->
+      (try let res = find key ta in
+         match f.f key res value with
+         | Some v -> leaf key v
+         | None -> empty
+       with Not_found -> empty)
+    | Branch{prefix=pa;branching_bit=ma;tree0=ta0;tree1=ta1},
+      Branch{prefix=pb;branching_bit=mb;tree0=tb0;tree1=tb1} ->
+      if ma == mb && pa == pb
+      (* Same prefix: merge the subtrees *)
+      then
+        let tree0 = nonidempotent_inter_filter_no_share f ta0 tb0 in
+        let tree1 = nonidempotent_inter_filter_no_share f ta1 tb1 in
+        branch ~prefix:pa ~branching_bit:ma ~tree0 ~tree1
+      else if branches_before pa ma pb mb
+      then if (ma :> int) land (pb :> int) == 0
+        then nonidempotent_inter_filter_no_share f ta0 tb
+        else nonidempotent_inter_filter_no_share f ta1 tb
+      else if branches_before pb mb pa ma
+      then if (mb :> int) land (pa :> int) == 0
+        then nonidempotent_inter_filter_no_share f ta tb0
+        else nonidempotent_inter_filter_no_share f ta tb1
+      else empty
+
   type ('map1,'map2,'map3) polymerge = { f: 'a. 'a Key.t -> ('a,'map1) Value.t option -> ('a,'map2) Value.t option -> ('a,'map3) Value.t option } [@@unboxed]
   let rec slow_merge: type mapa mapb mapc. (mapa,mapb,mapc) polymerge -> mapa NODE.t -> mapb NODE.t -> mapc NODE. t=
     fun f ta tb ->
@@ -1268,6 +1302,8 @@ module MakeCustomMap
     BaseMap.nonidempotent_inter_no_share {f=fun k (Snd v1) (Snd v2) -> Snd (f k v1 v2)} a b
   let idempotent_inter_filter (f: key -> 'a value -> 'a value -> 'a value option) a b =
     BaseMap.idempotent_inter_filter {f=fun k (Snd v1) (Snd v2) -> snd_opt (f k v1 v2)} a b
+  let nonidempotent_inter_filter_no_share (f: key -> 'a value -> 'b value -> 'c value option) a b =
+    BaseMap.nonidempotent_inter_filter_no_share {f=fun k (Snd v1) (Snd v2) -> snd_opt (f k v1 v2)} a b
   let reflexive_same_domain_for_all2 (f: key -> 'a value -> 'a value -> bool) a b =
     BaseMap.reflexive_same_domain_for_all2 {f=fun k (Snd v1) (Snd v2) -> f k v1 v2} a b
   let nonreflexive_same_domain_for_all2 (f: key -> 'a value -> 'b value -> bool) a b =
