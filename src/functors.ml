@@ -1068,8 +1068,6 @@ module MakeCustomHeterogeneousMap
   let fold_on_nonequal_union f m1 m2 = fold_union ~reflexive:true f m1 m2
   let fold_on_union f m1 m2 = fold_union ~reflexive:false f m1 m2
 
-  let iter2 f m1 m2 = fold_on_union { f=fun k v1 v2 () -> f.f k v1 v2 } m1 m2 ()
-
   type 'map polypredicate = { f: 'a. 'a key -> ('a,'map) value -> bool; } [@@unboxed]
   let filter f m = filter_map {f = fun k v -> if f.f k v then Some v else None } m
   let rec for_all f m = match NODE.view m with
@@ -1286,8 +1284,6 @@ module MakeCustomMap
       let vb = Option.map (fun (Snd v) -> v) vb in
       f k va vb acc in
     BaseMap.fold_on_union {f} ma mb acc
-
-  let iter2 f ma mb = fold_on_union (fun k va vb () -> f k va vb) ma mb ()
 
   let pretty ?pp_sep (f: Format.formatter -> key -> 'a value -> unit) fmt m =
     BaseMap.pretty ?pp_sep {f=fun fmt k (Snd v) -> f fmt k v} fmt m
