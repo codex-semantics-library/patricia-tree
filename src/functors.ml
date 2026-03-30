@@ -956,18 +956,18 @@ module MakeCustomHeterogeneousMap
 
 
   type ('acc,'map1,'map2) polyfold2_inter = { f: 'a. 'a key -> ('a,'map1) value -> ('a,'map2) value -> 'acc -> 'acc } [@@unboxed]
-  let rec fold_on_nonequal_inter f ta tb acc =
-    if phys_same ta tb then acc
+  let rec fold_inter ~reflexive f ta tb acc =
+    if reflexive && phys_same ta tb then acc
     else match NODE.view ta,NODE.view tb with
       | Empty, _ | _, Empty -> acc
       | Leaf{key;value},_ ->
         (try let valueb = find key tb in
-           if phys_same valueb value then acc else
+           if reflexive && phys_same valueb value then acc else
              f.f key value valueb acc
          with Not_found -> acc)
       | _,Leaf{key;value} ->
         (try let valuea = find key ta in
-           if phys_same valuea value then acc else
+           if reflexive && phys_same valuea value then acc else
              f.f key valuea value acc
          with Not_found -> acc)
       | Branch{prefix=pa;branching_bit=ma;tree0=ta0;tree1=ta1},
@@ -975,19 +975,21 @@ module MakeCustomHeterogeneousMap
         if ma == mb && pa == pb
         (* Same prefix: fold on each subtrees *)
         then
-          let acc = fold_on_nonequal_inter f ta0 tb0 acc in
-          let acc = fold_on_nonequal_inter f ta1 tb1 acc in
+          let acc = fold_inter ~reflexive f ta0 tb0 acc in
+          let acc = fold_inter ~reflexive f ta1 tb1 acc in
           acc
         else if branches_before pa ma pb mb
         then if (ma :> int) land (pb :> int) == 0
-          then fold_on_nonequal_inter f ta0 tb acc
-          else fold_on_nonequal_inter f ta1 tb acc
+          then fold_inter ~reflexive f ta0 tb acc
+          else fold_inter ~reflexive f ta1 tb acc
         else if branches_before pb mb pa ma
         then if (mb :> int) land (pa :> int) == 0
-          then fold_on_nonequal_inter f ta tb0 acc
-          else fold_on_nonequal_inter f ta tb1 acc
+          then fold_inter ~reflexive f ta tb0 acc
+          else fold_inter ~reflexive f ta tb1 acc
         else acc
 
+  let fold_on_nonequal_inter f m1 m2 = fold_inter ~reflexive:true f m1 m2
+  let fold_on_inter f m1 m2 = fold_inter ~reflexive:false f m1 m2
 
   type ('map1,'map2,'res) polyfold2 =
     { f: 'a. 'a key -> ('a,'map1) value option -> ('a,'map2) value option -> 'res } [@@unboxed]
@@ -1011,9 +1013,9 @@ module MakeCustomHeterogeneousMap
       in let (acc, found) = fold {f=fun k v a -> fold_func k v a} m (acc, false) in
       if found then acc else f.f key (Some value) None acc
 
-  let rec fold_on_nonequal_union: type m1 m2 acc. (m1,m2,acc->acc) polyfold2 -> m1 t -> m2 t -> acc -> acc =
-    fun f ta tb acc ->
-    if phys_same ta tb then acc
+  let rec fold_union: type m1 m2 acc. reflexive:bool -> (m1,m2,acc->acc) polyfold2 -> m1 t -> m2 t -> acc -> acc =
+    fun ~reflexive f ta tb acc ->
+    if reflexive && phys_same ta tb then acc
     else
       let fleft:(_,_) polyfold =
         {f=fun key value acc -> f.f key (Some value) None acc} in
@@ -1022,35 +1024,35 @@ module MakeCustomHeterogeneousMap
       match NODE.view ta,NODE.view tb with
       | Empty, _ -> fold fright tb acc
       | _, Empty -> fold fleft ta acc
-      | Leaf{key;value},_ -> fold_with_missing_key ~reflexive:true f key value tb acc
-      | _,Leaf{key;value} -> fold_with_missing_key ~reflexive:true {f=fun k v1 v2->f.f k v2 v1} key value ta acc
+      | Leaf{key;value},_ -> fold_with_missing_key ~reflexive f key value tb acc
+      | _,Leaf{key;value} -> fold_with_missing_key ~reflexive {f=fun k v1 v2->f.f k v2 v1} key value ta acc
       | Branch{prefix=pa;branching_bit=ma;tree0=ta0;tree1=ta1},
         Branch{prefix=pb;branching_bit=mb;tree0=tb0;tree1=tb1} ->
         if ma == mb && pa == pb
         (* Same prefix: merge the subtrees *)
         then
-          let acc = fold_on_nonequal_union f ta0 tb0 acc in
-          let acc = fold_on_nonequal_union f ta1 tb1 acc in
+          let acc = fold_union ~reflexive f ta0 tb0 acc in
+          let acc = fold_union ~reflexive f ta1 tb1 acc in
           acc
         else if branches_before pa ma pb mb
         then if (ma :> int) land (pb :> int) == 0
           then
-            let acc = fold_on_nonequal_union f ta0 tb acc in
+            let acc = fold_union ~reflexive f ta0 tb acc in
             let acc = fold fleft ta1 acc in
             acc
           else
             let acc = fold fleft ta0 acc in
-            let acc = fold_on_nonequal_union f ta1 tb acc in
+            let acc = fold_union ~reflexive f ta1 tb acc in
             acc
         else if branches_before pb mb pa ma
         then if (mb :> int) land (pa :> int) == 0
           then
-            let acc = fold_on_nonequal_union f ta tb0 acc in
+            let acc = fold_union ~reflexive f ta tb0 acc in
             let acc = fold fright tb1 acc in
             acc
           else
             let acc = fold fright tb0 acc in
-            let acc = fold_on_nonequal_union f ta tb1 acc in
+            let acc = fold_union ~reflexive f ta tb1 acc in
             acc
         else
         (* Distinct subtrees: process them in increasing order of keys. *)
@@ -1063,36 +1065,10 @@ module MakeCustomHeterogeneousMap
           let acc = fold fleft ta acc in
           acc
 
-  let rec fold2: type
-    m1 m2 acc. (m1,m2,acc->acc) polyfold2 -> m1 t -> m2 t -> acc -> acc =
-    fun f ta tb acc ->
-      let fleft:(_,_) polyfold = {f=fun key value acc -> f.f key (Some value) None acc} in
-      let fright:(_,_)polyfold = {f=fun key value acc -> f.f key None (Some value) acc} in
-      match NODE.view ta,NODE.view tb with
-      | Empty, _ -> fold fright tb acc
-      | _, Empty -> fold fleft ta acc
-      | Leaf{key;value},_ -> fold_with_missing_key ~reflexive:false f key value tb acc
-      | _,Leaf{key;value} -> fold_with_missing_key ~reflexive:false {f=fun k v1 v2->f.f k v2 v1} key value ta acc
-      | Branch{prefix=pa;branching_bit=ma;tree0=ta0;tree1=ta1},
-        Branch{prefix=pb;branching_bit=mb;tree0=tb0;tree1=tb1} ->
-        if ma == mb && pa == pb
-        (* Same prefix: merge the subtrees *)
-        then acc |> fold2 f ta0 tb0 |> fold2 f ta1 tb1
-        else if branches_before pa ma pb mb
-        then if (ma :> int) land (pb :> int) == 0
-          then acc |> fold2 f ta0 tb |> fold fleft ta1
-          else acc |> fold fleft ta0 |> fold2 f ta1 tb
-        else if branches_before pb mb pa ma
-        then if (mb :> int) land (pa :> int) == 0
-          then acc |> fold2 f ta tb0 |> fold fright tb1
-          else acc |> fold fright tb0 |> fold2 f ta tb1
-        else
-        (* Distinct subtrees: process them in increasing order of keys. *)
-        if unsigned_lt (pa :> int) (pb :> int)
-        then acc |> fold fleft ta |> fold fright tb
-        else acc |> fold fright tb |> fold fleft ta
+  let fold_on_nonequal_union f m1 m2 = fold_union ~reflexive:true f m1 m2
+  let fold_on_union f m1 m2 = fold_union ~reflexive:false f m1 m2
 
-  let iter2 f m1 m2 = fold2 { f=fun k v1 v2 () -> f.f k v1 v2 } m1 m2 ()
+  let iter2 f m1 m2 = fold_on_union { f=fun k v1 v2 () -> f.f k v1 v2 } m1 m2 ()
 
   type 'map polypredicate = { f: 'a. 'a key -> ('a,'map) value -> bool; } [@@unboxed]
   let filter f m = filter_map {f = fun k v -> if f.f k v then Some v else None } m
@@ -1104,7 +1080,7 @@ module MakeCustomHeterogeneousMap
   type ('map1,'map2) polyfor_all2 =
     { f : 'a. 'a key -> ('a, 'map1) value option -> ('a, 'map2) value option -> bool; } [@@unboxed]
   let nonreflexive_any_domain_for_all2 f ta tb =
-    try fold2 {f=fun k v1 v2 ()-> if f.f k v1 v2 then () else raise False} ta tb (); true
+    try fold_on_union {f=fun k v1 v2 ()-> if f.f k v1 v2 then () else raise False} ta tb (); true
     with False -> false
   let reflexive_any_domain_for_all2 f ta tb =
     try fold_on_nonequal_union {f=fun k v1 v2 ()-> if f.f k v1 v2 then () else raise False} ta tb (); true
@@ -1293,6 +1269,9 @@ module MakeCustomMap
   let fold_on_nonequal_inter (f: key -> 'a value -> 'b value -> 'acc -> 'acc) ma mb acc =
     let f k (Snd va) (Snd vb) acc = f k va vb acc in
     BaseMap.fold_on_nonequal_inter {f} ma mb acc
+  let fold_on_inter (f: key -> 'a value -> 'b value -> 'acc -> 'acc) ma mb acc =
+    let f k (Snd va) (Snd vb) acc = f k va vb acc in
+    BaseMap.fold_on_inter {f} ma mb acc
   let fold_on_nonequal_union
       (f: key -> 'a value option -> 'b value option -> 'acc -> 'acc) ma mb acc =
     let f k va vb acc =
@@ -1300,14 +1279,15 @@ module MakeCustomMap
       let vb = Option.map (fun (Snd v) -> v) vb in
       f k va vb acc in
     BaseMap.fold_on_nonequal_union {f} ma mb acc
-  let fold2
+  let fold_on_union
       (f: key -> 'a value option -> 'b value option -> 'acc -> 'acc) ma mb acc =
     let f k va vb acc =
       let va = Option.map (fun (Snd v) -> v) va in
       let vb = Option.map (fun (Snd v) -> v) vb in
       f k va vb acc in
-    BaseMap.fold2 {f} ma mb acc
-  let iter2 f ma mb = fold2 (fun k va vb () -> f k va vb) ma mb ()
+    BaseMap.fold_on_union {f} ma mb acc
+
+  let iter2 f ma mb = fold_on_union (fun k va vb () -> f k va vb) ma mb ()
 
   let pretty ?pp_sep (f: Format.formatter -> key -> 'a value -> unit) fmt m =
     BaseMap.pretty ?pp_sep {f=fun fmt k (Snd v) -> f fmt k v} fmt m

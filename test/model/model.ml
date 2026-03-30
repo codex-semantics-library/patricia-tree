@@ -166,14 +166,14 @@ let fold_on_nonequal_union f m0 m1 acc =
   let f acc k = f k (List.assoc_opt k m0) (List.assoc_opt k m1) acc in
   List.fold_left f acc keys
 
-let rec fold2 f m0 m1 acc = match m0, m1 with
+let rec fold_on_union f m0 m1 acc = match m0, m1 with
   | [], _ -> fold (fun k v acc -> f k None (Some v) acc) m1 acc
   | _, [] -> fold (fun k v acc -> f k (Some v) None acc) m0 acc
   | (k0,v0)::m0', (k1,v1)::m1' ->
       match compare_keys k0 k1 with
-      | 0 -> fold2 f m0' m1' (f k0 (Some v0) (Some v1) acc)
-      | n when n < 0 -> fold2 f m0' m1 (f k0 (Some v0) None acc)
-      | _ -> fold2 f m0 m1' (f k1 None (Some v1) acc)
+      | 0 -> fold_on_union f m0' m1' (f k0 (Some v0) (Some v1) acc)
+      | n when n < 0 -> fold_on_union f m0' m1 (f k0 (Some v0) None acc)
+      | _ -> fold_on_union f m0 m1' (f k1 None (Some v1) acc)
 
 let reflexive_same_domain_for_all2 p m0 m1 =
   let keys0 = keys m0

@@ -292,7 +292,21 @@ module type BASE_MAP = sig
       [f.f key_n value1_n value2n (... (f.f key_1 value1_1 value2_1 acc))] where
       [(key_1, value1_1, value2_1) ... (key_n, value1_n, value2_n)] are the
       bindings that exist in both maps ([m1 ∩ m2]) whose values are physically different.
-      Calls to [f.f] are performed in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
+      Calls to [f.f] are performed in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
+
+      Changed in v0.13.0 to allow argument maps of differing types. *)
+
+  val fold_on_inter : ('acc,'map1,'map2) polyfold2_inter -> 'map1 t -> 'map2 t -> 'acc -> 'acc
+  (** [fold_on_inter f m1 m2 acc] iterates both maps [m1] and [m2] simultaneously, calling
+      [f.f k v1 v2 acc] for each binding [k] in both [m1] and [m2], with respective values
+      [v1] and [v2].
+
+      This is an alternative to {!fold_on_nonequal_inter}. It is slower but does not
+      skip physically equal bindings.
+
+      Calls to [f.f] are performed in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
+
+      @since v0.13.0 *)
 
   type ('map1,'map2,'res) polyfold2 = { f: 'a. 'a key -> ('a,'map1) value option -> ('a,'map2) value option -> 'res } [@@unboxed]
   val fold_on_nonequal_union : ('map1,'map2,'acc->'acc) polyfold2 -> 'map1 t -> 'map2 t -> 'acc -> 'acc
@@ -301,10 +315,13 @@ module type BASE_MAP = sig
       [(key_1, value1_1, value2_1) ... (key_n, value1_n, value2_n)] are the
       bindings that exists in either map ([m1 ∪ m2]) whose values are physically
       different.
-      Calls to [f.f] are performed in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
+      Calls to [f.f] are performed in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
 
-  val fold2 : ('map1,'map2,'acc->'acc) polyfold2 -> 'map1 t -> 'map2 t -> 'acc -> 'acc
-  (** [fold2 f m1 m2 acc] iterates both maps [m1] and [m2] simultaneously, calling
+      Changed in v0.13.0 to allow argument maps of differing types. *)
+
+
+  val fold_on_union : ('map1,'map2,'acc->'acc) polyfold2 -> 'map1 t -> 'map2 t -> 'acc -> 'acc
+  (** [fold_on_union f m1 m2 acc] iterates both maps [m1] and [m2] simultaneously, calling
       [f.f k v1_opt v2_opt acc] for each binding [k,v1] in [m1] ([v1_opt = Some v1])
       and [k,v2] in [m2]. [v1_opt] (resp [v2_opt]) will be [None] if [k] is not
       bound in [m1] (resp [m2]).
@@ -1264,7 +1281,21 @@ module type MAP_WITH_VALUE = sig
       [f key_n value1_n value2n (... (f key_1 value1_1 value2_1 acc))] where
       [(key_1, value1_1, value2_1) ... (key_n, value1_n, value2_n)] are the
       bindings that exist in both maps ([m1 ∩ m2]) whose values are physically different.
-      Calls to [f] are performed in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
+      Calls to [f] are performed in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
+
+      Changed in v0.13.0 to allow argument maps of differing types. *)
+
+  val fold_on_inter : (key -> 'a value -> 'b value -> 'acc -> 'acc) -> 'a t -> 'b t -> 'acc -> 'acc
+  (** [fold_on_inter f m1 m2 acc] iterates both maps [m1] and [m2] simultaneously, calling
+      [f k v1 v2 acc] for each binding [k] in both [m1] and [m2], with respective values
+      [v1] and [v2].
+
+      This is an alternative to {!fold_on_nonequal_inter}. It is slower but does not
+      skip physically equal bindings.
+
+      Calls to [f] are performed in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
+
+      @since v0.13.0 *)
 
   val fold_on_nonequal_union: (key -> 'a value option -> 'b value option -> 'acc -> 'acc) ->
     'a t -> 'b t -> 'acc -> 'acc
@@ -1273,10 +1304,12 @@ module type MAP_WITH_VALUE = sig
       [(key_1, value1_1, value2_1) ... (key_n, value1_n, value2_n)] are the
       bindings that exists in either map ([m1 ∪ m2]) whose values are physically
       different.
-      Calls to [f.f] are performed in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
+      Calls to [f.f] are performed in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
 
-  val fold2 : (key -> 'a value option -> 'b value option -> 'acc -> 'acc) -> 'a t -> 'b t -> 'acc -> 'acc
-  (** [fold2 f m1 m2 acc] iterates both maps [m1] and [m2] simultaneously, calling
+      Changed in v0.13.0 to allow argument maps of differing types. *)
+
+  val fold_on_union : (key -> 'a value option -> 'b value option -> 'acc -> 'acc) -> 'a t -> 'b t -> 'acc -> 'acc
+  (** [fold_on_union f m1 m2 acc] iterates both maps [m1] and [m2] simultaneously, calling
       [f k v1_opt v2_opt acc] for each binding [k,v1] in [m1] ([v1_opt = Some v1])
       and [k,v2] in [m2]. [v1_opt] (resp [v2_opt]) will be [None] if [k] is not
       bound in [m1] (resp [m2]).

@@ -376,14 +376,14 @@ let tests =
           Model.fold_on_nonequal_union
             (fun i a b acc -> (i, a, b) :: acc)
             (abstract t0) (abstract t1) [] ));
-    mk "fold2" two
+    mk "fold_on_union" two
       Print.(list (tup3 int (option char) (option char)))
       (fun (t0, t1) ->
         let t0 = interpret t0 and t1 = interpret t1 in
-        ( Intmap.fold2
+        ( Intmap.fold_on_union
             (fun i a b acc -> (i, a, b) :: acc)
             t0 t1 [],
-          Model.fold2
+          Model.fold_on_union
             (fun i a b acc -> (i, a, b) :: acc)
             (abstract t0) (abstract t1) [] ));
     make_setop_test "nonidempotent_inter_no_share" idempotent_fst_or_snd snd
