@@ -366,6 +366,16 @@ let tests =
           Model.fold_on_nonequal_inter
             (fun i a b acc -> (i, a, b) :: acc)
             (abstract t0) (abstract t1) [] ));
+    mk "fold_on_inter" two
+      Print.(list (tup3 int char char))
+      (fun (t0, t1) ->
+        let t0 = interpret t0 and t1 = interpret t1 in
+        ( Intmap.fold_on_inter
+            (fun i a b acc -> (i, a, b) :: acc)
+            t0 t1 [],
+          Model.fold_on_inter
+            (fun i a b acc -> (i, a, b) :: acc)
+            (abstract t0) (abstract t1) [] ));
     mk "fold_on_nonequal_union" two
       Print.(list (tup3 int (option char) (option char)))
       (fun (t0, t1) ->
