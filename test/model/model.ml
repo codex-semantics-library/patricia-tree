@@ -153,6 +153,12 @@ let fold_on_nonequal_inter f m0 m1 acc =
       | _ -> acc)
     acc m0
 
+let fold_on_inter f m0 m1 acc =
+  List.fold_left
+    (fun acc (i, v0) ->
+      match List.assoc_opt i m1 with Some v1 -> f i v0 v1 acc | _ -> acc)
+    acc m0
+
 let fold_on_nonequal_union f m0 m1 acc =
   (* Compute the nonequal union *)
   let p x =

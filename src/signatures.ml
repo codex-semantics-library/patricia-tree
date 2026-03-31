@@ -295,6 +295,14 @@ module type BASE_MAP = sig
       bindings that exist in both maps ([m1 ∩ m2]) whose values are physically different.
       Calls to [f.f] are performed in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
 
+  val fold_on_inter : ('acc,'map) polyfold2 -> 'map t -> 'map t -> 'acc -> 'acc
+  (** [fold_on_inter f m1 m2 acc] returns
+      [f key_n value1_n value2n (... (f key_1 value1_1 value2_1 acc))] where
+      [(key_1, value1_1, value2_1) ... (key_n, value1_n, value2_n)] are the
+      bindings that exist in both maps ([m1 ∩ m2]). Unlike
+      [fold_on_nonequal_union], [f] is called for bindings whose values are
+      physically equal.
+      Calls to [f] are performed in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
 
   type ('acc,'map) polyfold2_union = { f: 'a. 'a key -> ('a,'map) value option -> ('a,'map) value option -> 'acc -> 'acc } [@@unboxed]
   val fold_on_nonequal_union : ('acc,'map) polyfold2_union -> 'map t -> 'map t -> 'acc -> 'acc
@@ -1214,6 +1222,16 @@ module type MAP_WITH_VALUE = sig
       [f key_n value1_n value2n (... (f key_1 value1_1 value2_1 acc))] where
       [(key_1, value1_1, value2_1) ... (key_n, value1_n, value2_n)] are the
       bindings that exist in both maps ([m1 ∩ m2]) whose values are physically different.
+      Calls to [f] are performed in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
+
+  val fold_on_inter : (key -> 'a value -> 'a value -> 'acc -> 'acc) ->
+    'a t -> 'a t -> 'acc -> 'acc
+  (** [fold_on_inter f m1 m2 acc] returns
+      [f key_n value1_n value2n (... (f key_1 value1_1 value2_1 acc))] where
+      [(key_1, value1_1, value2_1) ... (key_n, value1_n, value2_n)] are the
+      bindings that exist in both maps ([m1 ∩ m2]). Unlike
+      [fold_on_nonequal_union], [f] is called for bindings whose values are
+      physically equal.
       Calls to [f] are performed in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
 
   val fold_on_nonequal_union: (key -> 'a value option -> 'a value option -> 'acc -> 'acc) ->

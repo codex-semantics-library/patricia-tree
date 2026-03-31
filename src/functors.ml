@@ -1026,6 +1026,35 @@ module MakeCustomHeterogeneousMap
           else fold_on_nonequal_inter f ta tb1 acc
         else acc
 
+  let rec fold_on_inter f ta tb acc =
+    match NODE.view ta,NODE.view tb with
+    | Empty, _ | _, Empty -> acc
+    | Leaf{key;value},_ ->
+      (try let valueb = find key tb in
+           f.f key value valueb acc
+       with Not_found -> acc)
+    | _,Leaf{key;value} ->
+      (try let valuea = find key ta in
+           f.f key valuea value acc
+       with Not_found -> acc)
+    | Branch{prefix=pa;branching_bit=ma;tree0=ta0;tree1=ta1},
+      Branch{prefix=pb;branching_bit=mb;tree0=tb0;tree1=tb1} ->
+      if ma == mb && pa == pb
+      (* Same prefix: fold on each subtrees *)
+      then
+        let acc = fold_on_inter f ta0 tb0 acc in
+        let acc = fold_on_inter f ta1 tb1 acc in
+        acc
+      else if branches_before pa ma pb mb
+      then if (ma :> int) land (pb :> int) == 0
+        then fold_on_inter f ta0 tb acc
+        else fold_on_inter f ta1 tb acc
+      else if branches_before pb mb pa ma
+      then if (mb :> int) land (pa :> int) == 0
+        then fold_on_inter f ta tb0 acc
+        else fold_on_inter f ta tb1 acc
+      else acc
+
 
   type ('acc,'map) polyfold2_union =
     { f: 'a. 'a key -> ('a,'map) value option -> ('a,'map) value option ->
@@ -1318,6 +1347,9 @@ module MakeCustomMap
   let fold_on_nonequal_inter (f: key -> 'a value -> 'a value -> 'acc -> 'acc) ma mb acc =
     let f k (Snd va) (Snd vb) acc = f k va vb acc in
     BaseMap.fold_on_nonequal_inter {f} ma mb acc
+  let fold_on_inter (f: key -> 'a value -> 'a value -> 'acc -> 'acc) ma mb acc =
+    let f k (Snd va) (Snd vb) acc = f k va vb acc in
+    BaseMap.fold_on_inter {f} ma mb acc
   let fold_on_nonequal_union
       (f: key -> 'a value option -> 'a value option -> 'acc -> 'acc) ma mb acc =
     let f k va vb acc =
