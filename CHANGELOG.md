@@ -1,7 +1,7 @@
-# v0.13.0 - UNRELEASED
+# v0.13.0 - 2026-04-09
 
-- Add `nonidemptotent_union` (by [julow](https://github.com/Julow) in [#26](https://github.com/codex-semantics-library/patricia-tree/pull/26))
-- Add `nonidemptotent_inter_filter_no_share` (by [julow](https://github.com/Julow) in [#28](https://github.com/codex-semantics-library/patricia-tree/pull/28))
+- Add `nonidempotent_union` (by [julow](https://github.com/Julow) in [#26](https://github.com/codex-semantics-library/patricia-tree/pull/26))
+- Add `nonidempotent_inter_filter_no_share` (by [julow](https://github.com/Julow) in [#28](https://github.com/codex-semantics-library/patricia-tree/pull/28))
 - Add `reflexive_subset_domain_for_all2`, `[non]reflexive_any_domain_for_all2`, `fold_on_union`, `fold_on_inter` ([#27](https://github.com/codex-semantics-library/patricia-tree/pull/27))
 - Use a more generic type for `fold_on_nonequal_{union,inter}`: both maps are no longer required to
   have the same type.
