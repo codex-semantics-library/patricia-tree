@@ -497,7 +497,7 @@ module type BASE_MAP = sig
   (** [nonreflexive_any_domain_for_all2 f m1 m2] is [true] if [f.f k v1_opt v2_opt] for all bindings [k]
       in [m1 ∪ m2] (where [vi_opt] is [Some v] if [k] is bound to [v] is [mi], and [None] otherwise).
 
-      Unlike {!reflexive_any_domain_for_all2}, this does not assume that [f.f] is reflexive
+      This is a slower version of {!reflexive_any_domain_for_all2}, it does not assume that [f.f] is reflexive
       and thus does not skip identical subtrees.
       This is a slower alternative to {!nonreflexive_same_domain_for_all2}/{!nonreflexive_subset_domain_for_all2},
       which comes with no restriction about the domains of [m1] and [m2].
@@ -1433,7 +1433,7 @@ module type MAP_WITH_VALUE = sig
   (** [nonreflexive_any_domain_for_all2 f m1 m2] is [true] if [f k v1_opt v2_opt] for all bindings [k]
       in [m1 ∪ m2] (where [vi_opt] is [Some v] if [k] is bound to [v] is [mi], and [None] otherwise).
 
-      Unlike {!reflexive_any_domain_for_all2}, this does not assume that [f.f] is reflexive
+      This is a slower version of {!reflexive_any_domain_for_all2}, that does not assume that [f.f] is reflexive
       and thus does not skip identical subtrees.
       This is a slower alternative to {!nonreflexive_same_domain_for_all2}/{!nonreflexive_subset_domain_for_all2},
       which comes with no restriction about the domains of [m1] and [m2].
