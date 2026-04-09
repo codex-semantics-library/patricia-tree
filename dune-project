@@ -4,7 +4,7 @@
 ;;  This file is part of the Codex semantics library                      ;;
 ;;    (patricia-tree sub-component).                                      ;;
 ;;                                                                        ;;
-;;  Copyright (C) 2024-2025                                               ;;
+;;  Copyright (C) 2024-2026                                               ;;
 ;;    CEA (Commissariat à l'énergie atomique et aux énergies              ;;
 ;;         alternatives)                                                  ;;
 ;;                                                                        ;;
