@@ -153,6 +153,14 @@ let fold_on_nonequal_inter f m0 m1 acc =
       | _ -> acc)
     acc m0
 
+let fold_on_inter f m0 m1 acc =
+  List.fold_left
+    (fun acc (i, v0) ->
+      match List.assoc_opt i m1 with
+      | Some v1 -> f i v0 v1 acc
+      | _ -> acc)
+    acc m0
+
 let fold_on_nonequal_union f m0 m1 acc =
   (* Compute the nonequal union *)
   let p x =
@@ -166,6 +174,15 @@ let fold_on_nonequal_union f m0 m1 acc =
   let f acc k = f k (List.assoc_opt k m0) (List.assoc_opt k m1) acc in
   List.fold_left f acc keys
 
+let rec fold_on_union f m0 m1 acc = match m0, m1 with
+  | [], _ -> fold (fun k v acc -> f k None (Some v) acc) m1 acc
+  | _, [] -> fold (fun k v acc -> f k (Some v) None acc) m0 acc
+  | (k0,v0)::m0', (k1,v1)::m1' ->
+      match compare_keys k0 k1 with
+      | 0 -> fold_on_union f m0' m1' (f k0 (Some v0) (Some v1) acc)
+      | n when n < 0 -> fold_on_union f m0' m1 (f k0 (Some v0) None acc)
+      | _ -> fold_on_union f m0 m1' (f k1 None (Some v1) acc)
+
 let reflexive_same_domain_for_all2 p m0 m1 =
   let keys0 = keys m0
   and keys1 = keys m1
@@ -173,6 +190,9 @@ let reflexive_same_domain_for_all2 p m0 m1 =
   List.equal Int.equal keys0 keys1 && List.for_all p keys0
 
 let nonreflexive_same_domain_for_all2 = reflexive_same_domain_for_all2
+
+let nonreflexive_any_domain_for_all2 p m0 m1 =
+  List.for_all (fun k -> p k (List.assoc_opt k m0) (List.assoc_opt k m1)) (keys m0 @ keys m1)
 
 let difference f m0 m1 =
   let keys = keys @@ List.append m0 m1 in
@@ -192,6 +212,7 @@ let rec reflexive_subset_domain_for_all2 phi s t =
       let d = compare_keys x y in
       if d = 0 then phi x a b && reflexive_subset_domain_for_all2 phi xs ys
       else d > 0 && reflexive_subset_domain_for_all2 phi s ys
+let nonreflexive_subset_domain_for_all2 = reflexive_subset_domain_for_all2
 
 let intersect m0 m1 = idempotent_inter (fun _ l _ -> l) m0 m1 <> []
 
