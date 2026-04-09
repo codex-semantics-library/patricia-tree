@@ -116,8 +116,15 @@ let idempotent_inter_filter f m0 m1 =
 let idempotent_inter f m0 m1 =
   idempotent_inter_filter (fun i x y -> Some (f i x y)) m0 m1
 
-let nonidempotent_inter_no_share = idempotent_inter
-let nonidempotent_inter_filter_no_share = idempotent_inter_filter
+let nonidempotent_inter_filter_no_share f m0 m1 =
+  let aux (i, x) =
+    match List.assoc_opt i m1 with
+    | Some y -> Option.map (fun r -> (i, r)) (f i x y)
+    | None -> None
+  in
+  List.filter_map aux m0
+let nonidempotent_inter_no_share f = nonidempotent_inter_filter_no_share (fun i x y -> Some (f i x y))
+
 
 let symmetric_difference f m0 m1 =
   let keys = List.sort_uniq compare_keys @@ List.append (keys m0) (keys m1)

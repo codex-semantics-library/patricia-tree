@@ -29,15 +29,14 @@ Step-by-step guide to creating and publishing a new release.
 6. On the [codex-semantics-library.github.io](https://github.com/codex-semantics-library/codex-semantics-library.github.io)
    repository:
    - update the `patricia-tree.latest-version` field in `_data/packages.yaml`
-   - update the `api/patricia-tree.md` page to add a link to the new version.
    - run `dune build @doc-json`, copy the json files from
      `<this repo>/_build/default/_doc/html/patricia-tree` to
-     `<website>/_data/api/patricia-tree/vX__Y__Z` (note the `__` instead of `.`),
-     also copy the `db.js` file to `<website>/assets/js/sherlodoc-db/patricia-tree.X.Y.Z.js`
+     `<website>/_data/api/patricia-tree/`
+     also copy the `db.js` file to `<website>/assets/js/sherlodoc-db/patricia-tree.js`
 
 7. Run:
    ```bash
-   dune-release publish distrib
+   dune-release distrib
    ```
    This will create a new Github release, it requires a Github Access Token.
 
