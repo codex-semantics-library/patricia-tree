@@ -23,7 +23,7 @@
 
 (name patricia-tree)
 
-(version 0.12.0)
+(version 0.13.0)
 
 (using mdx 0.2)
 
