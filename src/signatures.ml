@@ -1414,7 +1414,7 @@ module type MAP_WITH_VALUE = sig
       [Delta] is the number of different keys bound to different values in [map1] and
       [map2]. *)
 
-  val nonreflexive_subset_domain_for_all2 : (key -> 'a value -> 'a value -> bool) -> 'a t -> 'a t -> bool
+  val nonreflexive_subset_domain_for_all2 : (key -> 'a value -> 'b value -> bool) -> 'a t -> 'b t -> bool
   (** [nonreflexive_subset_domain_for_all2 f m1 m2] is true if and only if
       - [m1]'s domain is a subset of [m2]'s. (all keys defined in [m1] are also defined in [m2])
       - for all bindings [(k, v1)] in [m1] and [(k, v2)] in [m2], [f k v1 v2] holds

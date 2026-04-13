@@ -38,15 +38,17 @@ Step-by-step guide to creating and publishing a new release.
    ```bash
    dune-release distrib
    ```
-   This will create a new Github release, it requires a Github Access Token.
+   This will create a file `_build/patricia-tree-X.Y.Z.tbz`
 
-8. Run:
+8. Create a github release with the associated tag, and upload the `.tbz` file to it.
+
+9. Run:
    ```bash
    dune-release opam pkg
    ```
    To prepare the package for an opam release
 
-9. Run:
+10. Run:
    ```bash
    dune-release opam submit
    ```

@@ -1293,7 +1293,7 @@ module MakeCustomMap
     BaseMap.nonreflexive_same_domain_for_all2 {f=fun k (Snd v1) (Snd v2) -> f k v1 v2} a b
   let reflexive_subset_domain_for_all2 (f: key -> 'a value -> 'a value -> bool) a b =
     BaseMap.reflexive_subset_domain_for_all2 {f=fun k (Snd v1) (Snd v2) -> f k v1 v2} a b
-  let nonreflexive_subset_domain_for_all2 (f: key -> 'a value -> 'a value -> bool) a b =
+  let nonreflexive_subset_domain_for_all2 (f: key -> 'a value -> 'b value -> bool) a b =
     BaseMap.nonreflexive_subset_domain_for_all2 {f=fun k (Snd v1) (Snd v2) -> f k v1 v2} a b
   let slow_merge (f : key -> 'a value option -> 'b value option -> 'c value option) a b = BaseMap.slow_merge {f=fun k v1 v2 -> snd_opt (f k (opt_snd v1) (opt_snd v2))} a b
   let symmetric_difference (f: key -> 'a value -> 'a value -> 'a value option) a b = BaseMap.symmetric_difference {f=fun k (Snd v1) (Snd v2) -> snd_opt (f k v1 v2)} a b

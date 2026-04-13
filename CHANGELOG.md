@@ -1,3 +1,7 @@
+# v0.14.0 - Unreleased
+
+- Change type of `nonreflexive_subset_domain_for_all2` to allows usage with maps of different type.
+
 # v0.13.0 - 2026-04-09
 
 - Add `nonidempotent_union` (by [julow](https://github.com/Julow) in [#26](https://github.com/codex-semantics-library/patricia-tree/pull/26))
