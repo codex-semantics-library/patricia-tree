@@ -537,7 +537,7 @@ module type BASE_MAP = sig
         | [m1] | [x] | [y] | [z] |     |
         | [m2] |     | [y] | [u] | [v] |
         | {{!idempotent_union}[idempotent_union f m1 m2]} | [x] | [y] | [f c z u] | [v] |
-        | {{!nonidempotent_union}[idempotent_union f m1 m2]} | [x] | [f b y y] | [f c z u] | [v] |
+        | {{!nonidempotent_union}[nonidempotent_union f m1 m2]} | [x] | [f b y y] | [f c z u] | [v] |
         | {{!idempotent_inter}[idempotent_inter f m1 m2]} |    | [y] | [f c z u] |   |
         | {{!idempotent_inter_filter}[idempotent_inter_filter f m1 m2]}{^ \[1\]} |    | [y] | [f c z u] |   |
         | {{!nonidempotent_inter_no_share}[nonidempotent_inter_no_share f m1 m2]} |    | [f b y y] | [f c z u] |   |
