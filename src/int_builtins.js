@@ -23,6 +23,6 @@
 
 // Implement the C stubs from int_builtins.c in JS
 function caml_int_builtin_highest_bit_byte(x) {
-  if (x < 0) return 1 << 31 // JS is 32 bit numbers
-  return 1 << Math.floor(Math.log2(x));
+  if (x === 0) return 0;
+  return 1 << (31 - Math.clz32(x));
 }
