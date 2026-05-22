@@ -31,6 +31,8 @@
  (public_name patricia-tree)
  (instrumentation
   (backend bisect_ppx))
+ (js_of_ocaml
+  (javascript_files int_builtins.js))
  (foreign_stubs
   (language c)
   (names int_builtins)))
