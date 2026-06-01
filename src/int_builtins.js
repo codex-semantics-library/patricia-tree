@@ -22,6 +22,7 @@
 /* ************************************************************************ */
 
 // Implement the C stubs from int_builtins.c in JS
+//Provides: caml_int_builtin_highest_bit_byte
 function caml_int_builtin_highest_bit_byte(x) {
   if (x === 0) return 0;
   return 1 << (31 - Math.clz32(x));
