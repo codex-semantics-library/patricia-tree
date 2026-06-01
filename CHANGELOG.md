@@ -1,6 +1,7 @@
 # v0.14.0 - Unreleased
 
 - Change type of `nonreflexive_subset_domain_for_all2` to allows usage with maps of different type.
+- Add JS stubs for use with js-of-ocaml ([#34](https://github.com/codex-semantics-library/patricia-tree/pull/34)).
 
 # v0.13.0 - 2026-04-09
 
@@ -21,7 +22,7 @@
 - Specify that hash-consed and weak nodes are not thread safe (issue [#17](https://github.com/codex-semantics-library/patricia-tree/issues/17))
 - Add `MutexProtectNode` functors to enable multithreaded use of non-thread safe nodes ([#24](https://github.com/codex-semantics-library/patricia-tree/pull/24)).
 - Also add `Make[Heterogeneous]Hashconsed[Set|Map]WithMutex` functors using `MutexProtectNode`
-  for convenience  ([#24](https://github.com/codex-semantics-library/patricia-tree/pull/24)).
+  for convenience ([#24](https://github.com/codex-semantics-library/patricia-tree/pull/24)).
 - Fix a bug with `nonreflexive_same_domain_forall2` (by [julow](https://github.com/Julow) in [#19](https://github.com/codex-semantics-library/patricia-tree/pull/19))
 
 ## Dev changes
