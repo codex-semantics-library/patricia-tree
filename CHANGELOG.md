@@ -1,6 +1,7 @@
 # v0.14.0 - Unreleased
 
 - Change type of `nonreflexive_subset_domain_for_all2` to allows usage with maps of different type.
+- Add JS stubs for use with js-of-ocaml.
 
 # v0.13.0 - 2026-04-09
 
