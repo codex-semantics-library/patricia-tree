@@ -25,7 +25,6 @@ Step-by-step guide to creating and publishing a new release.
    git push origin vX.Y.Z
    ```
    Check that [github-action](https://github.com/codex-semantics-library/patricia-tree/actions) succeeds (build, tests and documentation).
-   It should create a new folder `vX.Y.Z` on the `gh-pages` branch.
 
 6. On the [codex-semantics-library.github.io](https://github.com/codex-semantics-library/codex-semantics-library.github.io)
    repository:
@@ -43,13 +42,15 @@ Step-by-step guide to creating and publishing a new release.
 
 8. Create a github release with the associated tag, and upload the `.tbz` file to it.
 
-9. Run:
+9. Copy the URL of the release's tbz file to `_build/asset-X.Y.Z.url`
+
+10. Run:
    ```bash
    dune-release opam pkg
    ```
    To prepare the package for an opam release
 
-10. Run:
+11. Run:
    ```bash
    dune-release opam submit
    ```
