@@ -3,7 +3,8 @@
 Step-by-step guide to creating and publishing a new release.
 
 1. Check that file headers are up-to-date
-2. Update version numbers in [dune-project](./dune-project) and [src/index.mld](./src/index.mld)
+2. Update version numbers in [dune-project](./dune-project) and [src/index.mld](./src/index.mld).
+   Run `dune build` to also update the version numbers in the `.opam` files
 3. Fill in the [changelog](./CHANGELOG.md), it should start with
    ```md
    # vX.Y.Z - YYYY-MM-DD

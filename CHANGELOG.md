@@ -1,4 +1,4 @@
-# v0.14.0 - Unreleased
+# v0.14.0 - 2026-06-03
 
 - Change type of `nonreflexive_subset_domain_for_all2` to allows usage with maps of different type.
 - Add JS stubs for use with js-of-ocaml ([#34](https://github.com/codex-semantics-library/patricia-tree/pull/34)).
