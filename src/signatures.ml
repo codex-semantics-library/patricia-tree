@@ -333,13 +333,13 @@ module type BASE_MAP = sig
 
       @since v0.13.0 *)
 
-  type 'map polypredicate = { f: 'a. 'a key -> ('a,'map) value -> bool; } [@@unboxed]
-  val filter : 'map polypredicate -> 'map t -> 'map t
+
+  val filter : ('map, bool) polyfold -> 'map t -> 'map t
   (** [filter f m] returns the submap of [m] containing the bindings [k->v]
       such that [f.f k v = true].
       [f.f] is called in the {{!unsigned_lt}unsigned order} of {!KEY.to_int} *)
 
-  val for_all : 'map polypredicate -> 'map t -> bool
+  val for_all : ('map, bool) polyfold -> 'map t -> bool
   (** [for_all f m] checks that [f] holds on all bindings of [m].
       Short-circuiting. *)
 
@@ -938,12 +938,11 @@ module type HETEROGENEOUS_SET = sig
   val iter: unit polyfold -> t -> unit
   (** [iter f set] calls [f.f] on all elements of [set], in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
 
-  type polypredicate = { f: 'a. 'a elt -> bool; } [@@unboxed]
-  val filter: polypredicate -> t -> t
+  val filter: bool polyfold -> t -> t
   (** [filter f set] is the subset of [set] that only contains the elements that
       satisfy [f.f]. [f.f] is called in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
 
-  val for_all: polypredicate -> t -> bool
+  val for_all: bool polyfold -> t -> bool
   (** [for_all f set] is [true] if [f.f] is [true] on all elements of [set].
       Short-circuits on first [false]. [f.f] is called in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
 

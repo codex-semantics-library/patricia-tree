@@ -23,6 +23,14 @@
 
 open Signatures
 
+(** Type used to specify functions for {!MakeMap.for_all2} *)
+type 'a forall2_pred =
+  | True (** Equivalent to [F (fun _ -> true)], but allows skipping exploring the relevant cases *)
+  | False (** Equivalent to [F (fun _ -> false)], but allows skipping exploring the relevant cases *)
+  | F of 'a (** A user-supplied function *)
+
+
+
 (** This section presents the functors which can be used to build patricia tree
     maps and sets. *)
 

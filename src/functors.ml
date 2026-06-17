@@ -1102,9 +1102,8 @@ module MakeCustomHeterogeneousMap
   let fold_on_nonequal_union f m1 m2 = fold_union ~reflexive:true f m1 m2
   let fold_on_union f m1 m2 = fold_union ~reflexive:false f m1 m2
 
-  type 'map polypredicate = { f: 'a. 'a key -> ('a,'map) value -> bool; } [@@unboxed]
-  let filter f m = filter_map {f = fun k v -> if f.f k v then Some v else None } m
-  let rec for_all f m = match NODE.view m with
+  let filter (f: (_,_) polyfold) m = filter_map {f = fun k v -> if f.f k v then Some v else None } m
+  let rec for_all (f: (_,_) polyfold) m = match NODE.view m with
     | Empty -> true
     | Leaf{key;value} -> f.f key value
     | Branch{tree0; tree1; _ } -> for_all f tree0 && for_all f tree1
@@ -1199,9 +1198,8 @@ module MakeCustomHeterogeneousSet
   let split k m = let (l, present, r) = BaseMap.split k m in
     (l, Option.is_some present, r)
 
-  type polypredicate = { f: 'a. 'a key -> bool; } [@@unboxed]
-  let filter f s = BaseMap.filter {f = fun k () -> f.f k } s
-  let for_all f s = BaseMap.for_all {f = fun k () -> f.f k} s
+  let filter (f : (_) polyfold) s = BaseMap.filter {f = fun k () -> f.f k } s
+  let for_all (f : (_) polyfold) s = BaseMap.for_all {f = fun k () -> f.f k} s
 
   let to_seq m = Seq.map (fun (KeyValue(elt,())) -> Any elt) (BaseMap.to_seq m)
   let to_rev_seq m = Seq.map (fun (KeyValue(elt,())) -> Any elt) (BaseMap.to_rev_seq m)

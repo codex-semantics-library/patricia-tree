@@ -1,3 +1,7 @@
+# v0.15.0 - Unreleased
+
+- Removed `polypredicate` types, as they can be expressed by `bool polyfold`
+
 # v0.14.0 - 2026-06-03
 
 - Change type of `nonreflexive_subset_domain_for_all2` to allows usage with maps of different type.
