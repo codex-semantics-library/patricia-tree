@@ -695,9 +695,8 @@ module MakeCustomHeterogeneousMap
       in loop t
     with Unmodified -> t
 
-  type ('map1,'map2) polysame_domain_for_all2 = { f: 'a 'b. 'a Key.t -> ('a,'map1) Value.t -> ('a,'map2) Value.t -> bool } [@@unboxed]
-  (* Fast equality test between two maps. *)
-  let rec same_domain_for_all2 ~reflexive f ta tb = match (NODE.view ta),(NODE.view tb) with
+ (* Fast equality test between two maps. *)
+  let rec same_domain_for_all2 ~reflexive (f : _ polyfold2_inter) ta tb = match (NODE.view ta),(NODE.view tb) with
     | _ when reflexive && phys_same ta tb -> true (* Skip same subtrees thanks to reflexivity. *)
     | Empty, Empty -> true
     | Empty, _ | _, Empty -> false
@@ -716,7 +715,7 @@ module MakeCustomHeterogeneousMap
   let reflexive_same_domain_for_all2 f ta tb = same_domain_for_all2 ~reflexive:true f ta tb
   let nonreflexive_same_domain_for_all2 f ta tb = same_domain_for_all2 ~reflexive:false f ta tb
 
-  let rec subset_domain_for_all2 ~reflexive f ta tb = match (NODE.view ta),(NODE.view tb) with
+  let rec subset_domain_for_all2 ~reflexive (f : _ polyfold2_inter) ta tb = match (NODE.view ta),(NODE.view tb) with
     | _ when reflexive && phys_same ta tb -> true   (* Skip same subtrees thanks to reflexivity. *)
     | Empty, _ -> true
     | _, Empty -> false
@@ -756,10 +755,7 @@ module MakeCustomHeterogeneousMap
   let reflexive_subset_domain_for_all2 f ta tb = subset_domain_for_all2 ~reflexive:true f ta tb
   let nonreflexive_subset_domain_for_all2 f ta tb = subset_domain_for_all2 ~reflexive:false f ta tb
 
-  type 'map polycompare =
-      { f : 'a. 'a key -> ('a, 'map) value -> ('a, 'map) value -> int; } [@@unboxed]
-
-  let compare_aux : type a b m. m polycompare -> a key -> (a,m) value -> b key -> (b,m) value -> int -> int =
+  let compare_aux : type a b m. (m,m,int) polyfold2_inter -> a key -> (a,m) value -> b key -> (b,m) value -> int -> int =
   fun f ka va kb vb default ->
     let cmp = Int.compare (Key.to_int ka) (Key.to_int kb) in
     if cmp <> 0 then cmp else
@@ -1230,12 +1226,10 @@ module MakeCustomHeterogeneousMap
     | Leaf{key;value} -> f.f key value
     | Branch{tree0; tree1; _ } -> for_all f tree0 && for_all f tree1
 
-  type ('map1,'map2) polyfor_all2 =
-    { f : 'a. 'a key -> ('a, 'map1) value option -> ('a, 'map2) value option -> bool; } [@@unboxed]
-  let nonreflexive_any_domain_for_all2 f ta tb =
+  let nonreflexive_any_domain_for_all2 (f: _ polyfold2) ta tb =
     try fold_on_union {f=fun k v1 v2 ()-> if f.f k v1 v2 then () else raise False} ta tb (); true
     with False -> false
-  let reflexive_any_domain_for_all2 f ta tb =
+  let reflexive_any_domain_for_all2 (f: _ polyfold2) ta tb =
     try fold_on_nonequal_union {f=fun k v1 v2 ()-> if f.f k v1 v2 then () else raise False} ta tb (); true
     with False -> false
 

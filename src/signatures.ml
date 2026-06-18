@@ -424,11 +424,9 @@ module type BASE_MAP = sig
   (** {2 Comparing two maps} *)
   (** Functions for equality, inclusion, and test for disjointness. *)
 
-  type ('map1,'map2) polysame_domain_for_all2 =
-    { f : 'a. 'a key -> ('a, 'map1) value -> ('a, 'map2) value -> bool; } [@@unboxed]
 
   val reflexive_same_domain_for_all2 :
-    ('map,'map) polysame_domain_for_all2 -> 'map t -> 'map t -> bool
+    ('map,'map,bool) polyfold2_inter -> 'map t -> 'map t -> bool
   (** [reflexive_same_domain_for_all2 f m1 m2] is true if and only if
       - [m1] and [m2] have the same domain (set of keys)
       - for all bindings [(k, v1)] in [m1] and [(k, v2)] in [m2], [f.f k v1 v2] holds
@@ -446,14 +444,14 @@ module type BASE_MAP = sig
       ]} *)
 
   val nonreflexive_same_domain_for_all2:
-    ('map1,'map2) polysame_domain_for_all2 -> 'map1 t -> 'map2 t -> bool
+    ('map1,'map2,bool) polyfold2_inter -> 'map1 t -> 'map2 t -> bool
   (** [nonreflexive_same_domain_for_all2 f m1 m2] is the same as
       {!reflexive_same_domain_for_all2}, but doesn't assume [f.f] is reflexive.
       It thus calls [f.f] on every binding, in ascending {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
       Exits early if the domains mismatch or if [f.f] returns [false]. *)
 
   val reflexive_subset_domain_for_all2 :
-    ('map,'map) polysame_domain_for_all2 -> 'map t -> 'map t -> bool
+    ('map,'map,bool) polyfold2_inter -> 'map t -> 'map t -> bool
   (** [reflexive_subset_domain_for_all2 f m1 m2] is true if and only if
       - [m1]'s domain is a subset of [m2]'s. (all keys defined in [m1] are also defined in [m2])
       - for all bindings [(k, v1)] in [m1] and [(k, v2)] in [m2], [f.f k v1 v2] holds
@@ -471,7 +469,7 @@ module type BASE_MAP = sig
       ]} *)
 
   val nonreflexive_subset_domain_for_all2 :
-    ('map1,'map2) polysame_domain_for_all2 -> 'map1 t -> 'map2 t -> bool
+    ('map1,'map2,bool) polyfold2_inter -> 'map1 t -> 'map2 t -> bool
   (** [nonreflexive_subset_domain_for_all2 f m1 m2] is true if and only if
       - [m1]'s domain is a subset of [m2]'s. (all keys defined in [m1] are also defined in [m2])
       - for all bindings [(k, v1)] in [m1] and [(k, v2)] in [m2], [f.f k v1 v2] holds
@@ -484,9 +482,7 @@ module type BASE_MAP = sig
 
       @since v0.13.0  *)
 
-  type ('map1,'map2) polyfor_all2 =
-    { f : 'a. 'a key -> ('a, 'map1) value option -> ('a, 'map2) value option -> bool; } [@@unboxed]
-  val reflexive_any_domain_for_all2 : ('map1,'map2) polyfor_all2 -> 'map1 t -> 'map2 t -> bool
+  val reflexive_any_domain_for_all2 : ('map1,'map2,bool) polyfold2 -> 'map1 t -> 'map2 t -> bool
   (** [reflexive_any_domain_for_all2 f m1 m2] is [true] if [f.f k v1_opt v2_opt] for all bindings [k]
       in [m1 ∪ m2] (where [vi_opt] is [Some v] if [k] is bound to [v] is [mi], and [None] otherwise).
 
@@ -499,7 +495,7 @@ module type BASE_MAP = sig
 
       @since v0.13.0 *)
 
-  val nonreflexive_any_domain_for_all2 : ('map1,'map2) polyfor_all2 -> 'map1 t -> 'map2 t -> bool
+  val nonreflexive_any_domain_for_all2 : ('map1,'map2,bool) polyfold2 -> 'map1 t -> 'map2 t -> bool
   (** [nonreflexive_any_domain_for_all2 f m1 m2] is [true] if [f.f k v1_opt v2_opt] for all bindings [k]
       in [m1 ∪ m2] (where [vi_opt] is [Some v] if [k] is bound to [v] is [mi], and [None] otherwise).
 
@@ -513,10 +509,14 @@ module type BASE_MAP = sig
 
       @since v0.13.0 *)
 
+  val for_all2:
+    reflexive:bool ->
+    left_only:('a,bool) polyfold forall2_pred ->
+    common:('a,'b,bool) polyfold2_inter forall2_pred ->
+    right_only:('b,bool) polyfold forall2_pred ->
+    'a t -> 'b t -> bool
 
-  type 'map polycompare =
-      { f : 'a. 'a key -> ('a, 'map) value -> ('a, 'map) value -> int; } [@@unboxed]
-  val reflexive_compare : 'a polycompare -> 'a t -> 'a t -> int
+  val reflexive_compare : ('a,'a,int) polyfold2_inter -> 'a t -> 'a t -> int
   (** [reflexive_compare f m1 m2] is an order relation on maps.
       [m1] and [m2] are equal (return [0]) if they have the same domain and for all bindings
       [(k,v)] in [m1], [(k,v')] in [m2], we have [f v v' = 0].

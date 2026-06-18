@@ -1,6 +1,9 @@
 # v0.15.0 - Unreleased
 
 - Removed `polypredicate` types, as they can be expressed by `bool polyfold`
+- Change type `polyfold2_inter` to use same convention as `polyfold2` (move res argument last, encode non-fold functions)
+- Removed `polysame_domain_for_all2`, `polyfor_all2` and `polycompare` types, as
+  they can all be expressed with `polyfold2` or `polyfold2_inter`.
 
 # v0.14.0 - 2026-06-03
 
