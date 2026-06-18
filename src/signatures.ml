@@ -169,22 +169,6 @@ module type HASH_CONSED_NODE = sig
       child nodes will always have a smaller identifier than their parents. *)
 end
 
-(** A {!NODE} along with its {!NODE_WITH_FIND.find} function.
-    This is the minimal argument to the {!HETEROGENEOUS_MAP.WithForeign} functors
-
-    @since v0.11.0
-    @canonical PatriciaTree.NODE_WITH_FIND *)
-module type NODE_WITH_FIND = sig
-  include NODE (** @closed *)
-
-  val find : 'key key -> 'map t -> ('key, 'map) value
-  (** [find key map] returns the value associated with [key] in [map] if present.
-      @raises Not_found if [key] is absent from map *)
-
-  val find_opt : 'key key -> 'map t -> ('key, 'map) value option
-  (** Same as {!find}, but returns [None] for Not_found *)
-end
-
 (** {1 Map signatures} *)
 
 (** {2 Base map} *)
@@ -203,7 +187,14 @@ end
 
     @canonical PatriciaTree.BASE_MAP *)
 module type BASE_MAP = sig
-  include NODE_WITH_FIND (** @open *)
+  include NODE (** @open *)
+
+val find : 'key key -> 'map t -> ('key, 'map) value
+  (** [find key map] returns the value associated with [key] in [map] if present.
+      @raises Not_found if [key] is absent from map *)
+
+  val find_opt : 'key key -> 'map t -> ('key, 'map) value option
+  (** Same as {!find}, but returns [None] for Not_found *)
 
   (** Existential wrapper for the ['a] parameter in a ['a key], [('a,'map) value] pair *)
   type 'map key_value_pair =
@@ -736,7 +727,7 @@ module type HETEROGENEOUS_MAP = sig
 
   (** Operation with maps/set of different types.
       [Map2] must use the same {!KEY.to_int} function. *)
-  module WithForeign(Map2: NODE_WITH_FIND with type 'a key = 'a key):sig
+  module WithForeign(Map2: NODE with type 'a key = 'a key):sig
     type ('map1,'map2) polyinter_foreign = { f: 'a. 'a key -> ('a,'map1) value -> ('a,'map2) Map2.value -> ('a,'map1) value } [@@unboxed]
 
     val nonidempotent_inter : ('a,'b) polyinter_foreign -> 'a t -> 'b Map2.t -> 'a t
@@ -1622,7 +1613,7 @@ module type MAP_WITH_VALUE = sig
 
   (** Combination with other kinds of maps.
       [Map2] must use the same {!KEY.to_int} function. *)
-  module WithForeign(Map2: NODE_WITH_FIND with type _ key = key):sig
+  module WithForeign(Map2: NODE with type _ key = key):sig
 
     type ('b,'c) polyfilter_map_foreign = { f: 'a. key -> ('a,'b) Map2.value -> 'c value option } [@@unboxed]
     val filter_map_no_share : ('b, 'c) polyfilter_map_foreign -> 'b Map2.t ->  'c t

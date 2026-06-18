@@ -4,6 +4,8 @@
 - Change type `polyfold2_inter` to use same convention as `polyfold2` (move res argument last, encode non-fold functions)
 - Removed `polysame_domain_for_all2`, `polyfor_all2` and `polycompare` types, as
   they can all be expressed with `polyfold2` or `polyfold2_inter`.
+- Removed `NODE_WITH_FIND` module type, as `WithForeign` can now operate directly
+  on `NODE`.
 
 # v0.14.0 - 2026-06-03
 

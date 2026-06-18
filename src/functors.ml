@@ -39,6 +39,56 @@ let [@inline always] branches_before l_prefix (l_mask : mask) (r_prefix : intkey
 
 exception False
 
+module MakeCore(Key:HETEROGENEOUS_KEY)(Node: NODE with type 'a key = 'a Key.t) = struct
+  include Node
+  let rec findint: type a map. a key -> int -> map t -> (a,map) value =
+    fun witness searched m -> match Node.view m with
+      | Leaf{key;value} -> begin
+          match Key.polyeq key witness with
+          | Eq -> value
+          | Diff -> raise Not_found
+        end
+      | Branch{branching_bit;tree0;tree1;_} ->
+        (* Optional if not (match_prefix searched prefix branching_bit) then raise Not_found
+            else *) if ((branching_bit :> int) land searched == 0)
+        then findint witness searched tree0
+        else findint witness searched tree1
+      | Empty -> raise Not_found
+  let find searched m = findint searched (Key.to_int searched) m
+  let find_opt searched m = match find searched m with
+  | x -> Some x
+  | exception Not_found -> None
+
+    type ('map,'res) polyfold = { f: 'a. 'a key -> ('a,'map) Node.value -> 'res } [@@unboxed]
+
+    let rec fold f m acc = match Node.view m with
+      | Empty -> acc
+      | Leaf{key;value} -> f.f key value acc
+      | Branch{tree0;tree1;_} ->
+        let acc = fold f tree0 acc in
+        fold f tree1 acc
+
+    let rec for_all f m = match Node.view m with
+      | Empty -> true
+      | Leaf{key;value} -> f.f key value
+      | Branch{tree0; tree1; _ } -> for_all f tree0 && for_all f tree1
+
+    let forall_missing (type k') fmissing (fcommon: (k','a) Node.value option -> bool) (key: k' key) m =
+      let id_a = Key.to_int key in
+      let found = ref false in
+      let forall_func (type k) (keyb: k Key.t) valueb =
+        if !found then fmissing.f keyb valueb else
+        let id_b = Key.to_int keyb in
+        if unsigned_lt id_b id_a then fmissing.f keyb valueb
+        else
+          (found := true;
+          if unsigned_lt id_a id_b then fcommon None && fmissing.f keyb valueb
+          else match Key.polyeq key keyb with
+          | Eq -> fcommon (Some valueb)
+          | Diff -> raise (Invalid_argument "Keys with same to_int value are not equal by polyeq"))
+      in for_all {f=forall_func} m
+end
+
 module MakeCustomHeterogeneousMap
     (Key:HETEROGENEOUS_KEY)
     (Value:HETEROGENEOUS_VALUE)
@@ -47,27 +97,7 @@ module MakeCustomHeterogeneousMap
     and type ('key,'map) value = ('key,'map) Value.t
     and type 'a t = 'a NODE.t
 = struct
-  module Core = struct
-    include NODE
-    let rec findint: type a map. a Key.t -> int -> map t -> (a,map) value =
-      fun witness searched m -> match NODE.view m with
-        | Leaf{key;value} -> begin
-            match Key.polyeq key witness with
-            | Eq -> value
-            | Diff -> raise Not_found
-          end
-        | Branch{branching_bit;tree0;tree1;_} ->
-          (* Optional if not (match_prefix searched prefix branching_bit) then raise Not_found
-             else *) if ((branching_bit :> int) land searched == 0)
-          then findint witness searched tree0
-          else findint witness searched tree1
-        | Empty -> raise Not_found
-    let find searched m = findint searched (Key.to_int searched) m
-    let find_opt searched m = match find searched m with
-    | x -> Some x
-    | exception Not_found -> None
-  end
-  include Core
+  include MakeCore(Key)(NODE)
 
   type 'map key_value_pair = KeyValue: 'a Key.t * ('a,'map) value -> 'map key_value_pair
 
@@ -214,45 +244,13 @@ module MakeCustomHeterogeneousMap
 
   let remove to_remove m = removeint (Key.to_int to_remove) m
 
-  module CorePlus(Map: NODE_WITH_FIND with type 'a key = 'a key) = struct
-    type ('map,'res) polyfold = { f: 'a. 'a Map.key -> ('a,'map) Map.value -> 'res } [@@unboxed]
-
-    let rec fold f m acc = match Map.view m with
-      | Empty -> acc
-      | Leaf{key;value} -> f.f key value acc
-      | Branch{tree0;tree1;_} ->
-        let acc = fold f tree0 acc in
-        fold f tree1 acc
-
-    let rec for_all f m = match Map.view m with
-      | Empty -> true
-      | Leaf{key;value} -> f.f key value
-      | Branch{tree0; tree1; _ } -> for_all f tree0 && for_all f tree1
-
-    let forall_missing (type k') fmissing (fcommon: (k','a) Map.value option -> bool) (key: k' key) m =
-      let id_a = Key.to_int key in
-      let found = ref false in
-      let forall_func (type k) (keyb: k Key.t) valueb =
-        if !found then fmissing.f keyb valueb else
-        let id_b = Key.to_int keyb in
-        if unsigned_lt id_b id_a then fmissing.f keyb valueb
-        else
-          (found := true;
-          if unsigned_lt id_a id_b then fcommon None && fmissing.f keyb valueb
-          else match Key.polyeq key keyb with
-          | Eq -> fcommon (Some valueb)
-          | Diff -> raise (Invalid_argument "Keys with same to_int value are not equal by polyeq"))
-      in for_all {f=forall_func} m
-  end
-
-  include CorePlus(Core)
   let rec iter f x = match NODE.view x with
     | Empty -> ()
     | Leaf{key;value} -> f.f key value
     | Branch{tree0;tree1;_} -> iter f tree0; iter f tree1
 
-  module WithForeign(Map2:NODE_WITH_FIND with type 'a key = 'a key) = struct
-
+  module WithForeign(Map2:NODE with type 'a key = 'a key) = struct
+    module Core2 = MakeCore(Key)(Map2)
     (* Intersects the first map with the values of the second map,
        trying to preserve physical equality of the first map whenever
        possible. *)
@@ -261,7 +259,7 @@ module MakeCustomHeterogeneousMap
       match NODE.view ta,Map2.view tb with
       | Empty, _ | _, Empty -> NODE.empty
       | Leaf{key;value},_ ->
-        (try let res = Map2.find key tb in
+        (try let res = Core2.find key tb in
            let newval = (f.f key value res) in
            if newval == value then ta
            else NODE.leaf key newval
@@ -356,7 +354,7 @@ module MakeCustomHeterogeneousMap
       | Empty, _ -> ta
       | _, Empty -> ta
       | Leaf{key;value},_ ->
-        begin match Map2.find key tb with
+        begin match Core2.find key tb with
         | exception Not_found -> ta
         | foundv -> begin
             match f.f key value foundv with
@@ -398,7 +396,7 @@ module MakeCustomHeterogeneousMap
       | _ when phys_same ta tb -> empty
       | Empty, _
       | _, Empty -> ta
-      | Leaf{key;value=va},_ -> (try let vb = Map2.find key tb in
+      | Leaf{key;value=va},_ -> (try let vb = Core2.find key tb in
             match f.f key va vb with
             | None -> empty
             | Some v -> if v == va then ta else leaf key v
@@ -427,7 +425,7 @@ module MakeCustomHeterogeneousMap
       match NODE.view ta,Map2.view tb with
       | Empty, _ | _, Empty -> None
       | Leaf{key;value},_ ->
-        (try Some (KeyValueValue(key,value,Map2.find key tb))
+        (try Some (KeyValueValue(key,value,Core2.find key tb))
          with Not_found -> None)
       | _,Leaf{key;value} ->
         (try Some (KeyValueValue(key,find key ta,value))
@@ -454,7 +452,7 @@ module MakeCustomHeterogeneousMap
       match NODE.view ta, Map2.view tb with
       | Empty, _ | _, Empty -> None
       | Leaf{key;value},_ ->
-        (try Some (KeyValueValue(key,value,Map2.find key tb))
+        (try Some (KeyValueValue(key,value,Core2.find key tb))
           with Not_found -> None)
       | _,Leaf{key;value} ->
         (try Some (KeyValueValue(key,find key ta,value))
@@ -477,10 +475,8 @@ module MakeCustomHeterogeneousMap
           else max_binding_inter ta tb1
         else None
 
-
-    module CPL = CorePlus(Map2)
     (* Re-implement fold for Map2 *)
-    type ('map,'res) map2_polyfold = ('map,'res) CPL.polyfold = { f: 'a. 'a key -> ('a,'map) Map2.value -> 'res } [@@unboxed]
+    type ('map,'res) map2_polyfold = ('map,'res) Core2.polyfold = { f: 'a. 'a key -> ('a,'map) Map2.value -> 'res } [@@unboxed]
 
     type ('map1,'map2,'res) polyfold2 =
       { f: 'a. 'a key -> ('a,'map1) value option -> ('a,'map2) Map2.value option -> 'res } [@@unboxed]
@@ -513,7 +509,7 @@ module MakeCustomHeterogeneousMap
       let fright = match right_only with
         | True -> fun _ -> true
         | False -> fun _ -> false
-        | F f -> CPL.for_all {f=f.f} in
+        | F f -> Core2.for_all {f=f.f} in
       let reflexive = reflexive || common = True in
       let rec for_all2 ta tb =
         let same = phys_same ta tb in
@@ -531,10 +527,10 @@ module MakeCustomHeterogeneousMap
             end
           | Leaf{key;value},_ -> begin match right_only with
               | False -> false
-              | True -> (match Map2.find_opt key tb with
+              | True -> (match Core2.find_opt key tb with
                           | None -> of_l left_only key value
                           | Some v -> of_c common key value v)
-              | F f -> CPL.forall_missing f (fun v -> match v with
+              | F f -> Core2.forall_missing f (fun v -> match v with
                 | Some v -> of_c common key value v
                 | None -> of_l left_only key value
                ) key tb
@@ -579,7 +575,7 @@ module MakeCustomHeterogeneousMap
             else fright tb && fleft ta
       in for_all2
   end
-  include WithForeign(Core)
+  include WithForeign(NODE)
 
   let rec unsigned_min_binding x = match NODE.view x with
     | Empty -> raise Not_found
@@ -695,7 +691,7 @@ module MakeCustomHeterogeneousMap
       in loop t
     with Unmodified -> t
 
- (* Fast equality test between two maps. *)
+  (* Fast equality test between two maps. *)
   let rec same_domain_for_all2 ~reflexive (f : _ polyfold2_inter) ta tb = match (NODE.view ta),(NODE.view tb) with
     | _ when reflexive && phys_same ta tb -> true (* Skip same subtrees thanks to reflexivity. *)
     | Empty, Empty -> true
@@ -1454,7 +1450,7 @@ module MakeCustomMap
       f k va vb in
     BaseMap.reflexive_any_domain_for_all2 {f} ma mb
 
-  module WithForeign(Map2 : NODE_WITH_FIND with type _ key = key) = struct
+  module WithForeign(Map2 : NODE with type _ key = key) = struct
     module BaseForeign = BaseMap.WithForeign(Map2)
     type ('b,'c) polyfilter_map_foreign = { f: 'a. key -> ('a,'b) Map2.value -> 'c value option } [@@unboxed]
     let filter_map_no_share f m2 =
