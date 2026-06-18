@@ -515,16 +515,14 @@ module MakeCustomHeterogeneousMap
         let same = phys_same ta tb in
         if same && reflexive then true
         else if same && common = False then false
-        else
-          match NODE.view ta,Map2.view tb with
+        else match NODE.view ta, Map2.view tb with
           | Empty, _ -> fright tb
           | _, Empty -> fleft ta
           | Leaf {key=k;value=v}, Leaf {key=k';value=v'} -> begin match Key.polyeq k k' with
               | Diff -> if Key.to_int k < Key.to_int k'
                         then of_l left_only k v && of_r right_only k' v'
                         else of_r right_only k' v' && of_l left_only k v
-              | Eq -> of_c common k v v'
-            end
+              | Eq -> of_c common k v v' end
           | Leaf{key;value},_ -> begin match right_only with
               | False -> false
               | True -> (match Core2.find_opt key tb with
@@ -532,9 +530,7 @@ module MakeCustomHeterogeneousMap
                           | Some v -> of_c common key value v)
               | F f -> Core2.forall_missing f (fun v -> match v with
                 | Some v -> of_c common key value v
-                | None -> of_l left_only key value
-               ) key tb
-            end
+                | None -> of_l left_only key value) key tb end
           | _,Leaf{key;value} -> begin match left_only with
               | False -> false
               | True -> (match find_opt key ta with
@@ -542,37 +538,24 @@ module MakeCustomHeterogeneousMap
                           | Some v -> of_c common key v value)
               | F f -> forall_missing f (fun v -> match v with
                 | Some v -> of_c common key v value
-                | None -> of_r right_only key value
-               ) key ta
-            end
+                | None -> of_r right_only key value) key ta end
           | Branch{prefix=pa;branching_bit=ma;tree0=ta0;tree1=ta1},
             Branch{prefix=pb;branching_bit=mb;tree0=tb0;tree1=tb1} ->
             if ma == mb && pa == pb
-            (* Same prefix: merge the subtrees *)
-            then
-              for_all2 ta0 tb0 &&
-              for_all2 ta1 tb1
+            then for_all2 ta0 tb0 && for_all2 ta1 tb1 (* Same prefix: merge the subtrees *)
             else if branches_before pa ma pb mb
             then if (ma :> int) land (pb :> int) == 0
-              then
-                for_all2 ta0 tb &&
-                fleft ta1
-              else
-                fleft ta0 &&
-                for_all2 ta1 tb0
+              then for_all2 ta0 tb && fleft ta1
+              else fleft ta0 && for_all2 ta1 tb0
             else if branches_before pb mb pa ma
             then if (mb :> int) land (pa :> int) == 0
-              then
-                for_all2 ta tb0 &&
-                fright tb1
-              else
-                fright tb0 &&
-                for_all2 ta tb1
+              then for_all2 ta tb0 && fright tb1
+              else fright tb0 && for_all2 ta tb1
             else
-            (* Distinct subtrees: process them in increasing order of keys. *)
-            if unsigned_lt (pa :> int) (pb :> int)
-            then fleft ta && fright tb
-            else fright tb && fleft ta
+              (* Distinct subtrees: process them in increasing order of keys. *)
+              if unsigned_lt (pa :> int) (pb :> int)
+              then fleft ta && fright tb
+              else fright tb && fleft ta
       in for_all2
   end
   include WithForeign(NODE)
