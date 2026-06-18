@@ -25,6 +25,12 @@
 
 open Ints
 
+(** Type used to specify functions for {!MakeMap.for_all2} *)
+type 'a forall2_pred =
+  | True (** Equivalent to [F (fun _ -> true)], but allows skipping exploring the relevant cases *)
+  | False (** Equivalent to [F (fun _ -> false)], but allows skipping exploring the relevant cases *)
+  | F of 'a (** A user-supplied function *)
+
 (** {1 Nodes} *)
 (** Nodes are the underlying representation used to build a patricia-tree.
     The module type specifies the constructors they must provide, and a common
@@ -286,8 +292,8 @@ module type BASE_MAP = sig
       where [(key_1, value_1) ... (key_n, value_n)] are the bindings of [m], in
       the {{!unsigned_lt}unsigned order} on {!KEY.to_int}. *)
 
-  type ('acc,'map1,'map2) polyfold2_inter = { f: 'a. 'a key -> ('a,'map1) value -> ('a,'map2) value -> 'acc -> 'acc } [@@unboxed]
-  val fold_on_nonequal_inter : ('acc,'map1,'map2) polyfold2_inter -> 'map1 t -> 'map2 t -> 'acc -> 'acc
+  type ('map1,'map2,'acc) polyfold2_inter = { f: 'a. 'a key -> ('a,'map1) value -> ('a,'map2) value -> 'acc } [@@unboxed]
+  val fold_on_nonequal_inter : ('map1,'map2,'acc -> 'acc) polyfold2_inter -> 'map1 t -> 'map2 t -> 'acc -> 'acc
   (** [fold_on_nonequal_inter f m1 m2 acc] returns
       [f.f key_n value1_n value2n (... (f.f key_1 value1_1 value2_1 acc))] where
       [(key_1, value1_1, value2_1) ... (key_n, value1_n, value2_n)] are the
@@ -296,7 +302,7 @@ module type BASE_MAP = sig
 
       Changed in v0.13.0 to allow argument maps of differing types. *)
 
-  val fold_on_inter : ('acc,'map1,'map2) polyfold2_inter -> 'map1 t -> 'map2 t -> 'acc -> 'acc
+  val fold_on_inter : ('map1,'map2,'acc -> 'acc) polyfold2_inter -> 'map1 t -> 'map2 t -> 'acc -> 'acc
   (** [fold_on_inter f m1 m2 acc] iterates both maps [m1] and [m2] simultaneously, calling
       [f.f k v1 v2 acc] for each binding [k] in both [m1] and [m2], with respective values
       [v1] and [v2].
@@ -797,6 +803,17 @@ module type HETEROGENEOUS_MAP = sig
         the maximum key instead of the minimum.
 
         @since v0.11.0 *)
+
+    type ('map,'res) map2_polyfold = { f: 'a. 'a key -> ('a,'map) Map2.value -> 'res } [@@unboxed]
+
+    type ('map1,'map2,'acc) polyfold2_inter = { f: 'a. 'a key -> ('a,'map1) value -> ('a,'map2) Map2.value -> 'acc } [@@unboxed]
+
+    val for_all2:
+      reflexive:bool ->
+      left_only:('a,bool) polyfold forall2_pred ->
+      common:('a,'b,bool) polyfold2_inter forall2_pred ->
+      right_only:('b,bool) map2_polyfold forall2_pred ->
+      'a t -> 'b Map2.t -> bool
   end
 end
 
