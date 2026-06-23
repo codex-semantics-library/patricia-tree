@@ -1313,6 +1313,11 @@ module MakeHeterogeneousMap(Key:HETEROGENEOUS_KEY)(Value:HETEROGENEOUS_VALUE) =
 module MakeHeterogeneousSet(Key:HETEROGENEOUS_KEY) =
   MakeCustomHeterogeneousSet(Key)(SetNode(Key))
 
+let forall_pred_map f = function
+  | True -> True
+  | False -> False
+  | F x -> F (f x)
+
 module MakeCustomMap
     (Key:KEY)
     (Value: VALUE)
@@ -1432,6 +1437,12 @@ module MakeCustomMap
       let vb = Option.map (fun (Snd v) -> v) vb in
       f k va vb in
     BaseMap.reflexive_any_domain_for_all2 {f} ma mb
+
+  let for_all2 ~reflexive ~left_only ~common ~right_only =
+    BaseMap.for_all2 ~reflexive
+      ~left_only:(forall_pred_map (fun (f: key -> 'a value -> bool) -> ({f=fun k (Snd v) -> f k v} : _ BaseMap.polyfold )) left_only)
+      ~common:(forall_pred_map (fun (f: key -> 'a value -> 'b value -> bool) -> ({f=fun k (Snd v) (Snd v') -> f k v v'} : _ BaseMap.polyfold2_inter )) common)
+      ~right_only:(forall_pred_map (fun (f: key -> 'b value -> bool) -> ({f=fun k (Snd v) -> f k v} : _ BaseMap.polyfold )) right_only)
 
   module WithForeign(Map2 : NODE with type _ key = key) = struct
     module BaseForeign = BaseMap.WithForeign(Map2)
