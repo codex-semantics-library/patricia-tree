@@ -330,11 +330,25 @@ let tests =
         let t0 = interpret t0 and t1 = interpret t1 in
         ( Intmap.reflexive_same_domain_for_all2 f t0 t1,
           Model.reflexive_same_domain_for_all2 f (abstract t0) (abstract t1) ));
+    mk "for_all2_samedom_reflexive" (pair reflexive_same_domain_val two)
+      Print.bool (fun ((_, f), (t0, t1)) ->
+        let t0 = interpret t0 and t1 = interpret t1 in
+        ( Intmap.for_all2 ~reflexive:true ~left_only:False ~right_only:False
+            ~common:(F f) t0 t1,
+          Model.reflexive_same_domain_for_all2 f (abstract t0) (abstract t1) ));
     mk "nonreflexive_same_domain_for_all2"
       (pair nonreflexive_same_domain_val two) Print.bool
       (fun ((_, f), (t0, t1)) ->
         let t0 = interpret t0 and t1 = interpret t1 in
         ( Intmap.nonreflexive_same_domain_for_all2 f t0 t1,
+          Model.nonreflexive_same_domain_for_all2 f (abstract t0) (abstract t1)
+        ));
+    mk "for_all2_samedom_nonrefl"
+      (pair nonreflexive_same_domain_val two) Print.bool
+      (fun ((_, f), (t0, t1)) ->
+        let t0 = interpret t0 and t1 = interpret t1 in
+        ( Intmap.for_all2 ~reflexive:false ~left_only:False ~right_only:False
+            ~common:(F f) t0 t1,
           Model.nonreflexive_same_domain_for_all2 f (abstract t0) (abstract t1)
         ));
     make_setop_test "difference" difference_fun snd Intmap.difference
@@ -343,9 +357,19 @@ let tests =
       (fun3 O.int O.char O.char bool)
       Intmap.reflexive_subset_domain_for_all2
       Model.reflexive_subset_domain_for_all2;
+    make_setcmp_test "for_all2_subsetdom_refl"
+      (fun3 O.int O.char O.char bool)
+      (fun f -> Intmap.for_all2 ~reflexive:true ~left_only:False ~right_only:True
+        ~common:(F f))
+      Model.reflexive_subset_domain_for_all2;
     make_setcmp_test "nonreflexive_subset_domain_for_all2"
       (fun3 O.int O.char O.char bool)
       Intmap.nonreflexive_subset_domain_for_all2
+      Model.nonreflexive_subset_domain_for_all2;
+    make_setcmp_test "for_all2_subsetdom_nonrefl"
+      (fun3 O.int O.char O.char bool)
+      (fun f -> Intmap.for_all2 ~reflexive:false ~left_only:False ~right_only:True
+        ~common:(F f))
       Model.nonreflexive_subset_domain_for_all2;
     make_setcmp_test "nonreflexive_any_domain_for_all2"
       (fun3 O.int (O.option O.char) (O.option O.char) bool)

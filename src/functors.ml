@@ -535,6 +535,7 @@ module MakeCustomHeterogeneousMap
         if same && reflexive then true
         else if same && common = False then false
         else match NODE.view ta, Map2.view tb with
+          | Empty, Empty -> true
           | Empty, _ -> fright tb
           | _, Empty -> fleft ta
           | Leaf {key=k;value=v}, Leaf {key=k';value=v'} -> begin match Key.polyeq k k' with
@@ -792,7 +793,7 @@ module MakeCustomHeterogeneousMap
     | Leaf{key=keya;value=valuea}, Leaf{key=keyb;value=valueb} ->
       begin match Key.polyeq keya keyb with
         | Diff -> false
-        | Eq -> f.f keya valuea valueb
+        | Eq -> (reflexive && phys_same valuea valueb) || f.f keya valuea valueb
       end
     | Branch{prefix=pa;branching_bit=ma;tree0=ta0;tree1=ta1},
       Branch{prefix=pb;branching_bit=mb;tree0=tb0;tree1=tb1} ->
@@ -817,7 +818,7 @@ module MakeCustomHeterogeneousMap
         | Leaf{key=keyb;value=valueb} ->
           begin match Key.polyeq keya keyb with
             | Diff -> false
-            | Eq -> f.f keya valuea valueb
+            | Eq -> (reflexive && phys_same valuea valueb) || f.f keya valuea valueb
           end
         | Branch{branching_bit;tree0;tree1;_} ->
           if ((branching_bit :> int) land searched == 0)
