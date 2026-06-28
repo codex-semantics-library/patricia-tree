@@ -1,6 +1,6 @@
 # v0.15.0 - Unreleased
 
-- Added `for_all2`, `exists2`, `fold2` and `iter2` functions
+- Added `for_all2`, `exists2`, `fold2` and `iter2` functions to maps and sets.
 - Removed `polypredicate` types, as they can be expressed by `bool polyfold`
 - Change type `polyfold2_inter` to use same convention as `polyfold2` (move res argument last, encode non-fold functions)
 - Removed `polysame_domain_for_all2`, `polyfor_all2` and `polycompare` types, as

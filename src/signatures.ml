@@ -1083,7 +1083,8 @@ module type HETEROGENEOUS_SET = sig
       @since v0.11.0 *)
 
   (** {1 Iterators} *)
-  type 'res polyfold = { f: 'a. 'a elt  -> 'res } [@@unboxed]
+
+  type 'res polyfold = { f: 'a. 'a elt -> 'res } [@@unboxed]
   val iter: unit polyfold -> t -> unit
   (** [iter f set] calls [f.f] on all elements of [set], in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
 
@@ -1105,6 +1106,65 @@ module type HETEROGENEOUS_SET = sig
     ?pp_sep:(Format.formatter -> unit -> unit) -> polypretty -> Format.formatter -> t -> unit
   (** Pretty prints the set, [pp_sep] is called once between each element,
       it defaults to {{: https://v2.ocaml.org/api/Format.html#VALpp_print_cut}[Format.pp_print_cut]} *)
+
+  (** {2 Iterators on pairs of sets} *)
+
+  val for_all2:
+    left_only:bool polyfold forall2_pred ->
+    common:bool polyfold forall2_pred ->
+    right_only:bool polyfold forall2_pred ->
+    t -> t -> bool
+  (** [for_all2 ~reflexive ~left_only ~common ~right_only s1 s2] evaluates
+    predicates on the elements of [s1] and [s2].
+    - [left_only k v1] is called for elements of [s1] that don't appear in [s2];
+    - [right_only k v2] is called for eleemnts of [s2] that don't appear in [s1];
+    - [common k v1 v2] is called for shared elements.
+
+    All three of these parameters can be either {!True}, {!False}, or a user supplied
+    function (using {!F}). The {!True} and {!False} constructors are faster, as
+    knowing these values in advance avoids having to explore the relevant branches.
+
+    [for_all2] explores elements in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
+    It also has early-return: any false evaluation will stop exploration.
+
+    @since v0.15.0 *)
+
+  val exists2:
+    left_only:bool polyfold forall2_pred ->
+    common:bool polyfold forall2_pred ->
+    right_only:bool polyfold forall2_pred ->
+    t -> t -> bool
+  (** Negation of {!for_all2}. While {!for_all2} early returns at the first
+      encountered [false] value. This early returns at the first encountered [true].
+      @since v0.15.0 *)
+
+  val fold2:
+    left_only:('r -> 'r) polyfold option ->
+    common:('r -> 'r) polyfold option ->
+    right_only:('r -> 'r) polyfold option ->
+    t -> t -> 'r -> 'r
+  (** [fold2 ~reflexive ~left_only ~common ~right_only s1 s2 r] iterates two sets
+      [s1] and [s2] simultaneously, updating the accumulator [r] at each binding:
+      - [left_only x r] is called on elements [x] present in [s1] but not [s2];
+      - [right_only k v2 r] is called on elements present in [s2] but not [s1]
+      - [common k v1 v2 r] is called on shared elements.
+
+      Each of these can be [None] instead of a function, in which case the corresponding
+      bindings are ignored. This can dramatically speed up the fold, as it then
+      skips exploration of unneeded subtrees.
+
+      [fold2] explores bindings in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
+
+      @since v0.15.0 *)
+
+  val iter2:
+    left_only:unit polyfold option ->
+    common:unit polyfold option ->
+    right_only:unit polyfold option ->
+    t -> t -> unit
+  (** Calls the argument function on all bindings, just like {!fold2}.
+      Unlike {!fold2}, each function returns unit so no accumulator is threaded.
+      @since v0.15.0 *)
 
   (** {1 Conversion functions} *)
 
@@ -1228,6 +1288,66 @@ module type SET = sig
     (Format.formatter -> elt -> unit) -> Format.formatter -> t -> unit
   (** Pretty prints the set, [pp_sep] is called once between each element,
       it defaults to {{: https://v2.ocaml.org/api/Format.html#VALpp_print_cut}[Format.pp_print_cut]} *)
+
+
+  (** {2 Iterators on pairs of sets} *)
+
+  val for_all2:
+    left_only:(elt -> bool) forall2_pred ->
+    common:(elt -> bool) forall2_pred ->
+    right_only:(elt -> bool) forall2_pred ->
+    t -> t -> bool
+  (** [for_all2 ~reflexive ~left_only ~common ~right_only s1 s2] evaluates
+    predicates on the elements of [s1] and [s2].
+    - [left_only k v1] is called for elements of [s1] that don't appear in [s2];
+    - [right_only k v2] is called for eleemnts of [s2] that don't appear in [s1];
+    - [common k v1 v2] is called for shared elements.
+
+    All three of these parameters can be either {!True}, {!False}, or a user supplied
+    function (using {!F}). The {!True} and {!False} constructors are faster, as
+    knowing these values in advance avoids having to explore the relevant branches.
+
+    [for_all2] explores elements in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
+    It also has early-return: any false evaluation will stop exploration.
+
+    @since v0.15.0 *)
+
+  val exists2:
+    left_only:(elt -> bool) forall2_pred ->
+    common:(elt -> bool) forall2_pred ->
+    right_only:(elt -> bool) forall2_pred ->
+    t -> t -> bool
+  (** Negation of {!for_all2}. While {!for_all2} early returns at the first
+      encountered [false] value. This early returns at the first encountered [true].
+      @since v0.15.0 *)
+
+  val fold2:
+    left_only:(elt -> 'r -> 'r) option ->
+    common:(elt -> 'r -> 'r) option ->
+    right_only:(elt -> 'r -> 'r) option ->
+    t -> t -> 'r -> 'r
+  (** [fold2 ~reflexive ~left_only ~common ~right_only s1 s2 r] iterates two sets
+      [s1] and [s2] simultaneously, updating the accumulator [r] at each binding:
+      - [left_only x r] is called on elements [x] present in [s1] but not [s2];
+      - [right_only k v2 r] is called on elements present in [s2] but not [s1]
+      - [common k v1 v2 r] is called on shared elements.
+
+      Each of these can be [None] instead of a function, in which case the corresponding
+      bindings are ignored. This can dramatically speed up the fold, as it then
+      skips exploration of unneeded subtrees.
+
+      [fold2] explores bindings in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
+
+      @since v0.15.0 *)
+
+  val iter2:
+    left_only:(elt -> unit) option ->
+    common:(elt -> unit) option ->
+    right_only:(elt -> unit) option ->
+    t -> t -> unit
+  (** Calls the argument function on all bindings, just like {!fold2}.
+      Unlike {!fold2}, each function returns unit so no accumulator is threaded.
+      @since v0.15.0 *)
 
   (** {1 Functions on pairs of sets} *)
 

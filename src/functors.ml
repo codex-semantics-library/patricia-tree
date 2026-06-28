@@ -1342,6 +1342,16 @@ module MakeCustomHeterogeneousMap
   let to_list m = List.of_seq (to_seq m)
 end
 
+let forall_pred_map f = function
+  | True -> True
+  | False -> False
+  | F x -> F (f x)
+
+let forall_pred_map_flip f = function
+  | True -> (False : _ forall2_pred)
+  | False -> True
+  | F x -> F (f x)
+
 module MakeCustomHeterogeneousSet
     (Key:HETEROGENEOUS_KEY)
     (Node:NODE with type 'a key = 'a Key.t and type ('a, 'b) value = unit)
@@ -1393,6 +1403,34 @@ module MakeCustomHeterogeneousSet
   let pop_unsigned_maximum t = Option.map (fun (KeyValue(m,()),t) -> Any m,t) (BaseMap.pop_unsigned_maximum t)
   let pop_unsigned_minimum t = Option.map (fun (KeyValue(m,()),t) -> Any m,t) (BaseMap.pop_unsigned_minimum t)
 
+  let exists2 ~left_only ~(common: _ forall2_pred) ~right_only s1 s2 =
+    for_all2 ~reflexive:(common = False)
+      ~left_only:(forall_pred_map_flip (fun f -> ({f=fun k () -> f.f k |> not} : _ BaseMap.polyfold)) left_only)
+      ~common:(forall_pred_map_flip (fun f -> ({f=fun k () () -> f.f k |> not} : _ BaseMap.polyfold2_inter)) common)
+      ~right_only:(forall_pred_map_flip (fun f -> ({f=fun k () -> f.f k |> not} : _ BaseMap.polyfold)) right_only)
+      s1 s2 |> not
+
+  let for_all2 ~left_only ~common ~right_only s1 s2 =
+    for_all2 ~reflexive:(common = True)
+      ~left_only:(forall_pred_map (fun f -> ({f=fun k () -> f.f k} : _ BaseMap.polyfold)) left_only)
+      ~common:(forall_pred_map (fun f -> ({f=fun k () () -> f.f k} : _ BaseMap.polyfold2_inter)) common)
+      ~right_only:(forall_pred_map (fun f -> ({f=fun k () -> f.f k} : _ BaseMap.polyfold)) right_only)
+      s1 s2
+
+  let iter2 ~left_only ~common ~right_only s1 s2 =
+    fold2 ~reflexive:(common = None)
+      ~left_only:(Option.map (fun f -> ({f=fun k () () -> f.f k} : _ BaseMap.polyfold)) left_only)
+      ~common:(Option.map (fun f -> ({f=fun k () () () -> f.f k} : _ BaseMap.polyfold2_inter)) common)
+      ~right_only:(Option.map (fun f -> ({f=fun k () () -> f.f k} : _ BaseMap.polyfold)) right_only)
+      s1 s2 ()
+
+  let fold2 ~left_only ~common ~right_only s1 s2 =
+    fold2 ~reflexive:(common = None)
+      ~left_only:(Option.map (fun f -> ({f=fun k () r -> f.f k r} : _ BaseMap.polyfold)) left_only)
+      ~common:(Option.map (fun f -> ({f=fun k () () r -> f.f k r} : _ BaseMap.polyfold2_inter)) common)
+      ~right_only:(Option.map (fun f -> ({f=fun k () r -> f.f k r} : _ BaseMap.polyfold)) right_only)
+      s1 s2
+
   type polypretty = { f: 'a. Format.formatter -> 'a key -> unit; } [@@unboxed]
   let pretty ?pp_sep f fmt s = BaseMap.pretty ?pp_sep { f = fun fmt k () -> f.f fmt k} fmt s
 
@@ -1422,16 +1460,6 @@ module MakeHeterogeneousMap(Key:HETEROGENEOUS_KEY)(Value:HETEROGENEOUS_VALUE) =
 
 module MakeHeterogeneousSet(Key:HETEROGENEOUS_KEY) =
   MakeCustomHeterogeneousSet(Key)(SetNode(Key))
-
-let forall_pred_map f = function
-  | True -> True
-  | False -> False
-  | F x -> F (f x)
-
-let forall_pred_map_flip f = function
-  | True -> (False : _ forall2_pred)
-  | False -> True
-  | F x -> F (f x)
 
 module MakeCustomMap
     (Key:KEY)
@@ -1657,6 +1685,34 @@ module MakeCustomSet
   let of_seq s = add_seq s empty
   let of_list l = of_seq (List.to_seq l)
   let to_list s = List.of_seq (to_seq s)
+
+  let exists2 ~left_only ~(common: _ forall2_pred) ~right_only s1 s2 =
+    BaseMap.for_all2 ~reflexive:(common = False)
+      ~left_only:(forall_pred_map_flip (fun (f: elt -> bool) -> ({f=fun k () -> f k |> not} : _ BaseMap.polyfold)) left_only)
+      ~common:(forall_pred_map_flip (fun (f: elt -> bool) -> ({f=fun k () () -> f k |> not} : _ BaseMap.polyfold2_inter)) common)
+      ~right_only:(forall_pred_map_flip (fun (f: elt -> bool) -> ({f=fun k () -> f k |> not} : _ BaseMap.polyfold)) right_only)
+      s1 s2 |> not
+
+  let for_all2 ~left_only ~common ~right_only s1 s2 =
+    BaseMap.for_all2 ~reflexive:(common = True)
+      ~left_only:(forall_pred_map (fun (f: elt -> bool) -> ({f=fun k () -> f k} : _ BaseMap.polyfold)) left_only)
+      ~common:(forall_pred_map (fun (f: elt -> bool) -> ({f=fun k () () -> f k} : _ BaseMap.polyfold2_inter)) common)
+      ~right_only:(forall_pred_map (fun (f: elt -> bool) -> ({f=fun k () -> f k} : _ BaseMap.polyfold)) right_only)
+      s1 s2
+
+  let iter2 ~left_only ~common ~right_only s1 s2 =
+    BaseMap.fold2 ~reflexive:(common = None)
+      ~left_only:(Option.map (fun (f: elt -> unit) -> ({f=fun k () () -> f k} : _ BaseMap.polyfold)) left_only)
+      ~common:(Option.map (fun (f: elt -> unit) -> ({f=fun k () () () -> f k} : _ BaseMap.polyfold2_inter)) common)
+      ~right_only:(Option.map (fun (f: elt -> unit) -> ({f=fun k () () -> f k} : _ BaseMap.polyfold)) right_only)
+      s1 s2 ()
+
+  let fold2 ~left_only ~common ~right_only s1 s2 =
+    BaseMap.fold2 ~reflexive:(common = None)
+      ~left_only:(Option.map (fun (f: elt -> 'r -> 'r) -> ({f=fun k () r -> f k r} : _ BaseMap.polyfold)) left_only)
+      ~common:(Option.map (fun (f: elt -> 'r -> 'r) -> ({f=fun k () () r -> f k r} : _ BaseMap.polyfold2_inter)) common)
+      ~right_only:(Option.map (fun (f: elt -> 'r -> 'r) -> ({f=fun k () r -> f k r} : _ BaseMap.polyfold)) right_only)
+      s1 s2
 end
 
 module MakeSet(Key: KEY) = MakeCustomSet(Key)(SetNode(HeterogeneousKeyFromKey(Key)))

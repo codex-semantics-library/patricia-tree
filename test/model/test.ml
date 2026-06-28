@@ -371,6 +371,11 @@ let tests =
       (fun f -> Intmap.for_all2 ~reflexive:false ~left_only:False ~right_only:True
         ~common:(F f))
       Model.nonreflexive_subset_domain_for_all2;
+    make_setcmp_test "exists2"
+      (fun3 O.int O.char O.char bool)
+      (fun f -> Intmap.exists2 ~reflexive:false ~left_only:True ~right_only:False
+        ~common:(F f))
+      (fun f t1 t2 -> Model.nonreflexive_subset_domain_for_all2 (fun k v1 v2 -> f k v1 v2 |> not) t1 t2 |> not);
     make_setcmp_test "nonreflexive_any_domain_for_all2"
       (fun3 O.int (O.option O.char) (O.option O.char) bool)
       Intmap.nonreflexive_any_domain_for_all2
