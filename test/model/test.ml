@@ -49,6 +49,12 @@ let rec interpret = function
       let t0 = interpret m0 and t1 = interpret m1 in
       Intmap.slow_merge f t0 t1
 
+(* let interpret_with_print x =
+  let res = interpret x in
+  Format.printf " >> @[<v>%a@]@."
+  (Intmap.pretty (fun fmt i c -> Format.fprintf fmt "%d -> %c" i c)) res;
+   res *)
+
 let abstract t =
   let aux i a acc = (i, a) :: acc in
   List.sort Model.cmp_keys @@ Intmap.fold aux t []
@@ -383,12 +389,39 @@ let tests =
           Model.fold_on_nonequal_inter
             (fun i a b acc -> (i, a, b) :: acc)
             (abstract t0) (abstract t1) [] ));
+    mk "fold2_nonequal_inter" two
+      Print.(list (tup3 int char char))
+      (fun (t0, t1) ->
+        let t0 = interpret t0 in
+        let t1 = interpret t1 in
+        ( Intmap.fold2
+            ~reflexive:true
+            ~left_only:None
+            ~common:(Some (fun i a b acc -> (i, a, b) :: acc))
+            ~right_only:None
+            t0 t1 [],
+          Model.fold_on_nonequal_inter
+            (fun i a b acc -> (i, a, b) :: acc)
+            (abstract t0) (abstract t1) [] ));
     mk "fold_on_inter" two
       Print.(list (tup3 int char char))
       (fun (t0, t1) ->
         let t0 = interpret t0 and t1 = interpret t1 in
         ( Intmap.fold_on_inter
             (fun i a b acc -> (i, a, b) :: acc)
+            t0 t1 [],
+          Model.fold_on_inter
+            (fun i a b acc -> (i, a, b) :: acc)
+            (abstract t0) (abstract t1) [] ));
+    mk "fold2_inter" two
+      Print.(list (tup3 int char char))
+      (fun (t0, t1) ->
+        let t0 = interpret t0 and t1 = interpret t1 in
+        ( Intmap.fold2
+            ~reflexive:false
+            ~left_only:None
+            ~common:(Some (fun i a b acc -> (i, a, b) :: acc))
+            ~right_only:None
             t0 t1 [],
           Model.fold_on_inter
             (fun i a b acc -> (i, a, b) :: acc)
@@ -403,12 +436,38 @@ let tests =
           Model.fold_on_nonequal_union
             (fun i a b acc -> (i, a, b) :: acc)
             (abstract t0) (abstract t1) [] ));
+    mk "fold2_nonequal_union" two
+      Print.(list (tup3 int (option char) (option char)))
+      (fun (t0, t1) ->
+        let t0 = interpret t0 and t1 = interpret t1 in
+        ( Intmap.fold2
+            ~reflexive:true
+            ~left_only:(Some (fun i a acc -> (i, Some a, None) :: acc))
+            ~common:(Some (fun i a b acc -> (i, Some a, Some b) :: acc))
+            ~right_only:(Some (fun i b acc -> (i, None, Some b) :: acc))
+            t0 t1 [],
+          Model.fold_on_nonequal_union
+            (fun i a b acc -> (i, a, b) :: acc)
+            (abstract t0) (abstract t1) [] ));
     mk "fold_on_union" two
       Print.(list (tup3 int (option char) (option char)))
       (fun (t0, t1) ->
         let t0 = interpret t0 and t1 = interpret t1 in
         ( Intmap.fold_on_union
             (fun i a b acc -> (i, a, b) :: acc)
+            t0 t1 [],
+          Model.fold_on_union
+            (fun i a b acc -> (i, a, b) :: acc)
+            (abstract t0) (abstract t1) [] ));
+    mk "fold2_union" two
+      Print.(list (tup3 int (option char) (option char)))
+      (fun (t0, t1) ->
+        let t0 = interpret t0 and t1 = interpret t1 in
+        ( Intmap.fold2
+            ~reflexive:false
+            ~left_only:(Some (fun i a acc -> (i, Some a, None) :: acc))
+            ~common:(Some (fun i a b acc -> (i, Some a, Some b) :: acc))
+            ~right_only:(Some (fun i b acc -> (i, None, Some b) :: acc))
             t0 t1 [],
           Model.fold_on_union
             (fun i a b acc -> (i, a, b) :: acc)

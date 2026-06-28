@@ -86,10 +86,9 @@ module MakeCore(Key:HETEROGENEOUS_KEY)(Node: NODE with type 'a key = 'a Key.t) =
           else match Key.polyeq key keyb with
           | Eq -> fcommon (Some valueb)
           | Diff -> raise (Invalid_argument "Keys with same to_int value are not equal by polyeq"))
-      in for_all {f=forall_func} m && (
-        if !found then true
-        else fcommon None
-      )
+      in
+      let res = for_all {f=forall_func} m in
+      res && if !found then true else fcommon None
 
     let fold_missing (type k') fmissing (fcommon: (k','a) Node.value option -> 'r -> 'r) (key: k' key) m r =
       let id_a = Key.to_int key in
@@ -106,8 +105,7 @@ module MakeCore(Key:HETEROGENEOUS_KEY)(Node: NODE with type 'a key = 'a Key.t) =
           | Diff -> raise (Invalid_argument "Keys with same to_int value are not equal by polyeq"))
       in
       let r = fold {f=fold_func} m r in
-      if !found then r else
-      fcommon None r
+      if !found then r else fcommon None r
 end
 
 module MakeCustomHeterogeneousMap
@@ -511,10 +509,10 @@ module MakeCustomHeterogeneousMap
       | True -> true
       | False -> false
       | F f -> f.f k v
-    let of_c (f: (_,_,_) polyfold2_inter forall2_pred) k v v' = match f with
+    let of_c ~reflexive (f: (_,_,_) polyfold2_inter forall2_pred) k v v' = match f with
       | True -> true
       | False -> false
-      | F f -> f.f k v v'
+      | F f -> (reflexive && phys_same v v') || f.f k v v'
 
     let for_all2 :
       reflexive:bool ->
@@ -540,25 +538,25 @@ module MakeCustomHeterogeneousMap
           | Empty, _ -> fright tb
           | _, Empty -> fleft ta
           | Leaf {key=k;value=v}, Leaf {key=k';value=v'} -> begin match Key.polyeq k k' with
-              | Diff -> if Key.to_int k < Key.to_int k'
+              | Diff -> if unsigned_lt (Key.to_int k) (Key.to_int k')
                         then of_l left_only k v && of_r right_only k' v'
                         else of_r right_only k' v' && of_l left_only k v
-              | Eq -> of_c common k v v' end
+              | Eq -> of_c ~reflexive common k v v' end
           | Leaf{key;value},_ -> begin match right_only with
               | False -> false
               | True -> (match Core2.find_opt key tb with
                           | None -> of_l left_only key value
-                          | Some v -> of_c common key value v)
+                          | Some v -> of_c ~reflexive common key value v)
               | F f -> Core2.forall_missing f (fun v -> match v with
-                | Some v -> of_c common key value v
+                | Some v -> of_c ~reflexive common key value v
                 | None -> of_l left_only key value) key tb end
           | _,Leaf{key;value} -> begin match left_only with
               | False -> false
               | True -> (match find_opt key ta with
                           | None -> of_r right_only key value
-                          | Some v -> of_c common key v value)
+                          | Some v -> of_c ~reflexive common key v value)
               | F f -> forall_missing f (fun v -> match v with
-                | Some v -> of_c common key v value
+                | Some v -> of_c ~reflexive common key v value
                 | None -> of_r right_only key value) key ta end
           | Branch{prefix=pa;branching_bit=ma;tree0=ta0;tree1=ta1},
             Branch{prefix=pb;branching_bit=mb;tree0=tb0;tree1=tb1} ->
@@ -567,7 +565,7 @@ module MakeCustomHeterogeneousMap
             else if branches_before pa ma pb mb
             then if (ma :> int) land (pb :> int) == 0
               then for_all2 ta0 tb && fleft ta1
-              else fleft ta0 && for_all2 ta1 tb0
+              else fleft ta0 && for_all2 ta1 tb
             else if branches_before pb mb pa ma
             then if (mb :> int) land (pa :> int) == 0
               then for_all2 ta tb0 && fright tb1
@@ -596,9 +594,9 @@ module MakeCustomHeterogeneousMap
     let of_r (f: (_,_) map2_polyfold option) k v r = match f with
       | None -> r
       | Some f -> f.f k v r
-    let of_c (f: (_,_,_) polyfold2_inter option) k v v' r = match f with
+    let of_c ~reflexive (f: (_,_,_) polyfold2_inter option) k v v' r = match f with
       | None -> r
-      | Some f -> f.f k v v' r
+      | Some f -> if reflexive && phys_same v v' then r else f.f k v v' r
 
     let fold2 :
       reflexive:bool ->
@@ -620,23 +618,23 @@ module MakeCustomHeterogeneousMap
           | Empty, _ -> fright tb r
           | _, Empty -> fleft ta r
           | Leaf {key=k;value=v}, Leaf {key=k';value=v'} -> begin match Key.polyeq k k' with
-              | Diff -> if Key.to_int k < Key.to_int k'
+              | Diff -> if unsigned_lt (Key.to_int k) (Key.to_int k')
                         then r |> of_l left_only k v |> of_r right_only k' v'
                         else r |> of_r right_only k' v' |> of_l left_only k v
-              | Eq -> of_c common k v v' r end
+              | Eq -> of_c ~reflexive common k v v' r end
           | Leaf{key;value},_ -> begin match right_only with
               | None -> (match Core2.find_opt key tb with
                           | None -> of_l left_only key value r
-                          | Some v -> of_c common key value v r)
+                          | Some v -> of_c ~reflexive common key value v r)
               | Some f -> Core2.fold_missing f (fun v -> match v with
-                | Some v -> of_c common key value v
+                | Some v -> of_c ~reflexive common key value v
                 | None -> of_l left_only key value) key tb r end
           | _,Leaf{key;value} -> begin match left_only with
               | None -> (match find_opt key ta with
                           | None -> of_r right_only key value r
-                          | Some v -> of_c common key v value r)
+                          | Some v -> of_c ~reflexive common key v value r)
               | Some f -> fold_missing f (fun v -> match v with
-                | Some v -> of_c common key v value
+                | Some v -> of_c ~reflexive common key v value
                 | None -> of_r right_only key value) key ta r end
           | Branch{prefix=pa;branching_bit=ma;tree0=ta0;tree1=ta1},
             Branch{prefix=pb;branching_bit=mb;tree0=tb0;tree1=tb1} ->
@@ -645,7 +643,7 @@ module MakeCustomHeterogeneousMap
             else if branches_before pa ma pb mb
             then if (ma :> int) land (pb :> int) == 0
               then r |> fold2 ta0 tb |> fleft ta1
-              else r |> fleft ta0 |> fold2 ta1 tb0
+              else r |> fleft ta0 |> fold2 ta1 tb
             else if branches_before pb mb pa ma
             then if (mb :> int) land (pa :> int) == 0
               then r |> fold2 ta tb0 |> fright tb1
