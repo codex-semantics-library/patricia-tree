@@ -661,6 +661,67 @@ val find : 'key key -> 'map t -> ('key, 'map) value
 
     @since v0.15.0 *)
 
+  val exists2:
+    reflexive:bool ->
+    left_only:('a,bool) polyfold forall2_pred ->
+    common:('a,'b,bool) polyfold2_inter forall2_pred ->
+    right_only:('b,bool) polyfold forall2_pred ->
+    'a t -> 'b t -> bool
+  (** Negation of {!for_all2}. While {!for_all2} early returns at the first
+      encountered [false] value. This early returns at the first encountered [true].
+      @since v0.15.0 *)
+
+  val fold2:
+    reflexive:bool ->
+    left_only:('a,'r -> 'r) polyfold option ->
+    common:('a,'b,'r -> 'r) polyfold2_inter option ->
+    right_only:('b,'r -> 'r) polyfold option ->
+    'a t -> 'b t -> 'r -> 'r
+  (** [fold2 ~reflexive ~left_only ~common ~right_only m1 m2 r] iterates two maps
+      [m1] and [m2] simultaneously, updating the accumulator [r] at each binding:
+      - [left_only k v1 r] is called on bindings [k -> v1] present in [m1] but not [m2];
+      - [right_only k v2 r] is called on bindings [k -> v2] present in [m2] but not [m1];
+      - [common k v1 v2 r] is called on shared bindings. If [reflexive] is set,
+        [common] is not called on physically equal bindings ([v1 == v2]).
+        This improves performance by skipping shared subtrees.
+
+      Each of these can be [None] instead of a function, in which case the corresponding
+      bindings are ignored. This can dramatically speed up the fold, as it then
+      skips exploration of unneeded subtrees.
+
+      [fold2] explores bindings in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
+
+    Some examples:
+    {ul
+    {- Fold only on non-equal shared bindings (aliases as {!fold_on_nonequal_inter}):
+       {@ocaml skip[
+          MyMap.fold2 ~reflexive:true
+            ~left_only:None ~right_only:None
+            ~common:(Some (fun k v1 v2 r -> ...))
+       ]}
+        }
+    {- Fold only on non-equal union bindings (aliases as {!fold_on_nonequal_union}),
+       via a single shared function [f] taking optional arguments for values:
+       {@ocaml skip[
+          MyMap.fold2 ~reflexive:true
+            ~left_only:(Some (fun k v1 r -> f k (Some v1) None r))
+            ~right_only:(Some (fun k v2 r -> f k None (Some v2) r))
+            ~common:(Some (fun k v1 v2 r -> f k (Some v1) (Some v2) r))
+       ]}
+    }}
+
+      @since v0.15.0 *)
+
+  val iter2:
+    reflexive:bool ->
+    left_only:('a, unit) polyfold option ->
+    common:('a,'b, unit) polyfold2_inter option ->
+    right_only:('b, unit) polyfold option ->
+    'a t -> 'b t -> unit
+  (** Calls the argument function on all bindings, just like {!fold2}.
+      Unlike {!fold2}, each function returns unit so no accumulator is threaded.
+      @since v0.15.0 *)
+
   val fold_on_nonequal_inter : ('map1,'map2,'acc -> 'acc) polyfold2_inter -> 'map1 t -> 'map2 t -> 'acc -> 'acc
   (** [fold_on_nonequal_inter f m1 m2 acc] returns
       [f.f key_n value1_n value2n (... (f.f key_1 value1_1 value2_1 acc))] where
@@ -856,8 +917,35 @@ module type HETEROGENEOUS_MAP = sig
       common:('a,'b,bool) polyfold2_inter forall2_pred ->
       right_only:('b,bool) map2_polyfold forall2_pred ->
       'a t -> 'b Map2.t -> bool
-    (** Same as {!BASE_MAP.for_all2}, bur allowing the second map to have a different type.
+    (** Same as {!BASE_MAP.for_all2}, but allowing the second map to have a different type.
         @since v0.15.0 *)
+
+  val exists2:
+    reflexive:bool ->
+    left_only:('a,bool) polyfold forall2_pred ->
+    common:('a,'b,bool) polyfold2_inter forall2_pred ->
+    right_only:('b,bool) map2_polyfold forall2_pred ->
+    'a t -> 'b Map2.t -> bool
+  (** Same as {!BASE_MAP.exists2}, but allowing the second map to have a different type.
+      @since v0.15.0 *)
+
+  val fold2:
+    reflexive:bool ->
+    left_only:('a,'r -> 'r) polyfold option ->
+    common:('a,'b,'r -> 'r) polyfold2_inter option ->
+    right_only:('b,'r -> 'r) map2_polyfold option ->
+    'a t -> 'b Map2.t -> 'r -> 'r
+  (** Same as {!BASE_MAP.fold2}, but allowing the second map to have a different type.
+      @since v0.15.0 *)
+
+  val iter2:
+    reflexive:bool ->
+    left_only:('a, unit) polyfold option ->
+    common:('a,'b, unit) polyfold2_inter option ->
+    right_only:('b, unit) map2_polyfold option ->
+    'a t -> 'b Map2.t -> unit
+  (** Same as {!BASE_MAP.iter2}, but allowing the second map to have a different type.
+      @since v0.15.0 *)
   end
 end
 
