@@ -1429,6 +1429,11 @@ let forall_pred_map f = function
   | False -> False
   | F x -> F (f x)
 
+let forall_pred_map_flip f = function
+  | True -> (False : _ forall2_pred)
+  | False -> True
+  | F x -> F (f x)
+
 module MakeCustomMap
     (Key:KEY)
     (Value: VALUE)
@@ -1554,6 +1559,28 @@ module MakeCustomMap
       ~left_only:(forall_pred_map (fun (f: key -> 'a value -> bool) -> ({f=fun k (Snd v) -> f k v} : _ BaseMap.polyfold )) left_only)
       ~common:(forall_pred_map (fun (f: key -> 'a value -> 'b value -> bool) -> ({f=fun k (Snd v) (Snd v') -> f k v v'} : _ BaseMap.polyfold2_inter )) common)
       ~right_only:(forall_pred_map (fun (f: key -> 'b value -> bool) -> ({f=fun k (Snd v) -> f k v} : _ BaseMap.polyfold )) right_only)
+
+  let exists2 ~reflexive ~left_only ~common ~right_only m1 m2 =
+    BaseMap.for_all2 ~reflexive
+      ~left_only:(forall_pred_map_flip (fun (f: key -> 'a value -> bool) -> ({f=fun k (Snd v) -> f k v |> not} : _ BaseMap.polyfold )) left_only)
+      ~common:(forall_pred_map_flip (fun (f: key -> 'a value -> 'b value -> bool) -> ({f=fun k (Snd v) (Snd v') -> f k v v' |> not} : _ BaseMap.polyfold2_inter )) common)
+      ~right_only:(forall_pred_map_flip (fun (f: key -> 'b value -> bool) -> ({f=fun k (Snd v) -> f k v |> not} : _ BaseMap.polyfold )) right_only)
+      m1 m2
+    |> not
+
+  let fold2 ~reflexive ~left_only ~common ~right_only =
+    BaseMap.fold2 ~reflexive
+      ~left_only:(Option.map (fun (f: key -> 'a value -> 'r -> 'r) -> ({f=fun k (Snd v) -> f k v} : _ BaseMap.polyfold )) left_only)
+      ~common:(Option.map (fun (f: key -> 'a value -> 'b value -> 'r -> 'r) -> ({f=fun k (Snd v) (Snd v') -> f k v v'} : _ BaseMap.polyfold2_inter )) common)
+      ~right_only:(Option.map (fun (f: key -> 'b value -> 'r -> 'r) -> ({f=fun k (Snd v) -> f k v} : _ BaseMap.polyfold )) right_only)
+
+  let iter2 ~reflexive ~left_only ~common ~right_only m1 m2 =
+    BaseMap.fold2 ~reflexive
+      ~left_only:(Option.map (fun (f: key -> 'a value -> unit) -> ({f=fun k (Snd v) () -> f k v} : _ BaseMap.polyfold )) left_only)
+      ~common:(Option.map (fun (f: key -> 'a value -> 'b value -> unit) -> ({f=fun k (Snd v) (Snd v') () -> f k v v'} : _ BaseMap.polyfold2_inter )) common)
+      ~right_only:(Option.map (fun (f: key -> 'b value -> unit) -> ({f=fun k (Snd v) () -> f k v} : _ BaseMap.polyfold )) right_only)
+      m1 m2 ()
+
 
   module WithForeign(Map2 : NODE with type _ key = key) = struct
     module BaseForeign = BaseMap.WithForeign(Map2)

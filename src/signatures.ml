@@ -609,7 +609,7 @@ val find : 'key key -> 'map t -> ('key, 'map) value
 
       @since v0.11.0 *)
 
-  (** {2 Iterating two maps} *)
+  (** {2 Iterating on two maps} *)
 
   val for_all2:
     reflexive:bool ->
@@ -697,16 +697,16 @@ val find : 'key key -> 'map t -> ('key, 'map) value
        {@ocaml skip[
           MyMap.fold2 ~reflexive:true
             ~left_only:None ~right_only:None
-            ~common:(Some (fun k v1 v2 r -> ...))
+            ~common:(Some {f=fun k v1 v2 r -> ...})
        ]}
         }
     {- Fold only on non-equal union bindings (aliases as {!fold_on_nonequal_union}),
        via a single shared function [f] taking optional arguments for values:
        {@ocaml skip[
           MyMap.fold2 ~reflexive:true
-            ~left_only:(Some (fun k v1 r -> f k (Some v1) None r))
-            ~right_only:(Some (fun k v2 r -> f k None (Some v2) r))
-            ~common:(Some (fun k v1 v2 r -> f k (Some v1) (Some v2) r))
+            ~left_only:(Some {f=fun k v1 r -> f k (Some v1) None r})
+            ~right_only:(Some {f=fun k v2 r -> f k None (Some v2) r})
+            ~common:(Some {f=fun k v1 v2 r -> f k (Some v1) (Some v2) r})
        ]}
     }}
 
@@ -1706,7 +1706,7 @@ module type MAP_WITH_VALUE = sig
 
       @since v0.11.0 *)
 
-  (** {2 Iterating two maps} *)
+  (** {2 Iterating on two maps} *)
 
   val for_all2:
     reflexive:bool ->
@@ -1758,6 +1758,68 @@ module type MAP_WITH_VALUE = sig
     It also has early-return: any false evaluation will stop exploration.
 
     @since v0.15.0 *)
+
+
+  val exists2:
+    reflexive:bool ->
+    left_only:(key -> 'a value -> bool) forall2_pred ->
+    common:(key -> 'a value -> 'b value -> bool) forall2_pred ->
+    right_only:(key -> 'b value -> bool) forall2_pred ->
+    'a t -> 'b t -> bool
+  (** Negation of {!for_all2}. While {!for_all2} early returns at the first
+      encountered [false] value. This early returns at the first encountered [true].
+      @since v0.15.0 *)
+
+  val fold2:
+    reflexive:bool ->
+    left_only:(key -> 'a value -> 'r -> 'r) option ->
+    common:(key -> 'a value -> 'b value -> 'r -> 'r) option ->
+    right_only:(key -> 'b value -> 'r -> 'r) option ->
+    'a t -> 'b t -> 'r -> 'r
+  (** [fold2 ~reflexive ~left_only ~common ~right_only m1 m2 r] iterates two maps
+      [m1] and [m2] simultaneously, updating the accumulator [r] at each binding:
+      - [left_only k v1 r] is called on bindings [k -> v1] present in [m1] but not [m2];
+      - [right_only k v2 r] is called on bindings [k -> v2] present in [m2] but not [m1];
+      - [common k v1 v2 r] is called on shared bindings. If [reflexive] is set,
+        [common] is not called on physically equal bindings ([v1 == v2]).
+        This improves performance by skipping shared subtrees.
+
+      Each of these can be [None] instead of a function, in which case the corresponding
+      bindings are ignored. This can dramatically speed up the fold, as it then
+      skips exploration of unneeded subtrees.
+
+      [fold2] explores bindings in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
+
+    Some examples:
+    {ul
+    {- Fold only on non-equal shared bindings (aliases as {!fold_on_nonequal_inter}):
+       {@ocaml skip[
+          MyMap.fold2 ~reflexive:true
+            ~left_only:None ~right_only:None
+            ~common:(Some (fun k v1 v2 r -> ...))
+       ]}
+        }
+    {- Fold only on non-equal union bindings (aliases as {!fold_on_nonequal_union}),
+       via a single shared function [f] taking optional arguments for values:
+       {@ocaml skip[
+          MyMap.fold2 ~reflexive:true
+            ~left_only:(Some (fun k v1 r -> f k (Some v1) None r))
+            ~right_only:(Some (fun k v2 r -> f k None (Some v2) r))
+            ~common:(Some (fun k v1 v2 r -> f k (Some v1) (Some v2) r))
+       ]}
+    }}
+
+      @since v0.15.0 *)
+
+  val iter2:
+    reflexive:bool ->
+    left_only:(key -> 'a value -> unit) option ->
+    common:(key -> 'a value -> 'b value -> unit) option ->
+    right_only:(key -> 'b value -> unit) option ->
+    'a t -> 'b t -> unit
+  (** Calls the argument function on all bindings, just like {!fold2}.
+      Unlike {!fold2}, each function returns unit so no accumulator is threaded.
+      @since v0.15.0 *)
 
   val fold_on_nonequal_inter : (key -> 'a value -> 'b value -> 'acc -> 'acc) ->
     'a t -> 'b t -> 'acc -> 'acc
