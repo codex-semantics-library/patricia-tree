@@ -197,7 +197,7 @@ end
 module type BASE_MAP = sig
   include NODE (** @open *)
 
-val find : 'key key -> 'map t -> ('key, 'map) value
+  val find : 'key key -> 'map t -> ('key, 'map) value
   (** [find key map] returns the value associated with [key] in [map] if present.
       @raises Not_found if [key] is absent from map *)
 
@@ -651,9 +651,12 @@ val find : 'key key -> 'map t -> ('key, 'map) value
         ~right_only:(F {f=fun k v2 -> f k None (Some v2)})
         ~common:(F {f=fun k v1 v2 -> f k (Some v1) (Some v2)})
         ]}
-        Calls a single function [f] on all bindings, using options to determine
-        whether the binding is present or known. Unlike the previous examples,
-        this will not skip any subparts of [m1] or [m2], and thus be slower.
+        Calls a single function [f] on all bindings, using options to indicate
+        whether the binding hase a value in the left and right maps. Since this example uses three
+        user-defined functions (via {!F}), it will iterate through every binding
+        of [m1] and [m2] (until it finds a [false]). This is slower than the
+        previous examples, which used {!True} or {!False} to enable skipping
+        bindings.
     }}
 
     [for_all2] explores bindings in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
@@ -920,32 +923,32 @@ module type HETEROGENEOUS_MAP = sig
     (** Same as {!BASE_MAP.for_all2}, but allowing the second map to have a different type.
         @since v0.15.0 *)
 
-  val exists2:
-    reflexive:bool ->
-    left_only:('a,bool) polyfold forall2_pred ->
-    common:('a,'b,bool) polyfold2_inter forall2_pred ->
-    right_only:('b,bool) map2_polyfold forall2_pred ->
-    'a t -> 'b Map2.t -> bool
-  (** Same as {!BASE_MAP.exists2}, but allowing the second map to have a different type.
-      @since v0.15.0 *)
+    val exists2:
+      reflexive:bool ->
+      left_only:('a,bool) polyfold forall2_pred ->
+      common:('a,'b,bool) polyfold2_inter forall2_pred ->
+      right_only:('b,bool) map2_polyfold forall2_pred ->
+      'a t -> 'b Map2.t -> bool
+    (** Same as {!BASE_MAP.exists2}, but allowing the second map to have a different type.
+        @since v0.15.0 *)
 
-  val fold2:
-    reflexive:bool ->
-    left_only:('a,'r -> 'r) polyfold option ->
-    common:('a,'b,'r -> 'r) polyfold2_inter option ->
-    right_only:('b,'r -> 'r) map2_polyfold option ->
-    'a t -> 'b Map2.t -> 'r -> 'r
-  (** Same as {!BASE_MAP.fold2}, but allowing the second map to have a different type.
-      @since v0.15.0 *)
+    val fold2:
+      reflexive:bool ->
+      left_only:('a,'r -> 'r) polyfold option ->
+      common:('a,'b,'r -> 'r) polyfold2_inter option ->
+      right_only:('b,'r -> 'r) map2_polyfold option ->
+      'a t -> 'b Map2.t -> 'r -> 'r
+    (** Same as {!BASE_MAP.fold2}, but allowing the second map to have a different type.
+        @since v0.15.0 *)
 
-  val iter2:
-    reflexive:bool ->
-    left_only:('a, unit) polyfold option ->
-    common:('a,'b, unit) polyfold2_inter option ->
-    right_only:('b, unit) map2_polyfold option ->
-    'a t -> 'b Map2.t -> unit
-  (** Same as {!BASE_MAP.iter2}, but allowing the second map to have a different type.
-      @since v0.15.0 *)
+    val iter2:
+      reflexive:bool ->
+      left_only:('a, unit) polyfold option ->
+      common:('a,'b, unit) polyfold2_inter option ->
+      right_only:('b, unit) map2_polyfold option ->
+      'a t -> 'b Map2.t -> unit
+    (** Same as {!BASE_MAP.iter2}, but allowing the second map to have a different type.
+        @since v0.15.0 *)
   end
 end
 
@@ -1869,9 +1872,11 @@ module type MAP_WITH_VALUE = sig
         ~common:(F {f=fun k v1 v2 -> f k (Some v1) (Some v2)})
         ]}
         Calls a single function [f: key -> 'a value option -> 'b value option -> bool]
-        on all bindings, using options to determine
-        whether the binding is present or known. Unlike the previous examples,
-        this will not skip any subparts of [m1] or [m2], and thus be slower.
+        on all bindings, using options to determine whether the binding is present
+        in the left or right maps. Since this example uses three user-defined functions (via {!F}),
+        it will iterate through every binding of [m1] and [m2] (until it finds a
+        [false]). This is slower than the previous examples, which used {!True}
+        or {!False} to enable skipping bindings.
     }}
 
     [for_all2] explores bindings in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
