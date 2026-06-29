@@ -362,11 +362,14 @@ module MakeCustomHeterogeneousMap
       | Empty, _
       | _, Empty -> ta
       | Leaf{key;value=va},_ -> (try let vb = Map2.find key tb in
+            if phys_same va vb then empty else
             match f.f key va vb with
             | None -> empty
             | Some v -> if v == va then ta else leaf key v
           with Not_found -> ta)
-      | _,Leaf{key;value} -> update key (function None -> None | Some v -> f.f key v value) ta
+      | _,Leaf{key;value} -> update key (function
+            | None -> None
+            | Some v -> if phys_same value v then None else f.f key v value) ta
       | Branch{prefix=pa;branching_bit=ma;tree0=ta0;tree1=ta1},
         Branch{prefix=pb;branching_bit=mb;tree0=tb0;tree1=tb1} ->
         if ma == mb && pa == pb
@@ -987,7 +990,6 @@ module MakeCustomHeterogeneousMap
     | Branch{tree0;tree1;_} ->
       let acc = fold f tree0 acc in
       fold f tree1 acc
-
 
   type ('acc,'map1,'map2) polyfold2_inter = { f: 'a. 'a key -> ('a,'map1) value -> ('a,'map2) value -> 'acc -> 'acc } [@@unboxed]
   let rec fold_inter ~reflexive f ta tb acc =
