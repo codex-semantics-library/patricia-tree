@@ -181,6 +181,7 @@ let difference_fun =
     [
       ("left", fun _ a b -> if a == b then None else Some a);
       ("-> None", fun _ _ _ -> None);
+      ("-> Some cst", fun _ _ _ -> Some 'z');
     ]
 
 let make_setcmp_test name arb_fun intmap_setcmp model_setcmp =
