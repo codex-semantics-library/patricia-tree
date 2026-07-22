@@ -208,7 +208,7 @@ let difference f m0 m1 =
   let keys = keys @@ List.append m0 m1 in
   let aux i =
     match (List.assoc_opt i m0, List.assoc_opt i m1) with
-    | Some x, Some y -> Option.map (fun a -> (i, a)) @@ f i x y
+    | Some x, Some y -> if x == y then None else Option.map (fun a -> (i, a)) @@ f i x y
     | Some x, None -> Some (i, x)
     | _, _ -> None
   in

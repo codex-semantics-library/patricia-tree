@@ -420,7 +420,9 @@ module MakeCustomHeterogeneousMap
             | None -> empty
             | Some v -> if v == va then ta else leaf key v
           with Not_found -> ta)
-      | _,Leaf{key;value} -> update key (function None -> None | Some v -> f.f key v value) ta
+      | _,Leaf{key;value} -> update key (function
+            | None -> None
+            | Some v -> if phys_same value v then None else f.f key v value) ta
       | Branch{prefix=pa;branching_bit=ma;tree0=ta0;tree1=ta1},
         Branch{prefix=pb;branching_bit=mb;tree0=tb0;tree1=tb1} ->
         if ma == mb && pa == pb
@@ -1198,7 +1200,6 @@ module MakeCustomHeterogeneousMap
           then branch ~prefix:pb ~branching_bit:mb ~tree0:(symmetric_difference f ta tb0) ~tree1:tb1
           else branch ~prefix:pb ~branching_bit:mb ~tree0:tb0 ~tree1:(symmetric_difference f ta tb1)
         else join (pa :> int) ta (pb :> int) tb
-
 
   let rec fold_inter ~reflexive (f : (_,_,_) polyfold2_inter) ta tb acc =
     if reflexive && phys_same ta tb then acc
