@@ -1,3 +1,7 @@
+# v0.15.0 - 2026-06-29
+
+- Fix `difference`'s function called on physically equal values ([#37](https://github.com/codex-semantics-library/patricia-tree/issues/37))
+
 # v0.14.0 - 2026-06-03
 
 - Change type of `nonreflexive_subset_domain_for_all2` to allows usage with maps of different type.
