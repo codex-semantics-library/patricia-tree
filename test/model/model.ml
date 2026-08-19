@@ -214,15 +214,17 @@ let difference f m0 m1 =
   in
   List.filter_map aux keys
 
-let rec reflexive_subset_domain_for_all2 phi s t =
+let rec subset_domain_for_all2 phi s t =
   match (s, t) with
   | [], _ -> true
   | _, [] -> false
   | (x, a) :: xs, (y, b) :: ys ->
       let d = compare_keys x y in
-      if d = 0 then phi x a b && reflexive_subset_domain_for_all2 phi xs ys
-      else d > 0 && reflexive_subset_domain_for_all2 phi s ys
-let nonreflexive_subset_domain_for_all2 = reflexive_subset_domain_for_all2
+      if d = 0 then phi x a b && subset_domain_for_all2  phi xs ys
+      else d > 0 && subset_domain_for_all2 phi s ys
+let reflexive_subset_domain_for_all2 phi = subset_domain_for_all2 (fun k v1 v2 -> v1 == v2 || phi k v1 v2)
+
+let nonreflexive_subset_domain_for_all2 = subset_domain_for_all2
 
 let intersect m0 m1 = idempotent_inter (fun _ l _ -> l) m0 m1 <> []
 
