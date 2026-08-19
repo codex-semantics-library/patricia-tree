@@ -416,6 +416,7 @@ module MakeCustomHeterogeneousMap
       | Empty, _
       | _, Empty -> ta
       | Leaf{key;value=va},_ -> (try let vb = Core2.find key tb in
+            if phys_same va vb then empty else
             match f.f key va vb with
             | None -> empty
             | Some v -> if v == va then ta else leaf key v
