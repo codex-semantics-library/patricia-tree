@@ -540,4 +540,4 @@ let tests =
           List.of_seq (Model.to_rev_seq (abstract tree)) ));
   ]
 
-let _ = QCheck_runner.run_tests ~verbose:true tests
+let () = exit (QCheck_runner.run_tests ~verbose:true tests)
