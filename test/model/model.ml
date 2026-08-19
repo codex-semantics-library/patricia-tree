@@ -190,13 +190,16 @@ let rec fold_on_union f m0 m1 acc = match m0, m1 with
       | n when n < 0 -> fold_on_union f m0' m1 (f k0 (Some v0) None acc)
       | _ -> fold_on_union f m0 m1' (f k1 None (Some v1) acc)
 
-let reflexive_same_domain_for_all2 p m0 m1 =
+let same_domain_for_all2 ~reflexive p m0 m1 =
   let keys0 = keys m0
   and keys1 = keys m1
-  and p k = p k (List.assoc k m0) (List.assoc k m1) in
+  and p k =
+    let v0 = List.assoc k m0 and v1 = List.assoc k m1 in
+    if reflexive && v0 == v1 then true else p k v0 v1 in
   List.equal Int.equal keys0 keys1 && List.for_all p keys0
 
-let nonreflexive_same_domain_for_all2 = reflexive_same_domain_for_all2
+let reflexive_same_domain_for_all2 p = same_domain_for_all2 ~reflexive:true p
+let nonreflexive_same_domain_for_all2 p = same_domain_for_all2 ~reflexive:false p
 
 let nonreflexive_any_domain_for_all2 p m0 m1 =
   List.for_all (fun k -> p k (List.assoc_opt k m0) (List.assoc_opt k m1)) (keys m0 @ keys m1)

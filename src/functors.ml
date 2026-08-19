@@ -39,6 +39,75 @@ let [@inline always] branches_before l_prefix (l_mask : mask) (r_prefix : intkey
 
 exception False
 
+module MakeCore(Key:HETEROGENEOUS_KEY)(Node: NODE with type 'a key = 'a Key.t) = struct
+  include Node
+  let rec findint: type a map. a key -> int -> map t -> (a,map) value =
+    fun witness searched m -> match Node.view m with
+      | Leaf{key;value} -> begin
+          match Key.polyeq key witness with
+          | Eq -> value
+          | Diff -> raise Not_found
+        end
+      | Branch{branching_bit;tree0;tree1;_} ->
+        (* Optional if not (match_prefix searched prefix branching_bit) then raise Not_found
+            else *) if ((branching_bit :> int) land searched == 0)
+        then findint witness searched tree0
+        else findint witness searched tree1
+      | Empty -> raise Not_found
+  let find searched m = findint searched (Key.to_int searched) m
+  let find_opt searched m = match find searched m with
+  | x -> Some x
+  | exception Not_found -> None
+
+    type ('map,'res) polyfold = { f: 'a. 'a key -> ('a,'map) Node.value -> 'res } [@@unboxed]
+
+    let rec fold f m acc = match Node.view m with
+      | Empty -> acc
+      | Leaf{key;value} -> f.f key value acc
+      | Branch{tree0;tree1;_} ->
+        let acc = fold f tree0 acc in
+        fold f tree1 acc
+
+    let rec for_all f m = match Node.view m with
+      | Empty -> true
+      | Leaf{key;value} -> f.f key value
+      | Branch{tree0; tree1; _ } -> for_all f tree0 && for_all f tree1
+
+    let forall_missing (type k') fmissing (fcommon: (k','a) Node.value option -> bool) (key: k' key) m =
+      let id_a = Key.to_int key in
+      let found = ref false in
+      let forall_func (type k) (keyb: k Key.t) valueb =
+        if !found then fmissing.f keyb valueb else
+        let id_b = Key.to_int keyb in
+        if unsigned_lt id_b id_a then fmissing.f keyb valueb
+        else
+          (found := true;
+          if unsigned_lt id_a id_b then fcommon None && fmissing.f keyb valueb
+          else match Key.polyeq key keyb with
+          | Eq -> fcommon (Some valueb)
+          | Diff -> raise (Invalid_argument "Keys with same to_int value are not equal by polyeq"))
+      in
+      let res = for_all {f=forall_func} m in
+      res && if !found then true else fcommon None
+
+    let fold_missing (type k') fmissing (fcommon: (k','a) Node.value option -> 'r -> 'r) (key: k' key) m r =
+      let id_a = Key.to_int key in
+      let found = ref false in
+      let fold_func (type k) (keyb: k Key.t) valueb r =
+        if !found then fmissing.f keyb valueb r else
+        let id_b = Key.to_int keyb in
+        if unsigned_lt id_b id_a then fmissing.f keyb valueb r
+        else
+          (found := true;
+          if unsigned_lt id_a id_b then fcommon None r |> fmissing.f keyb valueb
+          else match Key.polyeq key keyb with
+          | Eq -> fcommon (Some valueb) r
+          | Diff -> raise (Invalid_argument "Keys with same to_int value are not equal by polyeq"))
+      in
+      let r = fold {f=fold_func} m r in
+      if !found then r else fcommon None r
+end
+
 module MakeCustomHeterogeneousMap
     (Key:HETEROGENEOUS_KEY)
     (Value:HETEROGENEOUS_VALUE)
@@ -47,27 +116,7 @@ module MakeCustomHeterogeneousMap
     and type ('key,'map) value = ('key,'map) Value.t
     and type 'a t = 'a NODE.t
 = struct
-  module Core = struct
-    include NODE
-    let rec findint: type a map. a Key.t -> int -> map t -> (a,map) value =
-      fun witness searched m -> match NODE.view m with
-        | Leaf{key;value} -> begin
-            match Key.polyeq key witness with
-            | Eq -> value
-            | Diff -> raise Not_found
-          end
-        | Branch{branching_bit;tree0;tree1;_} ->
-          (* Optional if not (match_prefix searched prefix branching_bit) then raise Not_found
-             else *) if ((branching_bit :> int) land searched == 0)
-          then findint witness searched tree0
-          else findint witness searched tree1
-        | Empty -> raise Not_found
-    let find searched m = findint searched (Key.to_int searched) m
-    let find_opt searched m = match find searched m with
-    | x -> Some x
-    | exception Not_found -> None
-  end
-  include Core
+  include MakeCore(Key)(NODE)
 
   type 'map key_value_pair = KeyValue: 'a Key.t * ('a,'map) value -> 'map key_value_pair
 
@@ -214,8 +263,13 @@ module MakeCustomHeterogeneousMap
 
   let remove to_remove m = removeint (Key.to_int to_remove) m
 
-  module WithForeign(Map2:NODE_WITH_FIND with type 'a key = 'a key) = struct
+  let rec iter f x = match NODE.view x with
+    | Empty -> ()
+    | Leaf{key;value} -> f.f key value
+    | Branch{tree0;tree1;_} -> iter f tree0; iter f tree1
 
+  module WithForeign(Map2:NODE with type 'a key = 'a key) = struct
+    module Core2 = MakeCore(Key)(Map2)
     (* Intersects the first map with the values of the second map,
        trying to preserve physical equality of the first map whenever
        possible. *)
@@ -224,7 +278,7 @@ module MakeCustomHeterogeneousMap
       match NODE.view ta,Map2.view tb with
       | Empty, _ | _, Empty -> NODE.empty
       | Leaf{key;value},_ ->
-        (try let res = Map2.find key tb in
+        (try let res = Core2.find key tb in
            let newval = (f.f key value res) in
            if newval == value then ta
            else NODE.leaf key newval
@@ -319,7 +373,7 @@ module MakeCustomHeterogeneousMap
       | Empty, _ -> ta
       | _, Empty -> ta
       | Leaf{key;value},_ ->
-        begin match Map2.find key tb with
+        begin match Core2.find key tb with
         | exception Not_found -> ta
         | foundv -> begin
             match f.f key value foundv with
@@ -361,8 +415,7 @@ module MakeCustomHeterogeneousMap
       | _ when phys_same ta tb -> empty
       | Empty, _
       | _, Empty -> ta
-      | Leaf{key;value=va},_ -> (try let vb = Map2.find key tb in
-            if phys_same va vb then empty else
+      | Leaf{key;value=va},_ -> (try let vb = Core2.find key tb in
             match f.f key va vb with
             | None -> empty
             | Some v -> if v == va then ta else leaf key v
@@ -393,7 +446,7 @@ module MakeCustomHeterogeneousMap
       match NODE.view ta,Map2.view tb with
       | Empty, _ | _, Empty -> None
       | Leaf{key;value},_ ->
-        (try Some (KeyValueValue(key,value,Map2.find key tb))
+        (try Some (KeyValueValue(key,value,Core2.find key tb))
          with Not_found -> None)
       | _,Leaf{key;value} ->
         (try Some (KeyValueValue(key,find key ta,value))
@@ -420,7 +473,7 @@ module MakeCustomHeterogeneousMap
       match NODE.view ta, Map2.view tb with
       | Empty, _ | _, Empty -> None
       | Leaf{key;value},_ ->
-        (try Some (KeyValueValue(key,value,Map2.find key tb))
+        (try Some (KeyValueValue(key,value,Core2.find key tb))
           with Not_found -> None)
       | _,Leaf{key;value} ->
         (try Some (KeyValueValue(key,find key ta,value))
@@ -442,8 +495,182 @@ module MakeCustomHeterogeneousMap
           then max_binding_inter ta tb0
           else max_binding_inter ta tb1
         else None
+
+    (* Re-implement fold for Map2 *)
+    type ('map,'res) map2_polyfold = ('map,'res) Core2.polyfold = { f: 'a. 'a key -> ('a,'map) Map2.value -> 'res } [@@unboxed]
+
+    type ('map1,'map2,'res) polyfold2 =
+      { f: 'a. 'a key -> ('a,'map1) value option -> ('a,'map2) Map2.value option -> 'res } [@@unboxed]
+    type ('map1,'map2,'acc) polyfold2_inter = { f: 'a. 'a key -> ('a,'map1) value -> ('a,'map2) Map2.value -> 'acc } [@@unboxed]
+
+    let of_l (f: (_,_) polyfold forall2_pred) k v = match f with
+      | True -> true
+      | False -> false
+      | F f -> f.f k v
+    let of_r (f: (_,_) map2_polyfold forall2_pred) k v = match f with
+      | True -> true
+      | False -> false
+      | F f -> f.f k v
+    let of_c ~reflexive (f: (_,_,_) polyfold2_inter forall2_pred) k v v' = match f with
+      | True -> true
+      | False -> false
+      | F f -> (reflexive && phys_same v v') || f.f k v v'
+
+    let for_all2 :
+      reflexive:bool ->
+      left_only:('a,bool) polyfold forall2_pred ->
+      common:('a,'b,bool) polyfold2_inter forall2_pred ->
+      right_only:('b,bool) map2_polyfold forall2_pred ->
+      'a t -> 'b Map2.t -> bool
+    = fun ~reflexive ~left_only ~common ~right_only ->
+      let fleft = match left_only with
+        | True -> fun _ -> true
+        | False -> fun _ -> false
+        | F f -> for_all {f=f.f} in
+      let fright = match right_only with
+        | True -> fun _ -> true
+        | False -> fun _ -> false
+        | F f -> Core2.for_all {f=f.f} in
+      let reflexive = reflexive || common = True in
+      let rec for_all2 ta tb =
+        let same = phys_same ta tb in
+        if same && reflexive then true
+        else if same && common = False then false
+        else match NODE.view ta, Map2.view tb with
+          | Empty, Empty -> true
+          | Empty, _ -> fright tb
+          | _, Empty -> fleft ta
+          | Leaf {key=k;value=v}, Leaf {key=k';value=v'} -> begin match Key.polyeq k k' with
+              | Diff -> if unsigned_lt (Key.to_int k) (Key.to_int k')
+                        then of_l left_only k v && of_r right_only k' v'
+                        else of_r right_only k' v' && of_l left_only k v
+              | Eq -> of_c ~reflexive common k v v' end
+          | Leaf{key;value},_ -> begin match right_only with
+              | False -> false
+              | True -> (match Core2.find_opt key tb with
+                          | None -> of_l left_only key value
+                          | Some v -> of_c ~reflexive common key value v)
+              | F f -> Core2.forall_missing f (fun v -> match v with
+                | Some v -> of_c ~reflexive common key value v
+                | None -> of_l left_only key value) key tb end
+          | _,Leaf{key;value} -> begin match left_only with
+              | False -> false
+              | True -> (match find_opt key ta with
+                          | None -> of_r right_only key value
+                          | Some v -> of_c ~reflexive common key v value)
+              | F f -> forall_missing f (fun v -> match v with
+                | Some v -> of_c ~reflexive common key v value
+                | None -> of_r right_only key value) key ta end
+          | Branch{prefix=pa;branching_bit=ma;tree0=ta0;tree1=ta1},
+            Branch{prefix=pb;branching_bit=mb;tree0=tb0;tree1=tb1} ->
+            if ma == mb && pa == pb
+            then for_all2 ta0 tb0 && for_all2 ta1 tb1 (* Same prefix: merge the subtrees *)
+            else if branches_before pa ma pb mb
+            then if (ma :> int) land (pb :> int) == 0
+              then for_all2 ta0 tb && fleft ta1
+              else fleft ta0 && for_all2 ta1 tb
+            else if branches_before pb mb pa ma
+            then if (mb :> int) land (pa :> int) == 0
+              then for_all2 ta tb0 && fright tb1
+              else fright tb0 && for_all2 ta tb1
+            else
+              (* Distinct subtrees: process them in increasing order of keys. *)
+              if unsigned_lt (pa :> int) (pb :> int)
+              then fleft ta && fright tb
+              else fright tb && fleft ta
+      in for_all2
+
+    let exists2 ~reflexive
+      ~(left_only:('a,bool) polyfold forall2_pred)
+      ~common
+      ~(right_only:('b,bool) map2_polyfold forall2_pred) m1 m2 =
+      for_all2 ~reflexive
+        ~left_only:(match left_only with True -> False | False -> True | F f -> F {f=fun k v -> f.f k v |> not})
+        ~common:(match common with True -> False | False -> True | F f -> F {f=fun k v1 v2 -> f.f k v1 v2 |> not})
+        ~right_only:(match right_only with True -> False | False -> True | F f -> F {f=fun k v -> f.f k v |> not})
+        m1 m2
+      |> not
+
+    let of_l (f: (_,_) polyfold option) k v r = match f with
+      | None -> r
+      | Some f -> f.f k v r
+    let of_r (f: (_,_) map2_polyfold option) k v r = match f with
+      | None -> r
+      | Some f -> f.f k v r
+    let of_c ~reflexive (f: (_,_,_) polyfold2_inter option) k v v' r = match f with
+      | None -> r
+      | Some f -> if reflexive && phys_same v v' then r else f.f k v v' r
+
+    let fold2 :
+      reflexive:bool ->
+      left_only:('a,'r -> 'r) polyfold option ->
+      common:('a,'b,'r -> 'r) polyfold2_inter option ->
+      right_only:('b,'r -> 'r) map2_polyfold option ->
+      'a t -> 'b Map2.t -> 'r -> 'r
+    = fun ~reflexive ~left_only ~common ~right_only ->
+      let fleft = match left_only with
+        | None -> fun _ -> Fun.id
+        | Some f -> fold {f=f.f} in
+      let fright = match right_only with
+        | None -> fun _ -> Fun.id
+        | Some f -> Core2.fold {f=f.f} in
+      let reflexive = reflexive || common = None in
+      let rec fold2 ta tb r =
+        if phys_same ta tb && reflexive then r
+        else match NODE.view ta, Map2.view tb with
+          | Empty, _ -> fright tb r
+          | _, Empty -> fleft ta r
+          | Leaf {key=k;value=v}, Leaf {key=k';value=v'} -> begin match Key.polyeq k k' with
+              | Diff -> if unsigned_lt (Key.to_int k) (Key.to_int k')
+                        then r |> of_l left_only k v |> of_r right_only k' v'
+                        else r |> of_r right_only k' v' |> of_l left_only k v
+              | Eq -> of_c ~reflexive common k v v' r end
+          | Leaf{key;value},_ -> begin match right_only with
+              | None -> (match Core2.find_opt key tb with
+                          | None -> of_l left_only key value r
+                          | Some v -> of_c ~reflexive common key value v r)
+              | Some f -> Core2.fold_missing f (fun v -> match v with
+                | Some v -> of_c ~reflexive common key value v
+                | None -> of_l left_only key value) key tb r end
+          | _,Leaf{key;value} -> begin match left_only with
+              | None -> (match find_opt key ta with
+                          | None -> of_r right_only key value r
+                          | Some v -> of_c ~reflexive common key v value r)
+              | Some f -> fold_missing f (fun v -> match v with
+                | Some v -> of_c ~reflexive common key v value
+                | None -> of_r right_only key value) key ta r end
+          | Branch{prefix=pa;branching_bit=ma;tree0=ta0;tree1=ta1},
+            Branch{prefix=pb;branching_bit=mb;tree0=tb0;tree1=tb1} ->
+            if ma == mb && pa == pb
+            then r |> fold2 ta0 tb0 |> fold2 ta1 tb1 (* Same prefix: merge the subtrees *)
+            else if branches_before pa ma pb mb
+            then if (ma :> int) land (pb :> int) == 0
+              then r |> fold2 ta0 tb |> fleft ta1
+              else r |> fleft ta0 |> fold2 ta1 tb
+            else if branches_before pb mb pa ma
+            then if (mb :> int) land (pa :> int) == 0
+              then r |> fold2 ta tb0 |> fright tb1
+              else r |> fright tb0 |> fold2 ta tb1
+            else
+              (* Distinct subtrees: process them in increasing order of keys. *)
+              if unsigned_lt (pa :> int) (pb :> int)
+              then r |> fleft ta |> fright tb
+              else r |> fright tb |> fleft ta
+      in fold2
+
+  let iter2 :
+      reflexive:bool ->
+      left_only:('a,unit) polyfold option ->
+      common:('a,'b,unit) polyfold2_inter option ->
+      right_only:('b,unit) map2_polyfold option -> _ =
+    fun ~reflexive ~left_only ~common ~right_only m1 m2 ->
+      fold2 ~reflexive
+        ~left_only:(match left_only with None -> None | Some f -> Some ({f = fun k v () -> f.f k v} ))
+        ~common:(Option.map (fun f -> {f = fun k v1 v2 () -> f.f k v1 v2}) common)
+        ~right_only:(match right_only with None -> None | Some f -> Some ({f = fun k v () -> f.f k v} ))
+        m1 m2 ()
   end
-  include WithForeign(Core)
+  include WithForeign(NODE)
 
   let rec unsigned_min_binding x = match NODE.view x with
     | Empty -> raise Not_found
@@ -559,9 +786,8 @@ module MakeCustomHeterogeneousMap
       in loop t
     with Unmodified -> t
 
-  type ('map1,'map2) polysame_domain_for_all2 = { f: 'a 'b. 'a Key.t -> ('a,'map1) Value.t -> ('a,'map2) Value.t -> bool } [@@unboxed]
   (* Fast equality test between two maps. *)
-  let rec same_domain_for_all2 ~reflexive f ta tb = match (NODE.view ta),(NODE.view tb) with
+  let rec same_domain_for_all2 ~reflexive (f : _ polyfold2_inter) ta tb = match (NODE.view ta),(NODE.view tb) with
     | _ when reflexive && phys_same ta tb -> true (* Skip same subtrees thanks to reflexivity. *)
     | Empty, Empty -> true
     | Empty, _ | _, Empty -> false
@@ -569,7 +795,7 @@ module MakeCustomHeterogeneousMap
     | Leaf{key=keya;value=valuea}, Leaf{key=keyb;value=valueb} ->
       begin match Key.polyeq keya keyb with
         | Diff -> false
-        | Eq -> f.f keya valuea valueb
+        | Eq -> (reflexive && phys_same valuea valueb) || f.f keya valuea valueb
       end
     | Branch{prefix=pa;branching_bit=ma;tree0=ta0;tree1=ta1},
       Branch{prefix=pb;branching_bit=mb;tree0=tb0;tree1=tb1} ->
@@ -580,7 +806,7 @@ module MakeCustomHeterogeneousMap
   let reflexive_same_domain_for_all2 f ta tb = same_domain_for_all2 ~reflexive:true f ta tb
   let nonreflexive_same_domain_for_all2 f ta tb = same_domain_for_all2 ~reflexive:false f ta tb
 
-  let rec subset_domain_for_all2 ~reflexive f ta tb = match (NODE.view ta),(NODE.view tb) with
+  let rec subset_domain_for_all2 ~reflexive (f : _ polyfold2_inter) ta tb = match (NODE.view ta),(NODE.view tb) with
     | _ when reflexive && phys_same ta tb -> true   (* Skip same subtrees thanks to reflexivity. *)
     | Empty, _ -> true
     | _, Empty -> false
@@ -594,7 +820,7 @@ module MakeCustomHeterogeneousMap
         | Leaf{key=keyb;value=valueb} ->
           begin match Key.polyeq keya keyb with
             | Diff -> false
-            | Eq -> f.f keya valuea valueb
+            | Eq -> (reflexive && phys_same valuea valueb) || f.f keya valuea valueb
           end
         | Branch{branching_bit;tree0;tree1;_} ->
           if ((branching_bit :> int) land searched == 0)
@@ -620,10 +846,7 @@ module MakeCustomHeterogeneousMap
   let reflexive_subset_domain_for_all2 f ta tb = subset_domain_for_all2 ~reflexive:true f ta tb
   let nonreflexive_subset_domain_for_all2 f ta tb = subset_domain_for_all2 ~reflexive:false f ta tb
 
-  type 'map polycompare =
-      { f : 'a. 'a key -> ('a, 'map) value -> ('a, 'map) value -> int; } [@@unboxed]
-
-  let compare_aux : type a b m. m polycompare -> a key -> (a,m) value -> b key -> (b,m) value -> int -> int =
+  let compare_aux : type a b m. (m,m,int) polyfold2_inter -> a key -> (a,m) value -> b key -> (b,m) value -> int -> int =
   fun f ka va kb vb default ->
     let cmp = Int.compare (Key.to_int ka) (Key.to_int kb) in
     if cmp <> 0 then cmp else
@@ -978,21 +1201,7 @@ module MakeCustomHeterogeneousMap
           else branch ~prefix:pb ~branching_bit:mb ~tree0:tb0 ~tree1:(symmetric_difference f ta tb1)
         else join (pa :> int) ta (pb :> int) tb
 
-  type ('map,'res) polyfold = { f: 'a. 'a key -> ('a,'map) value -> 'res } [@@unboxed]
-  let rec iter f x = match NODE.view x with
-    | Empty -> ()
-    | Leaf{key;value} -> f.f key value
-    | Branch{tree0;tree1;_} -> iter f tree0; iter f tree1
-
-  let rec fold f m acc = match NODE.view m with
-    | Empty -> acc
-    | Leaf{key;value} -> f.f key value acc
-    | Branch{tree0;tree1;_} ->
-      let acc = fold f tree0 acc in
-      fold f tree1 acc
-
-  type ('acc,'map1,'map2) polyfold2_inter = { f: 'a. 'a key -> ('a,'map1) value -> ('a,'map2) value -> 'acc -> 'acc } [@@unboxed]
-  let rec fold_inter ~reflexive f ta tb acc =
+  let rec fold_inter ~reflexive (f : (_,_,_) polyfold2_inter) ta tb acc =
     if reflexive && phys_same ta tb then acc
     else match NODE.view ta,NODE.view tb with
       | Empty, _ | _, Empty -> acc
@@ -1026,9 +1235,6 @@ module MakeCustomHeterogeneousMap
 
   let fold_on_nonequal_inter f m1 m2 = fold_inter ~reflexive:true f m1 m2
   let fold_on_inter f m1 m2 = fold_inter ~reflexive:false f m1 m2
-
-  type ('map1,'map2,'res) polyfold2 =
-    { f: 'a. 'a key -> ('a,'map1) value option -> ('a,'map2) value option -> 'res } [@@unboxed]
 
   (** Intermediate function for folding on union, when folding on a leaf and a branch:
       Call fall on the branch and insert the correct call to leaf as needed. *)
@@ -1104,19 +1310,16 @@ module MakeCustomHeterogeneousMap
   let fold_on_nonequal_union f m1 m2 = fold_union ~reflexive:true f m1 m2
   let fold_on_union f m1 m2 = fold_union ~reflexive:false f m1 m2
 
-  type 'map polypredicate = { f: 'a. 'a key -> ('a,'map) value -> bool; } [@@unboxed]
-  let filter f m = filter_map {f = fun k v -> if f.f k v then Some v else None } m
-  let rec for_all f m = match NODE.view m with
+  let filter (f: (_,_) polyfold) m = filter_map {f = fun k v -> if f.f k v then Some v else None } m
+  let rec for_all (f: (_,_) polyfold) m = match NODE.view m with
     | Empty -> true
     | Leaf{key;value} -> f.f key value
     | Branch{tree0; tree1; _ } -> for_all f tree0 && for_all f tree1
 
-  type ('map1,'map2) polyfor_all2 =
-    { f : 'a. 'a key -> ('a, 'map1) value option -> ('a, 'map2) value option -> bool; } [@@unboxed]
-  let nonreflexive_any_domain_for_all2 f ta tb =
+  let nonreflexive_any_domain_for_all2 (f: _ polyfold2) ta tb =
     try fold_on_union {f=fun k v1 v2 ()-> if f.f k v1 v2 then () else raise False} ta tb (); true
     with False -> false
-  let reflexive_any_domain_for_all2 f ta tb =
+  let reflexive_any_domain_for_all2 (f: _ polyfold2) ta tb =
     try fold_on_nonequal_union {f=fun k v1 v2 ()-> if f.f k v1 v2 then () else raise False} ta tb (); true
     with False -> false
 
@@ -1139,6 +1342,16 @@ module MakeCustomHeterogeneousMap
   let of_list l = of_seq (List.to_seq l)
   let to_list m = List.of_seq (to_seq m)
 end
+
+let forall_pred_map f = function
+  | True -> True
+  | False -> False
+  | F x -> F (f x)
+
+let forall_pred_map_flip f = function
+  | True -> (False : _ forall2_pred)
+  | False -> True
+  | F x -> F (f x)
 
 module MakeCustomHeterogeneousSet
     (Key:HETEROGENEOUS_KEY)
@@ -1191,6 +1404,34 @@ module MakeCustomHeterogeneousSet
   let pop_unsigned_maximum t = Option.map (fun (KeyValue(m,()),t) -> Any m,t) (BaseMap.pop_unsigned_maximum t)
   let pop_unsigned_minimum t = Option.map (fun (KeyValue(m,()),t) -> Any m,t) (BaseMap.pop_unsigned_minimum t)
 
+  let exists2 ~left_only ~(common: _ forall2_pred) ~right_only s1 s2 =
+    for_all2 ~reflexive:(common = False)
+      ~left_only:(forall_pred_map_flip (fun f -> ({f=fun k () -> f.f k |> not} : _ BaseMap.polyfold)) left_only)
+      ~common:(forall_pred_map_flip (fun f -> ({f=fun k () () -> f.f k |> not} : _ BaseMap.polyfold2_inter)) common)
+      ~right_only:(forall_pred_map_flip (fun f -> ({f=fun k () -> f.f k |> not} : _ BaseMap.polyfold)) right_only)
+      s1 s2 |> not
+
+  let for_all2 ~left_only ~common ~right_only s1 s2 =
+    for_all2 ~reflexive:(common = True)
+      ~left_only:(forall_pred_map (fun f -> ({f=fun k () -> f.f k} : _ BaseMap.polyfold)) left_only)
+      ~common:(forall_pred_map (fun f -> ({f=fun k () () -> f.f k} : _ BaseMap.polyfold2_inter)) common)
+      ~right_only:(forall_pred_map (fun f -> ({f=fun k () -> f.f k} : _ BaseMap.polyfold)) right_only)
+      s1 s2
+
+  let iter2 ~left_only ~common ~right_only s1 s2 =
+    fold2 ~reflexive:(common = None)
+      ~left_only:(Option.map (fun f -> ({f=fun k () () -> f.f k} : _ BaseMap.polyfold)) left_only)
+      ~common:(Option.map (fun f -> ({f=fun k () () () -> f.f k} : _ BaseMap.polyfold2_inter)) common)
+      ~right_only:(Option.map (fun f -> ({f=fun k () () -> f.f k} : _ BaseMap.polyfold)) right_only)
+      s1 s2 ()
+
+  let fold2 ~left_only ~common ~right_only s1 s2 =
+    fold2 ~reflexive:(common = None)
+      ~left_only:(Option.map (fun f -> ({f=fun k () r -> f.f k r} : _ BaseMap.polyfold)) left_only)
+      ~common:(Option.map (fun f -> ({f=fun k () () r -> f.f k r} : _ BaseMap.polyfold2_inter)) common)
+      ~right_only:(Option.map (fun f -> ({f=fun k () r -> f.f k r} : _ BaseMap.polyfold)) right_only)
+      s1 s2
+
   type polypretty = { f: 'a. Format.formatter -> 'a key -> unit; } [@@unboxed]
   let pretty ?pp_sep f fmt s = BaseMap.pretty ?pp_sep { f = fun fmt k () -> f.f fmt k} fmt s
 
@@ -1201,9 +1442,8 @@ module MakeCustomHeterogeneousSet
   let split k m = let (l, present, r) = BaseMap.split k m in
     (l, Option.is_some present, r)
 
-  type polypredicate = { f: 'a. 'a key -> bool; } [@@unboxed]
-  let filter f s = BaseMap.filter {f = fun k () -> f.f k } s
-  let for_all f s = BaseMap.for_all {f = fun k () -> f.f k} s
+  let filter (f : (_) polyfold) s = BaseMap.filter {f = fun k () -> f.f k } s
+  let for_all (f : (_) polyfold) s = BaseMap.for_all {f = fun k () -> f.f k} s
 
   let to_seq m = Seq.map (fun (KeyValue(elt,())) -> Any elt) (BaseMap.to_seq m)
   let to_rev_seq m = Seq.map (fun (KeyValue(elt,())) -> Any elt) (BaseMap.to_rev_seq m)
@@ -1342,7 +1582,35 @@ module MakeCustomMap
       f k va vb in
     BaseMap.reflexive_any_domain_for_all2 {f} ma mb
 
-  module WithForeign(Map2 : NODE_WITH_FIND with type _ key = key) = struct
+  let for_all2 ~reflexive ~left_only ~common ~right_only =
+    BaseMap.for_all2 ~reflexive
+      ~left_only:(forall_pred_map (fun (f: key -> 'a value -> bool) -> ({f=fun k (Snd v) -> f k v} : _ BaseMap.polyfold )) left_only)
+      ~common:(forall_pred_map (fun (f: key -> 'a value -> 'b value -> bool) -> ({f=fun k (Snd v) (Snd v') -> f k v v'} : _ BaseMap.polyfold2_inter )) common)
+      ~right_only:(forall_pred_map (fun (f: key -> 'b value -> bool) -> ({f=fun k (Snd v) -> f k v} : _ BaseMap.polyfold )) right_only)
+
+  let exists2 ~reflexive ~left_only ~common ~right_only m1 m2 =
+    BaseMap.for_all2 ~reflexive
+      ~left_only:(forall_pred_map_flip (fun (f: key -> 'a value -> bool) -> ({f=fun k (Snd v) -> f k v |> not} : _ BaseMap.polyfold )) left_only)
+      ~common:(forall_pred_map_flip (fun (f: key -> 'a value -> 'b value -> bool) -> ({f=fun k (Snd v) (Snd v') -> f k v v' |> not} : _ BaseMap.polyfold2_inter )) common)
+      ~right_only:(forall_pred_map_flip (fun (f: key -> 'b value -> bool) -> ({f=fun k (Snd v) -> f k v |> not} : _ BaseMap.polyfold )) right_only)
+      m1 m2
+    |> not
+
+  let fold2 ~reflexive ~left_only ~common ~right_only =
+    BaseMap.fold2 ~reflexive
+      ~left_only:(Option.map (fun (f: key -> 'a value -> 'r -> 'r) -> ({f=fun k (Snd v) -> f k v} : _ BaseMap.polyfold )) left_only)
+      ~common:(Option.map (fun (f: key -> 'a value -> 'b value -> 'r -> 'r) -> ({f=fun k (Snd v) (Snd v') -> f k v v'} : _ BaseMap.polyfold2_inter )) common)
+      ~right_only:(Option.map (fun (f: key -> 'b value -> 'r -> 'r) -> ({f=fun k (Snd v) -> f k v} : _ BaseMap.polyfold )) right_only)
+
+  let iter2 ~reflexive ~left_only ~common ~right_only m1 m2 =
+    BaseMap.fold2 ~reflexive
+      ~left_only:(Option.map (fun (f: key -> 'a value -> unit) -> ({f=fun k (Snd v) () -> f k v} : _ BaseMap.polyfold )) left_only)
+      ~common:(Option.map (fun (f: key -> 'a value -> 'b value -> unit) -> ({f=fun k (Snd v) (Snd v') () -> f k v v'} : _ BaseMap.polyfold2_inter )) common)
+      ~right_only:(Option.map (fun (f: key -> 'b value -> unit) -> ({f=fun k (Snd v) () -> f k v} : _ BaseMap.polyfold )) right_only)
+      m1 m2 ()
+
+
+  module WithForeign(Map2 : NODE with type _ key = key) = struct
     module BaseForeign = BaseMap.WithForeign(Map2)
     type ('b,'c) polyfilter_map_foreign = { f: 'a. key -> ('a,'b) Map2.value -> 'c value option } [@@unboxed]
     let filter_map_no_share f m2 =
@@ -1418,6 +1686,34 @@ module MakeCustomSet
   let of_seq s = add_seq s empty
   let of_list l = of_seq (List.to_seq l)
   let to_list s = List.of_seq (to_seq s)
+
+  let exists2 ~left_only ~(common: _ forall2_pred) ~right_only s1 s2 =
+    BaseMap.for_all2 ~reflexive:(common = False)
+      ~left_only:(forall_pred_map_flip (fun (f: elt -> bool) -> ({f=fun k () -> f k |> not} : _ BaseMap.polyfold)) left_only)
+      ~common:(forall_pred_map_flip (fun (f: elt -> bool) -> ({f=fun k () () -> f k |> not} : _ BaseMap.polyfold2_inter)) common)
+      ~right_only:(forall_pred_map_flip (fun (f: elt -> bool) -> ({f=fun k () -> f k |> not} : _ BaseMap.polyfold)) right_only)
+      s1 s2 |> not
+
+  let for_all2 ~left_only ~common ~right_only s1 s2 =
+    BaseMap.for_all2 ~reflexive:(common = True)
+      ~left_only:(forall_pred_map (fun (f: elt -> bool) -> ({f=fun k () -> f k} : _ BaseMap.polyfold)) left_only)
+      ~common:(forall_pred_map (fun (f: elt -> bool) -> ({f=fun k () () -> f k} : _ BaseMap.polyfold2_inter)) common)
+      ~right_only:(forall_pred_map (fun (f: elt -> bool) -> ({f=fun k () -> f k} : _ BaseMap.polyfold)) right_only)
+      s1 s2
+
+  let iter2 ~left_only ~common ~right_only s1 s2 =
+    BaseMap.fold2 ~reflexive:(common = None)
+      ~left_only:(Option.map (fun (f: elt -> unit) -> ({f=fun k () () -> f k} : _ BaseMap.polyfold)) left_only)
+      ~common:(Option.map (fun (f: elt -> unit) -> ({f=fun k () () () -> f k} : _ BaseMap.polyfold2_inter)) common)
+      ~right_only:(Option.map (fun (f: elt -> unit) -> ({f=fun k () () -> f k} : _ BaseMap.polyfold)) right_only)
+      s1 s2 ()
+
+  let fold2 ~left_only ~common ~right_only s1 s2 =
+    BaseMap.fold2 ~reflexive:(common = None)
+      ~left_only:(Option.map (fun (f: elt -> 'r -> 'r) -> ({f=fun k () r -> f k r} : _ BaseMap.polyfold)) left_only)
+      ~common:(Option.map (fun (f: elt -> 'r -> 'r) -> ({f=fun k () () r -> f k r} : _ BaseMap.polyfold2_inter)) common)
+      ~right_only:(Option.map (fun (f: elt -> 'r -> 'r) -> ({f=fun k () r -> f k r} : _ BaseMap.polyfold)) right_only)
+      s1 s2
 end
 
 module MakeSet(Key: KEY) = MakeCustomSet(Key)(SetNode(HeterogeneousKeyFromKey(Key)))

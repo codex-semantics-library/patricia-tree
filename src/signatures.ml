@@ -25,6 +25,20 @@
 
 open Ints
 
+(** Type used to specify functions for {!MakeMap.for_all2}
+    @canonical PatriciaTree.forall2_pred *)
+type 'a forall2_pred =
+  | True
+    (** Equivalent to [F (fun _ -> true)], but allows skipping exploring the relevant cases
+        @canonical PatriciaTree.True *)
+
+  | False
+    (** Equivalent to [F (fun _ -> false)], but allows skipping exploring the relevant cases
+        @canonical PatriciaTree.False *)
+  | F of 'a
+    (** A user-supplied function
+        @canonical PatriciaTree.F *)
+
 (** {1 Nodes} *)
 (** Nodes are the underlying representation used to build a patricia-tree.
     The module type specifies the constructors they must provide, and a common
@@ -163,22 +177,6 @@ module type HASH_CONSED_NODE = sig
       child nodes will always have a smaller identifier than their parents. *)
 end
 
-(** A {!NODE} along with its {!NODE_WITH_FIND.find} function.
-    This is the minimal argument to the {!HETEROGENEOUS_MAP.WithForeign} functors
-
-    @since v0.11.0
-    @canonical PatriciaTree.NODE_WITH_FIND *)
-module type NODE_WITH_FIND = sig
-  include NODE (** @closed *)
-
-  val find : 'key key -> 'map t -> ('key, 'map) value
-  (** [find key map] returns the value associated with [key] in [map] if present.
-      @raises Not_found if [key] is absent from map *)
-
-  val find_opt : 'key key -> 'map t -> ('key, 'map) value option
-  (** Same as {!find}, but returns [None] for Not_found *)
-end
-
 (** {1 Map signatures} *)
 
 (** {2 Base map} *)
@@ -197,7 +195,14 @@ end
 
     @canonical PatriciaTree.BASE_MAP *)
 module type BASE_MAP = sig
-  include NODE_WITH_FIND (** @open *)
+  include NODE (** @open *)
+
+  val find : 'key key -> 'map t -> ('key, 'map) value
+  (** [find key map] returns the value associated with [key] in [map] if present.
+      @raises Not_found if [key] is absent from map *)
+
+  val find_opt : 'key key -> 'map t -> ('key, 'map) value option
+  (** Same as {!find}, but returns [None] for Not_found *)
 
   (** Existential wrapper for the ['a] parameter in a ['a key], [('a,'map) value] pair *)
   type 'map key_value_pair =
@@ -286,60 +291,12 @@ module type BASE_MAP = sig
       where [(key_1, value_1) ... (key_n, value_n)] are the bindings of [m], in
       the {{!unsigned_lt}unsigned order} on {!KEY.to_int}. *)
 
-  type ('acc,'map1,'map2) polyfold2_inter = { f: 'a. 'a key -> ('a,'map1) value -> ('a,'map2) value -> 'acc -> 'acc } [@@unboxed]
-  val fold_on_nonequal_inter : ('acc,'map1,'map2) polyfold2_inter -> 'map1 t -> 'map2 t -> 'acc -> 'acc
-  (** [fold_on_nonequal_inter f m1 m2 acc] returns
-      [f.f key_n value1_n value2n (... (f.f key_1 value1_1 value2_1 acc))] where
-      [(key_1, value1_1, value2_1) ... (key_n, value1_n, value2_n)] are the
-      bindings that exist in both maps ([m1 ∩ m2]) whose values are physically different.
-      Calls to [f.f] are performed in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
-
-      Changed in v0.13.0 to allow argument maps of differing types. *)
-
-  val fold_on_inter : ('acc,'map1,'map2) polyfold2_inter -> 'map1 t -> 'map2 t -> 'acc -> 'acc
-  (** [fold_on_inter f m1 m2 acc] iterates both maps [m1] and [m2] simultaneously, calling
-      [f.f k v1 v2 acc] for each binding [k] in both [m1] and [m2], with respective values
-      [v1] and [v2].
-
-      This is an alternative to {!fold_on_nonequal_inter}. It is slower but does not
-      skip physically equal bindings.
-
-      Calls to [f.f] are performed in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
-
-      @since v0.13.0 *)
-
-  type ('map1,'map2,'res) polyfold2 = { f: 'a. 'a key -> ('a,'map1) value option -> ('a,'map2) value option -> 'res } [@@unboxed]
-  val fold_on_nonequal_union : ('map1,'map2,'acc->'acc) polyfold2 -> 'map1 t -> 'map2 t -> 'acc -> 'acc
-  (** [fold_on_nonequal_union f m1 m2 acc] returns
-      [f.f key_n value1_n value2n (... (f.f key_1 value1_1 value2_1 acc))] where
-      [(key_1, value1_1, value2_1) ... (key_n, value1_n, value2_n)] are the
-      bindings that exists in either map ([m1 ∪ m2]) whose values are physically
-      different.
-      Calls to [f.f] are performed in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
-
-      Changed in v0.13.0 to allow argument maps of differing types. *)
-
-
-  val fold_on_union : ('map1,'map2,'acc->'acc) polyfold2 -> 'map1 t -> 'map2 t -> 'acc -> 'acc
-  (** [fold_on_union f m1 m2 acc] iterates both maps [m1] and [m2] simultaneously, calling
-      [f.f k v1_opt v2_opt acc] for each binding [k,v1] in [m1] ([v1_opt = Some v1])
-      and [k,v2] in [m2]. [v1_opt] (resp [v2_opt]) will be [None] if [k] is not
-      bound in [m1] (resp [m2]).
-
-      This is an alternative to {!fold_on_nonequal_union}. It is slower but does not
-      skip physically equal bindings.
-
-      Calls to [f.f] are performed in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
-
-      @since v0.13.0 *)
-
-  type 'map polypredicate = { f: 'a. 'a key -> ('a,'map) value -> bool; } [@@unboxed]
-  val filter : 'map polypredicate -> 'map t -> 'map t
+  val filter : ('map, bool) polyfold -> 'map t -> 'map t
   (** [filter f m] returns the submap of [m] containing the bindings [k->v]
       such that [f.f k v = true].
       [f.f] is called in the {{!unsigned_lt}unsigned order} of {!KEY.to_int} *)
 
-  val for_all : 'map polypredicate -> 'map t -> bool
+  val for_all : ('map, bool) polyfold -> 'map t -> bool
   (** [for_all f m] checks that [f] holds on all bindings of [m].
       Short-circuiting. *)
 
@@ -416,13 +373,13 @@ module type BASE_MAP = sig
       These is what the [polyXXX] types are for.*)
 
   (** {2 Comparing two maps} *)
-  (** Functions for equality, inclusion, and test for disjointness. *)
 
-  type ('map1,'map2) polysame_domain_for_all2 =
-    { f : 'a. 'a key -> ('a, 'map1) value -> ('a, 'map2) value -> bool; } [@@unboxed]
+  (** Functions for equality, inclusion, and test for disjointness. *)
+  type ('map1,'map2,'acc) polyfold2_inter = { f: 'a. 'a key -> ('a,'map1) value -> ('a,'map2) value -> 'acc } [@@unboxed]
+  type ('map1,'map2,'res) polyfold2 = { f: 'a. 'a key -> ('a,'map1) value option -> ('a,'map2) value option -> 'res } [@@unboxed]
 
   val reflexive_same_domain_for_all2 :
-    ('map,'map) polysame_domain_for_all2 -> 'map t -> 'map t -> bool
+    ('map,'map,bool) polyfold2_inter -> 'map t -> 'map t -> bool
   (** [reflexive_same_domain_for_all2 f m1 m2] is true if and only if
       - [m1] and [m2] have the same domain (set of keys)
       - for all bindings [(k, v1)] in [m1] and [(k, v2)] in [m2], [f.f k v1 v2] holds
@@ -440,14 +397,14 @@ module type BASE_MAP = sig
       ]} *)
 
   val nonreflexive_same_domain_for_all2:
-    ('map1,'map2) polysame_domain_for_all2 -> 'map1 t -> 'map2 t -> bool
+    ('map1,'map2,bool) polyfold2_inter -> 'map1 t -> 'map2 t -> bool
   (** [nonreflexive_same_domain_for_all2 f m1 m2] is the same as
       {!reflexive_same_domain_for_all2}, but doesn't assume [f.f] is reflexive.
       It thus calls [f.f] on every binding, in ascending {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
       Exits early if the domains mismatch or if [f.f] returns [false]. *)
 
   val reflexive_subset_domain_for_all2 :
-    ('map,'map) polysame_domain_for_all2 -> 'map t -> 'map t -> bool
+    ('map,'map,bool) polyfold2_inter -> 'map t -> 'map t -> bool
   (** [reflexive_subset_domain_for_all2 f m1 m2] is true if and only if
       - [m1]'s domain is a subset of [m2]'s. (all keys defined in [m1] are also defined in [m2])
       - for all bindings [(k, v1)] in [m1] and [(k, v2)] in [m2], [f.f k v1 v2] holds
@@ -465,7 +422,7 @@ module type BASE_MAP = sig
       ]} *)
 
   val nonreflexive_subset_domain_for_all2 :
-    ('map1,'map2) polysame_domain_for_all2 -> 'map1 t -> 'map2 t -> bool
+    ('map1,'map2,bool) polyfold2_inter -> 'map1 t -> 'map2 t -> bool
   (** [nonreflexive_subset_domain_for_all2 f m1 m2] is true if and only if
       - [m1]'s domain is a subset of [m2]'s. (all keys defined in [m1] are also defined in [m2])
       - for all bindings [(k, v1)] in [m1] and [(k, v2)] in [m2], [f.f k v1 v2] holds
@@ -478,9 +435,7 @@ module type BASE_MAP = sig
 
       @since v0.13.0  *)
 
-  type ('map1,'map2) polyfor_all2 =
-    { f : 'a. 'a key -> ('a, 'map1) value option -> ('a, 'map2) value option -> bool; } [@@unboxed]
-  val reflexive_any_domain_for_all2 : ('map1,'map2) polyfor_all2 -> 'map1 t -> 'map2 t -> bool
+  val reflexive_any_domain_for_all2 : ('map1,'map2,bool) polyfold2 -> 'map1 t -> 'map2 t -> bool
   (** [reflexive_any_domain_for_all2 f m1 m2] is [true] if [f.f k v1_opt v2_opt] for all bindings [k]
       in [m1 ∪ m2] (where [vi_opt] is [Some v] if [k] is bound to [v] is [mi], and [None] otherwise).
 
@@ -493,7 +448,7 @@ module type BASE_MAP = sig
 
       @since v0.13.0 *)
 
-  val nonreflexive_any_domain_for_all2 : ('map1,'map2) polyfor_all2 -> 'map1 t -> 'map2 t -> bool
+  val nonreflexive_any_domain_for_all2 : ('map1,'map2,bool) polyfold2 -> 'map1 t -> 'map2 t -> bool
   (** [nonreflexive_any_domain_for_all2 f m1 m2] is [true] if [f.f k v1_opt v2_opt] for all bindings [k]
       in [m1 ∪ m2] (where [vi_opt] is [Some v] if [k] is bound to [v] is [mi], and [None] otherwise).
 
@@ -507,10 +462,7 @@ module type BASE_MAP = sig
 
       @since v0.13.0 *)
 
-
-  type 'map polycompare =
-      { f : 'a. 'a key -> ('a, 'map) value -> ('a, 'map) value -> int; } [@@unboxed]
-  val reflexive_compare : 'a polycompare -> 'a t -> 'a t -> int
+  val reflexive_compare : ('a,'a,int) polyfold2_inter -> 'a t -> 'a t -> int
   (** [reflexive_compare f m1 m2] is an order relation on maps.
       [m1] and [m2] are equal (return [0]) if they have the same domain and for all bindings
       [(k,v)] in [m1], [(k,v')] in [m2], we have [f v v' = 0].
@@ -657,6 +609,166 @@ module type BASE_MAP = sig
 
       @since v0.11.0 *)
 
+  (** {2 Iterating on two maps} *)
+
+  val for_all2:
+    reflexive:bool ->
+    left_only:('a,bool) polyfold forall2_pred ->
+    common:('a,'b,bool) polyfold2_inter forall2_pred ->
+    right_only:('b,bool) polyfold forall2_pred ->
+    'a t -> 'b t -> bool
+  (** [for_all2 ~reflexive ~left_only ~common ~right_only m1 m2] evaluates
+    predicates on the bindings of [m1] and [m2].
+    - [left_only k v1] is called for bindings [k -> v1] of [m1] ([k] does not appear in [m2]);
+    - [right_only k v2] is called for bindings [k -> v2] of [m2] ([k] does not appear in [m1]);
+    - [common k v1 v2] is called for shared binding [k -> v1] in [m1] and [k -> v2] in [m2].
+      If [reflexive] is [true], common is not called on physically equal bindings,
+      as they are assumed to be true. This speeds up the exploration, as shared subtrees are skipped.
+
+    All three of these parameters can be either {!True}, {!False}, or a user supplied
+    function (using {!F}). The {!True} and {!False} constructors are faster, as
+    knowing these values in advance avoids having to explore the relevant branches.
+
+    Some examples:
+    {ul
+    {-
+      {@ocaml skip[
+        MyMap.for_all2 ~reflexive:true
+            ~left_only:False ~right_only:False
+            ~common:(F {f=fun _ -> MyValue.equal})
+      ]}
+      tests map equality (no unshared bindings), aliased as {!reflexive_same_domain_for_all2};}
+    {- {@ocaml skip[
+        MyMap.for_all2 ~reflexive:true
+            ~left_only:False ~right_only:True
+            ~common:(F {f=fun _ -> MyValue.equal})
+      ]}
+      tests map inclusion (all bindings of [m1] are bindings of [m2], but [m2] can have extra bindings).
+      Aliased as {!reflexive_subset_domain_for_all2}.}
+    {- {@ocaml[
+      MyMap.for_all2 ~reflexive:false
+        ~left_only:(F {f=fun k v1 -> f k (Some v1) None})
+        ~right_only:(F {f=fun k v2 -> f k None (Some v2)})
+        ~common:(F {f=fun k v1 v2 -> f k (Some v1) (Some v2)})
+        ]}
+        Calls a single function [f] on all bindings, using options to indicate
+        whether the binding hase a value in the left and right maps. Since this example uses three
+        user-defined functions (via {!F}), it will iterate through every binding
+        of [m1] and [m2] (until it finds a [false]). This is slower than the
+        previous examples, which used {!True} or {!False} to enable skipping
+        bindings.
+    }}
+
+    [for_all2] explores bindings in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
+    It also has early-return: any false evaluation will stop exploration.
+
+    @since v0.15.0 *)
+
+  val exists2:
+    reflexive:bool ->
+    left_only:('a,bool) polyfold forall2_pred ->
+    common:('a,'b,bool) polyfold2_inter forall2_pred ->
+    right_only:('b,bool) polyfold forall2_pred ->
+    'a t -> 'b t -> bool
+  (** Negation of {!for_all2}. While {!for_all2} early returns at the first
+      encountered [false] value. This early returns at the first encountered [true].
+      @since v0.15.0 *)
+
+  val fold2:
+    reflexive:bool ->
+    left_only:('a,'r -> 'r) polyfold option ->
+    common:('a,'b,'r -> 'r) polyfold2_inter option ->
+    right_only:('b,'r -> 'r) polyfold option ->
+    'a t -> 'b t -> 'r -> 'r
+  (** [fold2 ~reflexive ~left_only ~common ~right_only m1 m2 r] iterates two maps
+      [m1] and [m2] simultaneously, updating the accumulator [r] at each binding:
+      - [left_only k v1 r] is called on bindings [k -> v1] present in [m1] but not [m2];
+      - [right_only k v2 r] is called on bindings [k -> v2] present in [m2] but not [m1];
+      - [common k v1 v2 r] is called on shared bindings. If [reflexive] is set,
+        [common] is not called on physically equal bindings ([v1 == v2]).
+        This improves performance by skipping shared subtrees.
+
+      Each of these can be [None] instead of a function, in which case the corresponding
+      bindings are ignored. This can dramatically speed up the fold, as it then
+      skips exploration of unneeded subtrees.
+
+      [fold2] explores bindings in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
+
+    Some examples:
+    {ul
+    {- Fold only on non-equal shared bindings (aliases as {!fold_on_nonequal_inter}):
+       {@ocaml skip[
+          MyMap.fold2 ~reflexive:true
+            ~left_only:None ~right_only:None
+            ~common:(Some {f=fun k v1 v2 r -> ...})
+       ]}
+        }
+    {- Fold only on non-equal union bindings (aliases as {!fold_on_nonequal_union}),
+       via a single shared function [f] taking optional arguments for values:
+       {@ocaml skip[
+          MyMap.fold2 ~reflexive:true
+            ~left_only:(Some {f=fun k v1 r -> f k (Some v1) None r})
+            ~right_only:(Some {f=fun k v2 r -> f k None (Some v2) r})
+            ~common:(Some {f=fun k v1 v2 r -> f k (Some v1) (Some v2) r})
+       ]}
+    }}
+
+      @since v0.15.0 *)
+
+  val iter2:
+    reflexive:bool ->
+    left_only:('a, unit) polyfold option ->
+    common:('a,'b, unit) polyfold2_inter option ->
+    right_only:('b, unit) polyfold option ->
+    'a t -> 'b t -> unit
+  (** Calls the argument function on all bindings, just like {!fold2}.
+      Unlike {!fold2}, each function returns unit so no accumulator is threaded.
+      @since v0.15.0 *)
+
+  val fold_on_nonequal_inter : ('map1,'map2,'acc -> 'acc) polyfold2_inter -> 'map1 t -> 'map2 t -> 'acc -> 'acc
+  (** [fold_on_nonequal_inter f m1 m2 acc] returns
+      [f.f key_n value1_n value2n (... (f.f key_1 value1_1 value2_1 acc))] where
+      [(key_1, value1_1, value2_1) ... (key_n, value1_n, value2_n)] are the
+      bindings that exist in both maps ([m1 ∩ m2]) whose values are physically different.
+      Calls to [f.f] are performed in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
+
+      Changed in v0.13.0 to allow argument maps of differing types. *)
+
+  val fold_on_inter : ('map1,'map2,'acc -> 'acc) polyfold2_inter -> 'map1 t -> 'map2 t -> 'acc -> 'acc
+  (** [fold_on_inter f m1 m2 acc] iterates both maps [m1] and [m2] simultaneously, calling
+      [f.f k v1 v2 acc] for each binding [k] in both [m1] and [m2], with respective values
+      [v1] and [v2].
+
+      This is an alternative to {!fold_on_nonequal_inter}. It is slower but does not
+      skip physically equal bindings.
+
+      Calls to [f.f] are performed in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
+
+      @since v0.13.0 *)
+
+  val fold_on_nonequal_union : ('map1,'map2,'acc->'acc) polyfold2 -> 'map1 t -> 'map2 t -> 'acc -> 'acc
+  (** [fold_on_nonequal_union f m1 m2 acc] returns
+      [f.f key_n value1_n value2n (... (f.f key_1 value1_1 value2_1 acc))] where
+      [(key_1, value1_1, value2_1) ... (key_n, value1_n, value2_n)] are the
+      bindings that exists in either map ([m1 ∪ m2]) whose values are physically
+      different.
+      Calls to [f.f] are performed in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
+
+      Changed in v0.13.0 to allow argument maps of differing types. *)
+
+  val fold_on_union : ('map1,'map2,'acc->'acc) polyfold2 -> 'map1 t -> 'map2 t -> 'acc -> 'acc
+  (** [fold_on_union f m1 m2 acc] iterates both maps [m1] and [m2] simultaneously, calling
+      [f.f k v1_opt v2_opt acc] for each binding [k,v1] in [m1] ([v1_opt = Some v1])
+      and [k,v2] in [m2]. [v1_opt] (resp [v2_opt]) will be [None] if [k] is not
+      bound in [m1] (resp [m2]).
+
+      This is an alternative to {!fold_on_nonequal_union}. It is slower but does not
+      skip physically equal bindings.
+
+      Calls to [f.f] are performed in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
+
+      @since v0.13.0 *)
+
   (** {2 Min/max of intersection} *)
 
   (** Existential wrapper for a key with two values
@@ -730,7 +842,7 @@ module type HETEROGENEOUS_MAP = sig
 
   (** Operation with maps/set of different types.
       [Map2] must use the same {!KEY.to_int} function. *)
-  module WithForeign(Map2: NODE_WITH_FIND with type 'a key = 'a key):sig
+  module WithForeign(Map2: NODE with type 'a key = 'a key):sig
     type ('map1,'map2) polyinter_foreign = { f: 'a. 'a key -> ('a,'map1) value -> ('a,'map2) Map2.value -> ('a,'map1) value } [@@unboxed]
 
     val nonidempotent_inter : ('a,'b) polyinter_foreign -> 'a t -> 'b Map2.t -> 'a t
@@ -797,6 +909,46 @@ module type HETEROGENEOUS_MAP = sig
         the maximum key instead of the minimum.
 
         @since v0.11.0 *)
+
+    type ('map,'res) map2_polyfold = { f: 'a. 'a key -> ('a,'map) Map2.value -> 'res } [@@unboxed]
+
+    type ('map1,'map2,'acc) polyfold2_inter = { f: 'a. 'a key -> ('a,'map1) value -> ('a,'map2) Map2.value -> 'acc } [@@unboxed]
+
+    val for_all2:
+      reflexive:bool ->
+      left_only:('a,bool) polyfold forall2_pred ->
+      common:('a,'b,bool) polyfold2_inter forall2_pred ->
+      right_only:('b,bool) map2_polyfold forall2_pred ->
+      'a t -> 'b Map2.t -> bool
+    (** Same as {!BASE_MAP.for_all2}, but allowing the second map to have a different type.
+        @since v0.15.0 *)
+
+    val exists2:
+      reflexive:bool ->
+      left_only:('a,bool) polyfold forall2_pred ->
+      common:('a,'b,bool) polyfold2_inter forall2_pred ->
+      right_only:('b,bool) map2_polyfold forall2_pred ->
+      'a t -> 'b Map2.t -> bool
+    (** Same as {!BASE_MAP.exists2}, but allowing the second map to have a different type.
+        @since v0.15.0 *)
+
+    val fold2:
+      reflexive:bool ->
+      left_only:('a,'r -> 'r) polyfold option ->
+      common:('a,'b,'r -> 'r) polyfold2_inter option ->
+      right_only:('b,'r -> 'r) map2_polyfold option ->
+      'a t -> 'b Map2.t -> 'r -> 'r
+    (** Same as {!BASE_MAP.fold2}, but allowing the second map to have a different type.
+        @since v0.15.0 *)
+
+    val iter2:
+      reflexive:bool ->
+      left_only:('a, unit) polyfold option ->
+      common:('a,'b, unit) polyfold2_inter option ->
+      right_only:('b, unit) map2_polyfold option ->
+      'a t -> 'b Map2.t -> unit
+    (** Same as {!BASE_MAP.iter2}, but allowing the second map to have a different type.
+        @since v0.15.0 *)
   end
 end
 
@@ -934,16 +1086,16 @@ module type HETEROGENEOUS_SET = sig
       @since v0.11.0 *)
 
   (** {1 Iterators} *)
-  type 'res polyfold = { f: 'a. 'a elt  -> 'res } [@@unboxed]
+
+  type 'res polyfold = { f: 'a. 'a elt -> 'res } [@@unboxed]
   val iter: unit polyfold -> t -> unit
   (** [iter f set] calls [f.f] on all elements of [set], in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
 
-  type polypredicate = { f: 'a. 'a elt -> bool; } [@@unboxed]
-  val filter: polypredicate -> t -> t
+  val filter: bool polyfold -> t -> t
   (** [filter f set] is the subset of [set] that only contains the elements that
       satisfy [f.f]. [f.f] is called in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
 
-  val for_all: polypredicate -> t -> bool
+  val for_all: bool polyfold -> t -> bool
   (** [for_all f set] is [true] if [f.f] is [true] on all elements of [set].
       Short-circuits on first [false]. [f.f] is called in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
 
@@ -957,6 +1109,65 @@ module type HETEROGENEOUS_SET = sig
     ?pp_sep:(Format.formatter -> unit -> unit) -> polypretty -> Format.formatter -> t -> unit
   (** Pretty prints the set, [pp_sep] is called once between each element,
       it defaults to {{: https://v2.ocaml.org/api/Format.html#VALpp_print_cut}[Format.pp_print_cut]} *)
+
+  (** {2 Iterators on pairs of sets} *)
+
+  val for_all2:
+    left_only:bool polyfold forall2_pred ->
+    common:bool polyfold forall2_pred ->
+    right_only:bool polyfold forall2_pred ->
+    t -> t -> bool
+  (** [for_all2 ~reflexive ~left_only ~common ~right_only s1 s2] evaluates
+    predicates on the elements of [s1] and [s2].
+    - [left_only k v1] is called for elements of [s1] that don't appear in [s2];
+    - [right_only k v2] is called for eleemnts of [s2] that don't appear in [s1];
+    - [common k v1 v2] is called for shared elements.
+
+    All three of these parameters can be either {!True}, {!False}, or a user supplied
+    function (using {!F}). The {!True} and {!False} constructors are faster, as
+    knowing these values in advance avoids having to explore the relevant branches.
+
+    [for_all2] explores elements in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
+    It also has early-return: any false evaluation will stop exploration.
+
+    @since v0.15.0 *)
+
+  val exists2:
+    left_only:bool polyfold forall2_pred ->
+    common:bool polyfold forall2_pred ->
+    right_only:bool polyfold forall2_pred ->
+    t -> t -> bool
+  (** Negation of {!for_all2}. While {!for_all2} early returns at the first
+      encountered [false] value. This early returns at the first encountered [true].
+      @since v0.15.0 *)
+
+  val fold2:
+    left_only:('r -> 'r) polyfold option ->
+    common:('r -> 'r) polyfold option ->
+    right_only:('r -> 'r) polyfold option ->
+    t -> t -> 'r -> 'r
+  (** [fold2 ~reflexive ~left_only ~common ~right_only s1 s2 r] iterates two sets
+      [s1] and [s2] simultaneously, updating the accumulator [r] at each binding:
+      - [left_only x r] is called on elements [x] present in [s1] but not [s2];
+      - [right_only k v2 r] is called on elements present in [s2] but not [s1]
+      - [common k v1 v2 r] is called on shared elements.
+
+      Each of these can be [None] instead of a function, in which case the corresponding
+      bindings are ignored. This can dramatically speed up the fold, as it then
+      skips exploration of unneeded subtrees.
+
+      [fold2] explores bindings in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
+
+      @since v0.15.0 *)
+
+  val iter2:
+    left_only:unit polyfold option ->
+    common:unit polyfold option ->
+    right_only:unit polyfold option ->
+    t -> t -> unit
+  (** Calls the argument function on all bindings, just like {!fold2}.
+      Unlike {!fold2}, each function returns unit so no accumulator is threaded.
+      @since v0.15.0 *)
 
   (** {1 Conversion functions} *)
 
@@ -1080,6 +1291,66 @@ module type SET = sig
     (Format.formatter -> elt -> unit) -> Format.formatter -> t -> unit
   (** Pretty prints the set, [pp_sep] is called once between each element,
       it defaults to {{: https://v2.ocaml.org/api/Format.html#VALpp_print_cut}[Format.pp_print_cut]} *)
+
+
+  (** {2 Iterators on pairs of sets} *)
+
+  val for_all2:
+    left_only:(elt -> bool) forall2_pred ->
+    common:(elt -> bool) forall2_pred ->
+    right_only:(elt -> bool) forall2_pred ->
+    t -> t -> bool
+  (** [for_all2 ~reflexive ~left_only ~common ~right_only s1 s2] evaluates
+    predicates on the elements of [s1] and [s2].
+    - [left_only k v1] is called for elements of [s1] that don't appear in [s2];
+    - [right_only k v2] is called for eleemnts of [s2] that don't appear in [s1];
+    - [common k v1 v2] is called for shared elements.
+
+    All three of these parameters can be either {!True}, {!False}, or a user supplied
+    function (using {!F}). The {!True} and {!False} constructors are faster, as
+    knowing these values in advance avoids having to explore the relevant branches.
+
+    [for_all2] explores elements in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
+    It also has early-return: any false evaluation will stop exploration.
+
+    @since v0.15.0 *)
+
+  val exists2:
+    left_only:(elt -> bool) forall2_pred ->
+    common:(elt -> bool) forall2_pred ->
+    right_only:(elt -> bool) forall2_pred ->
+    t -> t -> bool
+  (** Negation of {!for_all2}. While {!for_all2} early returns at the first
+      encountered [false] value. This early returns at the first encountered [true].
+      @since v0.15.0 *)
+
+  val fold2:
+    left_only:(elt -> 'r -> 'r) option ->
+    common:(elt -> 'r -> 'r) option ->
+    right_only:(elt -> 'r -> 'r) option ->
+    t -> t -> 'r -> 'r
+  (** [fold2 ~reflexive ~left_only ~common ~right_only s1 s2 r] iterates two sets
+      [s1] and [s2] simultaneously, updating the accumulator [r] at each binding:
+      - [left_only x r] is called on elements [x] present in [s1] but not [s2];
+      - [right_only k v2 r] is called on elements present in [s2] but not [s1]
+      - [common k v1 v2 r] is called on shared elements.
+
+      Each of these can be [None] instead of a function, in which case the corresponding
+      bindings are ignored. This can dramatically speed up the fold, as it then
+      skips exploration of unneeded subtrees.
+
+      [fold2] explores bindings in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
+
+      @since v0.15.0 *)
+
+  val iter2:
+    left_only:(elt -> unit) option ->
+    common:(elt -> unit) option ->
+    right_only:(elt -> unit) option ->
+    t -> t -> unit
+  (** Calls the argument function on all bindings, just like {!fold2}.
+      Unlike {!fold2}, each function returns unit so no accumulator is threaded.
+      @since v0.15.0 *)
 
   (** {1 Functions on pairs of sets} *)
 
@@ -1277,52 +1548,6 @@ module type MAP_WITH_VALUE = sig
 
   val fold : (key -> 'a value -> 'acc -> 'acc) ->  'a t -> 'acc -> 'acc
   (** Fold on each [(key,value)] pair of the map, in increasing {{!unsigned_lt}unsigned order} of {!KEY.to_int}. *)
-
-  val fold_on_nonequal_inter : (key -> 'a value -> 'b value -> 'acc -> 'acc) ->
-    'a t -> 'b t -> 'acc -> 'acc
-  (** [fold_on_nonequal_inter f m1 m2 acc] returns
-      [f key_n value1_n value2n (... (f key_1 value1_1 value2_1 acc))] where
-      [(key_1, value1_1, value2_1) ... (key_n, value1_n, value2_n)] are the
-      bindings that exist in both maps ([m1 ∩ m2]) whose values are physically different.
-      Calls to [f] are performed in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
-
-      Changed in v0.13.0 to allow argument maps of differing types. *)
-
-  val fold_on_inter : (key -> 'a value -> 'b value -> 'acc -> 'acc) -> 'a t -> 'b t -> 'acc -> 'acc
-  (** [fold_on_inter f m1 m2 acc] iterates both maps [m1] and [m2] simultaneously, calling
-      [f k v1 v2 acc] for each binding [k] in both [m1] and [m2], with respective values
-      [v1] and [v2].
-
-      This is an alternative to {!fold_on_nonequal_inter}. It is slower but does not
-      skip physically equal bindings.
-
-      Calls to [f] are performed in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
-
-      @since v0.13.0 *)
-
-  val fold_on_nonequal_union: (key -> 'a value option -> 'b value option -> 'acc -> 'acc) ->
-    'a t -> 'b t -> 'acc -> 'acc
-  (** [fold_on_nonequal_union f m1 m2 acc] returns
-      [f key_n value1_n value2n (... (f key_1 value1_1 value2_1 acc))] where
-      [(key_1, value1_1, value2_1) ... (key_n, value1_n, value2_n)] are the
-      bindings that exists in either map ([m1 ∪ m2]) whose values are physically
-      different.
-      Calls to [f.f] are performed in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
-
-      Changed in v0.13.0 to allow argument maps of differing types. *)
-
-  val fold_on_union : (key -> 'a value option -> 'b value option -> 'acc -> 'acc) -> 'a t -> 'b t -> 'acc -> 'acc
-  (** [fold_on_union f m1 m2 acc] iterates both maps [m1] and [m2] simultaneously, calling
-      [f k v1_opt v2_opt acc] for each binding [k,v1] in [m1] ([v1_opt = Some v1])
-      and [k,v2] in [m2]. [v1_opt] (resp [v2_opt]) will be [None] if [k] is not
-      bound in [m1] (resp [m2]).
-
-      This is an alternative to {!fold_on_nonequal_union}. It is slower but does not
-      skip physically equal bindings.
-
-      Calls to [f] are performed in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
-
-      @since v0.13.0 *)
 
   val filter : (key -> 'a value -> bool) -> 'a t -> 'a t
   (** Returns the submap containing only the key->value pairs satisfying the
@@ -1604,9 +1829,172 @@ module type MAP_WITH_VALUE = sig
 
       @since v0.11.0 *)
 
+  (** {2 Iterating on two maps} *)
+
+  val for_all2:
+    reflexive:bool ->
+    left_only:(key -> 'a value -> bool) forall2_pred ->
+    common:(key -> 'a value -> 'b value -> bool) forall2_pred ->
+    right_only:(key -> 'b value -> bool) forall2_pred ->
+    'a t -> 'b t -> bool
+  (** [for_all2 ~reflexive ~left_only ~common ~right_only m1 m2] evaluates
+    predicates on the bindings of [m1] and [m2].
+    - [left_only k v1] is called for bindings [k -> v1] of [m1] ([k] does not appear in [m2]);
+    - [right_only k v2] is called for bindings [k -> v2] of [m2] ([k] does not appear in [m1]);
+    - [common k v1 v2] is called for shared binding [k -> v1] in [m1] and [k -> v2] in [m2].
+      If [reflexive] is [true], common is not called on physically equal bindings,
+      as they are assumed to be true. This speeds up the exploration, as shared subtrees are skipped.
+
+    All three of these parameters can be either {!True}, {!False}, or a user supplied
+    function (using {!F}). The {!True} and {!False} constructors are faster, as
+    knowing these values in advance avoids having to explore the relevant branches.
+
+    Some examples:
+    {ul
+    {-
+      {@ocaml skip[
+        MyMap.for_all2 ~reflexive:true
+            ~left_only:False ~right_only:False
+            ~common:(F (fun _ -> MyValue.equal))
+      ]}
+      tests map equality (no unshared bindings), aliased as {!reflexive_same_domain_for_all2} or {!reflexive_equal};}
+    {- {@ocaml skip[
+        MyMap.for_all2 ~reflexive:true
+            ~left_only:False ~right_only:True
+            ~common:(F (fun _ -> MyValue.equal))
+      ]}
+      tests map inclusion (all bindings of [m1] are bindings of [m2], but [m2] can have extra bindings).
+      Aliased as {!reflexive_subset_domain_for_all2}.}
+    {- {@ocaml[
+      MyMap.for_all2 ~reflexive:false
+        ~left_only:(F {f=fun k v1 -> f k (Some v1) None})
+        ~right_only:(F {f=fun k v2 -> f k None (Some v2)})
+        ~common:(F {f=fun k v1 v2 -> f k (Some v1) (Some v2)})
+        ]}
+        Calls a single function [f: key -> 'a value option -> 'b value option -> bool]
+        on all bindings, using options to determine whether the binding is present
+        in the left or right maps. Since this example uses three user-defined functions (via {!F}),
+        it will iterate through every binding of [m1] and [m2] (until it finds a
+        [false]). This is slower than the previous examples, which used {!True}
+        or {!False} to enable skipping bindings.
+    }}
+
+    [for_all2] explores bindings in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
+    It also has early-return: any false evaluation will stop exploration.
+
+    @since v0.15.0 *)
+
+
+  val exists2:
+    reflexive:bool ->
+    left_only:(key -> 'a value -> bool) forall2_pred ->
+    common:(key -> 'a value -> 'b value -> bool) forall2_pred ->
+    right_only:(key -> 'b value -> bool) forall2_pred ->
+    'a t -> 'b t -> bool
+  (** Negation of {!for_all2}. While {!for_all2} early returns at the first
+      encountered [false] value. This early returns at the first encountered [true].
+      @since v0.15.0 *)
+
+  val fold2:
+    reflexive:bool ->
+    left_only:(key -> 'a value -> 'r -> 'r) option ->
+    common:(key -> 'a value -> 'b value -> 'r -> 'r) option ->
+    right_only:(key -> 'b value -> 'r -> 'r) option ->
+    'a t -> 'b t -> 'r -> 'r
+  (** [fold2 ~reflexive ~left_only ~common ~right_only m1 m2 r] iterates two maps
+      [m1] and [m2] simultaneously, updating the accumulator [r] at each binding:
+      - [left_only k v1 r] is called on bindings [k -> v1] present in [m1] but not [m2];
+      - [right_only k v2 r] is called on bindings [k -> v2] present in [m2] but not [m1];
+      - [common k v1 v2 r] is called on shared bindings. If [reflexive] is set,
+        [common] is not called on physically equal bindings ([v1 == v2]).
+        This improves performance by skipping shared subtrees.
+
+      Each of these can be [None] instead of a function, in which case the corresponding
+      bindings are ignored. This can dramatically speed up the fold, as it then
+      skips exploration of unneeded subtrees.
+
+      [fold2] explores bindings in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
+
+    Some examples:
+    {ul
+    {- Fold only on non-equal shared bindings (aliases as {!fold_on_nonequal_inter}):
+       {@ocaml skip[
+          MyMap.fold2 ~reflexive:true
+            ~left_only:None ~right_only:None
+            ~common:(Some (fun k v1 v2 r -> ...))
+       ]}
+        }
+    {- Fold only on non-equal union bindings (aliases as {!fold_on_nonequal_union}),
+       via a single shared function [f] taking optional arguments for values:
+       {@ocaml skip[
+          MyMap.fold2 ~reflexive:true
+            ~left_only:(Some (fun k v1 r -> f k (Some v1) None r))
+            ~right_only:(Some (fun k v2 r -> f k None (Some v2) r))
+            ~common:(Some (fun k v1 v2 r -> f k (Some v1) (Some v2) r))
+       ]}
+    }}
+
+      @since v0.15.0 *)
+
+  val iter2:
+    reflexive:bool ->
+    left_only:(key -> 'a value -> unit) option ->
+    common:(key -> 'a value -> 'b value -> unit) option ->
+    right_only:(key -> 'b value -> unit) option ->
+    'a t -> 'b t -> unit
+  (** Calls the argument function on all bindings, just like {!fold2}.
+      Unlike {!fold2}, each function returns unit so no accumulator is threaded.
+      @since v0.15.0 *)
+
+  val fold_on_nonequal_inter : (key -> 'a value -> 'b value -> 'acc -> 'acc) ->
+    'a t -> 'b t -> 'acc -> 'acc
+  (** [fold_on_nonequal_inter f m1 m2 acc] returns
+      [f key_n value1_n value2n (... (f key_1 value1_1 value2_1 acc))] where
+      [(key_1, value1_1, value2_1) ... (key_n, value1_n, value2_n)] are the
+      bindings that exist in both maps ([m1 ∩ m2]) whose values are physically different.
+      Calls to [f] are performed in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
+
+      Changed in v0.13.0 to allow argument maps of differing types. *)
+
+  val fold_on_inter : (key -> 'a value -> 'b value -> 'acc -> 'acc) -> 'a t -> 'b t -> 'acc -> 'acc
+  (** [fold_on_inter f m1 m2 acc] iterates both maps [m1] and [m2] simultaneously, calling
+      [f k v1 v2 acc] for each binding [k] in both [m1] and [m2], with respective values
+      [v1] and [v2].
+
+      This is an alternative to {!fold_on_nonequal_inter}. It is slower but does not
+      skip physically equal bindings.
+
+      Calls to [f] are performed in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
+
+      @since v0.13.0 *)
+
+  val fold_on_nonequal_union: (key -> 'a value option -> 'b value option -> 'acc -> 'acc) ->
+    'a t -> 'b t -> 'acc -> 'acc
+  (** [fold_on_nonequal_union f m1 m2 acc] returns
+      [f key_n value1_n value2n (... (f key_1 value1_1 value2_1 acc))] where
+      [(key_1, value1_1, value2_1) ... (key_n, value1_n, value2_n)] are the
+      bindings that exists in either map ([m1 ∪ m2]) whose values are physically
+      different.
+      Calls to [f.f] are performed in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
+
+      Changed in v0.13.0 to allow argument maps of differing types. *)
+
+  val fold_on_union : (key -> 'a value option -> 'b value option -> 'acc -> 'acc) -> 'a t -> 'b t -> 'acc -> 'acc
+  (** [fold_on_union f m1 m2 acc] iterates both maps [m1] and [m2] simultaneously, calling
+      [f k v1_opt v2_opt acc] for each binding [k,v1] in [m1] ([v1_opt = Some v1])
+      and [k,v2] in [m2]. [v1_opt] (resp [v2_opt]) will be [None] if [k] is not
+      bound in [m1] (resp [m2]).
+
+      This is an alternative to {!fold_on_nonequal_union}. It is slower but does not
+      skip physically equal bindings.
+
+      Calls to [f] are performed in the {{!unsigned_lt}unsigned order} of {!KEY.to_int}.
+
+      @since v0.13.0 *)
+
   (** Combination with other kinds of maps.
       [Map2] must use the same {!KEY.to_int} function. *)
-  module WithForeign(Map2: NODE_WITH_FIND with type _ key = key):sig
+  module WithForeign(Map2: NODE with type _ key = key):sig
 
     type ('b,'c) polyfilter_map_foreign = { f: 'a. key -> ('a,'b) Map2.value -> 'c value option } [@@unboxed]
     val filter_map_no_share : ('b, 'c) polyfilter_map_foreign -> 'b Map2.t ->  'c t
