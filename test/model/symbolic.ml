@@ -122,6 +122,21 @@ let shrink shrk =
   in
   aux
 
+let rec interpret_model = function
+  | Empty -> Model.empty
+  | Singleton (i, a) -> Model.singleton i a
+  | Add (i, a, m) -> Model.add i a @@ interpret_model m
+  | Remove (i, m) -> Model.remove i @@ interpret_model m
+  | Union (f, m0, m1) ->
+      let t0 = interpret_model m0 and t1 = interpret_model m1 in
+      Model.idempotent_union f t0 t1
+  | Inter (f, m0, m1) ->
+      let t0 = interpret_model m0 and t1 = interpret_model m1 in
+      Model.idempotent_inter f t0 t1
+  | Merge (f, m0, m1) ->
+      let t0 = interpret_model m0 and t1 = interpret_model m1 in
+      Model.slow_merge f t0 t1
+
 let tree = QCheck.make ~print ~shrink:(shrink QCheck.Shrink.char) (gen elt)
 
 let two =
@@ -141,5 +156,8 @@ let two =
           return (union_left a b, union_left a c) );
       ]
   in
-  let print (a, b) = print a ^ "\n" ^ print b in
+  let print (a, b) =
+    print a ^ "\n=> " ^ QCheck.Print.(list (pair int char)) (interpret_model a) ^
+    "\n\n" ^
+    print b ^ "\n=> " ^ QCheck.Print.(list (pair int char)) (interpret_model b) in
   QCheck.make ~print gen

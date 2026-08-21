@@ -849,17 +849,18 @@ module MakeCustomHeterogeneousMap
 
   let compare_aux : type a b m. (m,m,int) polyfold2_inter -> a key -> (a,m) value -> b key -> (b,m) value -> int -> int =
   fun f ka va kb vb default ->
-    let cmp = Int.compare (Key.to_int ka) (Key.to_int kb) in
-    if cmp <> 0 then cmp else
+    let cmp = Int.compare (Key.to_int ka - min_int) (Key.to_int kb - min_int) in
+    if cmp <> 0 then -cmp else (* if ka < kb then a binding appears in ka before kb *)
     match Key.polyeq ka kb with
-      | Eq -> let cmp = f.f ka va vb in
+      | Eq -> if va == vb then default else
+              let cmp = f.f ka va vb in
               if cmp <> 0 then cmp else default
       | Diff -> default (* Should not happen since same Key.to_int values should imply equality *)
 
   let rec reflexive_compare f ta tb = match (NODE.view ta),(NODE.view tb) with
     | _ when ta == tb -> 0
-    | Empty, _ -> 1
-    | _, Empty -> -1
+    | Empty, _ -> -1
+    | _, Empty -> 1
     | Branch _, Leaf {key;value} ->
         let KeyValue(k,v) = unsigned_min_binding ta in
         compare_aux f k v key value 1
@@ -874,17 +875,17 @@ module MakeCustomHeterogeneousMap
       (* Same prefix: divide the search. *)
       then
         let cmp = reflexive_compare f ta0 tb0 in
-        if cmp <> 0 then cmp else
-          reflexive_compare f ta1 tb1
-      else if branches_before pb mb pa ma (* ta has to be included in  tb0 or tb1. *)
+        if cmp <> 0 then cmp else reflexive_compare f ta1 tb1
+      else if branches_before pb mb pa ma (* ta has to be included in tb0 or tb1. *)
       then if (mb :> int) land (pa :> int) == 0
         then let cmp = reflexive_compare f ta tb0 in if cmp <> 0 then cmp else -1
         else -1 (* ta included in tb1, so there are elements of tb that appear before any elements of ta *)
       else if branches_before pa ma pb mb (* tb has to be included in ta0 or ta1. *)
-        then if (mb :> int) land (pa :> int) == 0
+        then if (ma :> int) land (pb :> int) == 0
           then let cmp = reflexive_compare f ta0 tb in if cmp <> 0 then cmp else 1
           else 1 (* tb included in ta1, so there are elements of ta that appear before any elements of tb *)
-      else Int.compare (pa :> int) (pb :> int)
+      else - Int.compare ((pa :> int) - min_int) ((pb :> int) - min_int)
+      (* if pa < pb, then there is an elt in a with a key smaller than all keys in b, so a is larger *)
 
   let rec disjoint ta tb =
     if ta == tb then is_empty ta
