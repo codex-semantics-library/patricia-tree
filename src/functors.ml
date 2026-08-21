@@ -852,7 +852,8 @@ module MakeCustomHeterogeneousMap
     let cmp = Int.compare (Key.to_int ka - min_int) (Key.to_int kb - min_int) in
     if cmp <> 0 then -cmp else (* if ka < kb then a binding appears in ka before kb *)
     match Key.polyeq ka kb with
-      | Eq -> let cmp = f.f ka va vb in
+      | Eq -> if va == vb then default else
+              let cmp = f.f ka va vb in
               if cmp <> 0 then cmp else default
       | Diff -> default (* Should not happen since same Key.to_int values should imply equality *)
 
