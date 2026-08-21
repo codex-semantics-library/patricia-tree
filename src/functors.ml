@@ -883,7 +883,8 @@ module MakeCustomHeterogeneousMap
         then if (ma :> int) land (pb :> int) == 0
           then let cmp = reflexive_compare f ta0 tb in if cmp <> 0 then cmp else 1
           else 1 (* tb included in ta1, so there are elements of ta that appear before any elements of tb *)
-      else Int.compare (pa :> int) (pb :> int)
+      else - Int.compare ((pa :> int) - min_int) ((pb :> int) - min_int)
+      (* if pa < pb, then there is an elt in a with a key smaller than all keys in b, so a is larger *)
 
   let rec disjoint ta tb =
     if ta == tb then is_empty ta
