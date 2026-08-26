@@ -849,8 +849,11 @@ module MakeCustomHeterogeneousMap
 
   let compare_aux : type a b m. (m,m,int) polyfold2_inter -> a key -> (a,m) value -> b key -> (b,m) value -> int -> int =
   fun f ka va kb vb default ->
-    let cmp = Int.compare (Key.to_int ka - min_int) (Key.to_int kb - min_int) in
-    if cmp <> 0 then -cmp else (* if ka < kb then a binding appears in ka before kb *)
+    let cmp = Int.compare (Key.to_int kb - min_int) (Key.to_int ka - min_int) in
+    if cmp <> 0
+    then cmp (* if ka < kb (in the unsigned order) then a binding appears in ka before kb,
+                therefore ka is larger *)
+    else
     match Key.polyeq ka kb with
       | Eq -> if va == vb then default else
               let cmp = f.f ka va vb in
@@ -884,7 +887,7 @@ module MakeCustomHeterogeneousMap
         then if (ma :> int) land (pb :> int) == 0
           then let cmp = reflexive_compare f ta0 tb in if cmp <> 0 then cmp else 1
           else 1 (* tb included in ta1, so there are elements of ta that appear before any elements of tb *)
-      else - Int.compare ((pa :> int) - min_int) ((pb :> int) - min_int)
+      else Int.compare ((pb :> int) - min_int) ((pa :> int) - min_int)
       (* if pa < pb, then there is an elt in a with a key smaller than all keys in b, so a is larger *)
 
   let rec disjoint ta tb =
