@@ -1,4 +1,4 @@
-# v0.15.0 - Unreleased
+# v0.15.0 - 2026-08-26
 
 - Added `for_all2`, `exists2`, `fold2` and `iter2` functions to maps and sets.
 - Removed `polypredicate` types, as they can be expressed by `bool polyfold`
