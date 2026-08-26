@@ -7,7 +7,8 @@
   they can all be expressed with `polyfold2` or `polyfold2_inter`.
 - Removed `NODE_WITH_FIND` module type, as `WithForeign` can now operate directly
   on `NODE`.
-- Fix `difference`'s function called on physically equal values ([#37](https://github.com/codex-semantics-library/patricia-tree/issues/37))
+- Fix `difference` called on physically equal values ([#37](https://github.com/codex-semantics-library/patricia-tree/issues/37))
+- Fix `reflexive_compare` not being a true order relation ([#39](https://github.com/codex-semantics-library/patricia-tree/issues/39))
 
 # v0.14.0 - 2026-06-03
 

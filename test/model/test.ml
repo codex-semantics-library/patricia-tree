@@ -216,6 +216,26 @@ let make_pop_test name f0 f1 =
 
 let intersect a b = Option.is_some (Intmap.min_binding_inter a b)
 
+exception NotEqual of int
+
+let reflexive_compare_of_iter cmp m1 m2 =
+  try Intmap.iter2 ~reflexive:true
+    ~left_only:(Some (fun _ -> raise (NotEqual 1)))
+    ~common:(Some (fun _ v1 v2 -> let c = cmp v1 v2 in if c = 0 then () else raise (NotEqual c)))
+    ~right_only:(Some (fun _ -> raise (NotEqual (-1)))) m1 m2; 0
+  with NotEqual n -> n
+
+let reflexive_compare_of_list f m1 m2 =
+  List.compare (fun (k1,v1) (k2,v2) ->
+    let cmp = Int.compare (k2 - min_int) (k1 - min_int) in
+    if cmp = 0 then f v1 v2 else cmp)
+  (Intmap.to_list m1)   (Intmap.to_list m2)
+
+let normalize_compare = function
+  | 0 -> 0
+  | x when x > 0 -> 1
+  | _ -> -1
+
 let tests =
   [
     mk "is_empty" tree Print.bool (fun t ->
@@ -232,6 +252,14 @@ let tests =
         let t0 = interpret t0 and t1 = interpret t1 in
         ( Intmap.reflexive_compare Char.compare t0 t1 = 0,
           Model.compare Char.compare (abstract t0) (abstract t1) = 0 ));
+    mk "reflexive_compare_iter" two Print.int (fun (t0, t1) ->
+        let t0 = interpret t0 and t1 = interpret t1 in
+        ( Intmap.reflexive_compare Char.compare t0 t1 |> normalize_compare,
+          reflexive_compare_of_iter Char.compare t0 t1 |> normalize_compare));
+    mk "reflexive_compare_list" two Print.int (fun (t0, t1) ->
+        let t0 = interpret t0 and t1 = interpret t1 in
+        ( Intmap.reflexive_compare Char.compare t0 t1 |> normalize_compare,
+          reflexive_compare_of_list Char.compare t0 t1 |> normalize_compare));
     mk "disjoint" two Print.bool (fun (t0, t1) ->
         let t0 = interpret t0 and t1 = interpret t1 in
         (Intmap.disjoint t0 t1, Model.disjoint (abstract t0) (abstract t1)));
